@@ -11,7 +11,13 @@ local MapManager = {}
 
 -- 1. Ensure ReplicatedStorage.Maps folder exists
 function MapManager.getMapsFolder(): Folder
-	local mapsFolder = ReplicatedStorage:FindFirstChild("Maps") :: Folder?
+	local mapsFolder: Folder? = nil
+	for _, child in ipairs(ReplicatedStorage:GetChildren()) do
+		if child:IsA("Folder") and (child.Name:lower() == "maps" or child.Name:lower() == "map") then
+			mapsFolder = child
+			break
+		end
+	end
 	if not mapsFolder then
 		mapsFolder = Instance.new("Folder")
 		mapsFolder.Name = "Maps"
@@ -46,25 +52,24 @@ function MapManager.ensureMapTemplate(mapName: string): Model
 	local mapsFolder = MapManager.getMapsFolder()
 	local existingTemplate = mapsFolder:FindFirstChild(mapName) :: Model?
 
-	if existingTemplate then
+	local function isValidTemplate(model: Instance?): boolean
+		if not model or not model:IsA("Model") then return false end
+		return model:FindFirstChildWhichIsA("BasePart", true) ~= nil
+	end
+
+	if isValidTemplate(existingTemplate) then
 		return existingTemplate
 	end
 
 	local workspaceTemplate = Workspace:FindFirstChild(mapName) :: Model?
-	if workspaceTemplate then
+	if isValidTemplate(workspaceTemplate) then
 		return workspaceTemplate
 	end
 
-	-- If template is missing in ReplicatedStorage.Maps, build Oval Speedway default template
-	if mapName == "Oval Speedway" or mapName == "Default" or not existingTemplate then
-		local newModel = MapBuilder.buildOvalSpeedwayModel()
-		newModel.Parent = mapsFolder
-		print("🏗️ [MapManager] Built initial 'Oval Speedway' model template in ReplicatedStorage.Maps")
-		return newModel
-	end
-
-	return mapsFolder:FindFirstChild("Oval Speedway") :: Model or MapBuilder.buildOvalSpeedwayModel()
+	warn("🚨 [MapManager] Could not find a VALID map template '" .. mapName .. "' with physical parts in ReplicatedStorage.Maps or Workspace! Generating fallback map...")
+	return MapBuilder.buildOvalSpeedwayModel()
 end
+
 
 -- 4. Unload current active map from Workspace
 function MapManager.UnloadCurrentMap()

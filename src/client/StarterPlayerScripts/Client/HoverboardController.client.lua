@@ -437,12 +437,10 @@ stateRemote.OnClientEvent:Connect(function(mounted: boolean, boardModel: Model?)
 			local hrp = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?
 			if hrp then
 				local currentPos = hrp.Position
-				local trackForwardDir = Vector3.new(0, 0, 1)
-				local sideProfileCFrame = CFrame.lookAt(currentPos, currentPos + Vector3.new(-1, 0, 0))
-				hrp.CFrame = sideProfileCFrame
-
-				local rx, ry, rz = sideProfileCFrame:ToOrientation()
+				-- Keep the orientation set by the Server's GameLoopManager teleport
+				local _, ry, _ = hrp.CFrame:ToOrientation()
 				currentHeadingYaw = ry
+				local trackForwardDir = Vector3.new(0, 0, 1)
 
 				if Camera then
 					Camera.CameraType = Enum.CameraType.Scriptable
