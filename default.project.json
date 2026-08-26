@@ -1,0 +1,22 @@
+{
+  "name": "002_호버보드레이싱",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "$path": "src/shared"
+    },
+    "ServerScriptService": {
+      "$path": "src/server"
+    },
+    "StarterPack": {
+      "Hoverboard": {
+        "$path": "src/client/Hoverboard"
+      }
+    },
+    "StarterPlayer": {
+      "StarterPlayerScripts": {
+        "$path": "src/client/StarterPlayerScripts"
+      }
+    }
+  }
+}

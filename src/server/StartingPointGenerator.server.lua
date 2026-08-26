@@ -1,0 +1,3 @@
+--!strict
+-- StartingPointGenerator.server.luau (Migrated to MapManager & ReplicatedStorage.Maps)
+-- Map generation is now managed by MapManager and stored as Studio Models in ReplicatedStorage.Maps.
