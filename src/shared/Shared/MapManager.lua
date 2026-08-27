@@ -9,6 +9,16 @@ local MapBuilder = require(script.Parent:WaitForChild("MapBuilder") :: ModuleScr
 
 local MapManager = {}
 
+MapManager.MapLaps = {
+	["Oval Speedway"] = 5,
+	["Cyber City"] = 3,
+	["Magma Ridge"] = 3,
+}
+
+function MapManager.getTotalLaps(mapName: string): number
+	return MapManager.MapLaps[mapName] or 3
+end
+
 -- 1. Ensure ReplicatedStorage.Maps folder exists
 function MapManager.getMapsFolder(): Folder
 	local mapsFolder: Folder? = nil

@@ -34,6 +34,7 @@ local stateRemote = remotesFolder:WaitForChild("StateChanged") :: RemoteEvent
 
 local isMounted = false
 local isRaceStarted = false
+local isFinished = false
 local currentBoardModel: Model? = nil
 local currentBankAngle = 0
 local currentHeadingYaw = 0
@@ -219,7 +220,7 @@ local function createHUDUI()
 	timerLabel.Size = UDim2.new(1, 0, 0, 36)
 	timerLabel.Position = UDim2.new(0, 0, 0, 0)
 	timerLabel.BackgroundTransparency = 1
-	timerLabel.Font = Enum.Font.GothamBlack
+	timerLabel.Font = Enum.Font.RobotoMono
 	timerLabel.Text = "TIME  00:00:00"
 	timerLabel.TextColor3 = Color3.fromRGB(255, 235, 200)
 	timerLabel.TextSize = 22
@@ -661,18 +662,18 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 	-- ⏱️ 4. UPDATE RACE TIMER & LAPS (TOP-RIGHT)
 	-- ----------------------------------------------------
 	if timerLabel then
-		if raceStartTime > 0 then
+		if raceStartTime > 0 and not isFinished then
 			local elapsed = math.max(0, os.clock() - raceStartTime)
 			local mins = math.floor(elapsed / 60)
 			local secs = math.floor(elapsed % 60)
 			local cs = math.floor((elapsed * 100) % 100)
 			timerLabel.Text = string.format("TIME  %02d:%02d:%02d", mins, secs, cs)
-		else
+		elseif raceStartTime == 0 then
 			timerLabel.Text = "TIME  00:00:00"
 		end
 	end
 
-	if lapNumLabel then
+	if lapNumLabel and not isFinished then
 		lapNumLabel.Text = string.format("%d / %d LAPS", currentLap, totalLaps)
 	end
 
@@ -788,6 +789,13 @@ local function getOrCreateCountdownUI(): TextLabel
 end
 
 countdownRemote.OnClientEvent:Connect(function(count: number)
+	if count == 5 then
+		isFinished = false
+		-- Also clear any existing FINISHED text if it exists
+		local existingFinish = guiScreen and guiScreen:FindFirstChild("FinishText")
+		if existingFinish then existingFinish:Destroy() end
+	end
+	
 	local label = getOrCreateCountdownUI()
 	label.Visible = true
 	label.TextTransparency = 0
@@ -854,3 +862,74 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 end)
 
 print("🏁 [HoverboardController] 신호등 3, 2, 1, GO! 카운트다운 UI 및 연출 구축 완료!")
+
+-- Setup LapUpdated listener
+local lapUpdatedRemote = remotesFolder:WaitForChild("LapUpdated") :: RemoteEvent
+if lapUpdatedRemote then
+	lapUpdatedRemote.OnClientEvent:Connect(function(newLap, newTotal)
+		currentLap = newLap
+		totalLaps = newTotal
+		if lapNumLabel then
+			lapNumLabel.Text = string.format("%d / %d LAPS", currentLap, totalLaps)
+		end
+	end)
+end
+
+-- Setup RaceFinished listener
+local raceFinishedRemote = remotesFolder:WaitForChild("RaceFinished") :: RemoteEvent
+if raceFinishedRemote then
+	raceFinishedRemote.OnClientEvent:Connect(function(finishTime, finalLap, totalLaps)
+		isRaceStarted = false
+		isFinished = true
+		currentLap = totalLaps
+		totalLaps = totalLaps
+		
+		if lapNumLabel then
+			lapNumLabel.Text = string.format("%d / %d LAPS", totalLaps, totalLaps)
+		end
+		
+		if timerLabel then
+			local mins = math.floor(finishTime / 60)
+			local secs = math.floor(finishTime % 60)
+			local cs = math.floor((finishTime * 100) % 100)
+			timerLabel.Text = string.format("TIME  %02d:%02d:%02d", mins, secs, cs)
+		end
+		
+		-- Show FINISHED UI
+		local finishLabel = Instance.new("TextLabel")
+		finishLabel.Name = "FinishText"
+		finishLabel.Size = UDim2.new(1, 0, 1, 0)
+		finishLabel.Position = UDim2.new(0, 0, 0, 0)
+		finishLabel.BackgroundTransparency = 1
+		finishLabel.Font = Enum.Font.GothamBlack
+		finishLabel.Text = "FINISHED!\nTime: " .. string.format("%.2f", finishTime) .. "s"
+		finishLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
+		finishLabel.TextSize = 100
+		finishLabel.TextWrapped = true
+		
+		local stroke = Instance.new("UIStroke")
+		stroke.Color = Color3.fromRGB(0, 0, 0)
+		stroke.Thickness = 5
+		stroke.Parent = finishLabel
+		
+		if guiScreen then
+			finishLabel.Parent = guiScreen
+		end
+		
+		-- Animate UI
+		finishLabel.Size = UDim2.new(1, 0, 0, 0)
+		finishLabel.Position = UDim2.new(0, 0, 0.5, 0)
+		TweenService:Create(finishLabel, TweenInfo.new(0.5, Enum.EasingStyle.Bounce), {
+			Size = UDim2.new(1, 0, 1, 0),
+			Position = UDim2.new(0, 0, 0, 0)
+		}):Play()
+		
+		-- Stop movement by dismounting and locking
+		dismountRemote:FireServer()
+		local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+		if hum then
+			hum.WalkSpeed = 0
+			hum.JumpPower = 0
+		end
+	end)
+end

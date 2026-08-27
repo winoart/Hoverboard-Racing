@@ -33,6 +33,10 @@ local voteRemote = getOrCreateRemote("VoteMapRequest")
 local mountRemote = getOrCreateRemote("MountRequest")
 local dismountRemote = getOrCreateRemote("DismountRequest")
 local stateRemote = getOrCreateRemote("StateChanged")
+local lapUpdatedRemote = getOrCreateRemote("LapUpdated")
+local raceFinishedRemote = getOrCreateRemote("RaceFinished")
+
+local LapManager = require(script.Parent:WaitForChild("LapManager") :: ModuleScript)
 
 -- Server Configuration
 local MAX_PLAYERS = 16
@@ -332,6 +336,11 @@ task.spawn(function()
 		broadcastPhaseUpdate()
 		teleportAllToTrackAndMount()
 		lockAllPlayersMovement()
+		
+		-- Setup Laps Display for Countdown
+		local totalLaps = MapManager.getTotalLaps(chosenMapName)
+		local lapUpdatedRemote = getOrCreateRemote("LapUpdated")
+		lapUpdatedRemote:FireAllClients(0, totalLaps)
 
 		setSignalLightsState(false, false, false)
 
@@ -351,6 +360,7 @@ task.spawn(function()
 				setSignalLightsState(true, true, true)
 				unlockAllPlayersMovement()
 				print("🏁 [Countdown] GO! 출발 신호 발사!")
+				LapManager.startTracking(chosenMapName, os.clock())
 			end
 
 			task.wait(1)
@@ -366,6 +376,7 @@ task.spawn(function()
 		-- STEP 5: RACE FINISH -> RETURN ALL PARTICIPANTS TO WAITINGROOM LOUNGE
 		-- ---------------------------------------------------------------------
 		print("🏁 [GameLoop] 110초 레이스 종료! 모든 참가자 대기실로 전원 복귀...")
+		LapManager.stopTracking()
 		teleportAllToLounge()
 		MapManager.UnloadCurrentMap()
 		task.wait(2)
