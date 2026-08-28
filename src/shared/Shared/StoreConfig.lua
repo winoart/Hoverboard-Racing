@@ -28,8 +28,8 @@ StoreConfig.Items = {
 		robuxPrice = 50,
 	},
 	{
-		id = "FlameHoverboard",
-		name = "Flame Rider",
+		id = "MagicBroom",
+		name = "Magic Broom",
 		imageId = "rbxassetid://10078028148",
 		goldPrice = 1200,
 		robuxPrice = 120,
