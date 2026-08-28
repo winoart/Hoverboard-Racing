@@ -45,6 +45,14 @@ function MapManager.getLoungeCFrame(): CFrame
 				return child.CFrame
 			elseif child:IsA("Model") then
 				return child:GetPivot()
+			elseif child:IsA("Folder") then
+				for _, sub in ipairs(child:GetChildren()) do
+					if sub:IsA("BasePart") then
+						return sub.CFrame
+					elseif sub:IsA("Model") then
+						return sub:GetPivot()
+					end
+				end
 			end
 		end
 	end

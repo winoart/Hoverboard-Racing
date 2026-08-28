@@ -40,6 +40,7 @@ local currentMapVotes: MapVoteData = {
 	["Magma Ridge"] = {},
 }
 local selectedMapName = ""
+local isVotingModalDismissed = false
 
 -- Map Card Configurations
 local MAP_CONFIGS = {
@@ -126,7 +127,11 @@ local function refreshDisplays()
 
 		-- Top Header Banner
 		if headerStatusLabel and headerTimerLabel then
-			if currentPhase == "MAP_VOTING" then
+			if currentPhase == "INTERMISSION" then
+				headerStatusLabel.Text = "🛋️ NEXT RACE IN..."
+				headerStatusLabel.TextColor3 = Color3.fromRGB(255, 190, 80)
+				headerTimerLabel.Text = string.format("%ds", math.max(0, phaseTimeLeft))
+			elseif currentPhase == "MAP_VOTING" then
 				headerStatusLabel.Text = "🗳️ MAP VOTING"
 				headerStatusLabel.TextColor3 = Color3.fromRGB(255, 220, 80)
 				headerTimerLabel.Text = string.format("%ds", math.max(0, phaseTimeLeft))
@@ -151,7 +156,7 @@ local function refreshDisplays()
 
 		-- Modal 1: 15s Map Voting Modal
 		if votingModalFrame then
-			if currentPhase == "MAP_VOTING" then
+			if currentPhase == "MAP_VOTING" and not isVotingModalDismissed then
 				votingModalFrame.Visible = true
 				if modalFooterTimerLabel then
 					modalFooterTimerLabel.Text = string.format("⏱️ Time Remaining: %ds", math.max(0, phaseTimeLeft))
@@ -283,6 +288,27 @@ local function createGameLoopUI()
 	modalTitle.TextSize = 20
 	modalTitle.ZIndex = 36
 	modalTitle.Parent = votingModalFrame
+
+	local closeBtn = Instance.new("TextButton")
+	closeBtn.Name = "CloseButton"
+	closeBtn.Size = UDim2.new(0, 30, 0, 30)
+	closeBtn.Position = UDim2.new(1, -40, 0, 10)
+	closeBtn.BackgroundColor3 = Color3.fromRGB(200, 40, 40)
+	closeBtn.Font = Enum.Font.GothamBold
+	closeBtn.Text = "X"
+	closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	closeBtn.TextSize = 16
+	closeBtn.ZIndex = 40
+	closeBtn.Parent = votingModalFrame
+	
+	local closeCorner = Instance.new("UICorner")
+	closeCorner.CornerRadius = UDim.new(0, 8)
+	closeCorner.Parent = closeBtn
+	
+	closeBtn.MouseButton1Click:Connect(function()
+		isVotingModalDismissed = true
+		refreshDisplays()
+	end)
 
 	modalFooterTimerLabel = Instance.new("TextLabel")
 	modalFooterTimerLabel.Name = "ModalTimerLabel"
@@ -533,6 +559,9 @@ end)
 
 -- Server Remote Phase Listener
 phaseRemote.OnClientEvent:Connect(function(phase: string, timeLeft: number, mapVotes: MapVoteData, chosenMap: string?)
+	if phase == "MAP_VOTING" and currentPhase ~= "MAP_VOTING" then
+		isVotingModalDismissed = false
+	end
 	currentPhase = phase
 	phaseTimeLeft = timeLeft
 	if mapVotes then

@@ -42,6 +42,7 @@ local LapManager = require(script.Parent:WaitForChild("LapManager") :: ModuleScr
 local MAX_PLAYERS = 16
 
 -- Phase Durations (seconds)
+local DURATION_INTERMISSION = 30
 local DURATION_VOTING = 15
 local DURATION_BUILDING = 5
 local DURATION_RACE = 110
@@ -129,26 +130,33 @@ end
 local function teleportAllToTrackAndMount()
 	local trackCFrame = getTrackStartGridCFrame()
 
-	local hoverboardsFolder = Workspace:FindFirstChild("Hoverboards")
-	local defaultBoardTemplate = hoverboardsFolder and hoverboardsFolder:FindFirstChild("Hoverboard_MetallicSlate") :: Model?
+	local hoverboardModels = ReplicatedStorage:FindFirstChild("HoverboardModels")
 
 	for idx, player in ipairs(Players:GetPlayers()) do
 		local col = (idx - 1) % 4
 		local row = math.floor((idx - 1) / 4)
 		local gridOffset = CFrame.new((col - 1.5) * 8, 0, -row * 10)
+		-- Restore original snowboard/skateboard sideways stance:
 		local sideProfileRotation = CFrame.Angles(0, math.rad(-90), 0)
 		local targetCFrame = trackCFrame * gridOffset * sideProfileRotation
 
 		teleportPlayer(player, targetCFrame)
 
-		if player.Character and defaultBoardTemplate then
+		local equippedId = player:FindFirstChild("EquippedHoverboardId")
+		local boardName = equippedId and equippedId.Value or "DefaultHoverboard"
+		local boardTemplate = hoverboardModels and hoverboardModels:FindFirstChild(boardName)
+		if not boardTemplate and hoverboardModels then
+			boardTemplate = hoverboardModels:FindFirstChild("DefaultHoverboard") or hoverboardModels:GetChildren()[1]
+		end
+
+		if player.Character and boardTemplate then
 			for _, child in ipairs(player.Character:GetChildren()) do
 				if child.Name == "EquippedHoverboard" or child.Name:lower():find("hoverboard") then
 					child:Destroy()
 				end
 			end
 
-			local boardClone = defaultBoardTemplate:Clone()
+			local boardClone = boardTemplate:Clone()
 			boardClone.Name = "EquippedHoverboard"
 
 			for _, part in ipairs(boardClone:GetDescendants()) do
@@ -273,7 +281,24 @@ task.spawn(function()
 
 	while true do
 		-- ---------------------------------------------------------------------
-		-- STEP 1: MAP VOTING FOR ALL LOUNGE PLAYERS (15 Seconds)
+		-- STEP 1: INTERMISSION / LOUNGE (30 Seconds)
+		-- ---------------------------------------------------------------------
+		currentPhase = "INTERMISSION"
+		phaseTimeLeft = DURATION_INTERMISSION
+		
+		MapManager.UnloadCurrentMap()
+		teleportAllToLounge()
+		setSignalLightsState(false, false, false)
+		
+		print("🛋️ [GameLoop] 30초 대기실(인터미션) 휴식 시간 시작...")
+		while phaseTimeLeft > 0 do
+			broadcastPhaseUpdate()
+			task.wait(1)
+			phaseTimeLeft -= 1
+		end
+
+		-- ---------------------------------------------------------------------
+		-- STEP 2: MAP VOTING FOR ALL LOUNGE PLAYERS (15 Seconds)
 		-- ---------------------------------------------------------------------
 		currentPhase = "MAP_VOTING"
 		phaseTimeLeft = DURATION_VOTING
@@ -283,11 +308,6 @@ task.spawn(function()
 			["Cyber City"] = {},
 			["Magma Ridge"] = {},
 		}
-
-		-- Clean up any existing map from Workspace during voting phase
-		MapManager.UnloadCurrentMap()
-		teleportAllToLounge()
-		setSignalLightsState(false, false, false)
 
 		print("🗳️ [GameLoop] 대기실 3개 맵 동시 투표 시작 (15초)...")
 		while phaseTimeLeft > 0 do

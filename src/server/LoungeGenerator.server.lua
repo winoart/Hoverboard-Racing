@@ -25,6 +25,19 @@ local function findUserWaitingRoom(): (Instance?, CFrame?)
 				else
 					return child, child:GetPivot() * CFrame.new(0, 2, 0)
 				end
+			elseif child:IsA("Folder") then
+				for _, sub in ipairs(child:GetChildren()) do
+					if sub:IsA("BasePart") then
+						return sub, sub.CFrame * CFrame.new(0, (sub.Size.Y / 2) + 1.5, 0)
+					elseif sub:IsA("Model") then
+						local primary = sub.PrimaryPart
+						if primary then
+							return sub, primary.CFrame * CFrame.new(0, (primary.Size.Y / 2) + 1.5, 0)
+						else
+							return sub, sub:GetPivot() * CFrame.new(0, 2, 0)
+						end
+					end
+				end
 			end
 		end
 	end

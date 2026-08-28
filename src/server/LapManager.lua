@@ -130,6 +130,16 @@ function LapManager.startTracking(mapName: string, startTime: number)
 							data.finishTime = os.clock() - raceStartTime
 							raceFinishedRemote:FireClient(player, data.finishTime, data.currentLap, totalLapsForMap)
 							print("🏆 " .. player.Name .. " finished the race in " .. string.format("%.2f", data.finishTime) .. "s!")
+							
+							-- Award Gold
+							local leaderstats = player:FindFirstChild("leaderstats")
+							if leaderstats then
+								local gold = leaderstats:FindFirstChild("Gold")
+								if gold then
+									gold.Value += 50
+									print("💰 Awarded 50 Gold to " .. player.Name)
+								end
+							end
 						else
 							-- Next Lap
 							data.currentLap += 1

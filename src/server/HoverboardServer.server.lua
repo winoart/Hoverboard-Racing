@@ -8,7 +8,6 @@ local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local HoverboardConfig = require(Shared:WaitForChild("HoverboardConfig") :: ModuleScript)
-local HoverboardBuilder = require(Shared:WaitForChild("HoverboardBuilder") :: ModuleScript)
 
 -- Clean up legacy SpawnLocations or BasicBoard models on the track so players spawn in WaitingRoom Lounge
 for _, child in ipairs(Workspace:GetDescendants()) do
@@ -79,7 +78,7 @@ if not stateRemote then
 end
 
 -- Helper: Attach Hoverboard to Character
-local function attachHoverboardToCharacter(player: Player): Model?
+local function attachHoverboardToCharacter(player: Player, boardName: string?): Model?
 	local character = player.Character
 	if not character then return nil end
 
@@ -94,8 +93,33 @@ local function attachHoverboardToCharacter(player: Player): Model?
 		end
 	end
 
-	-- Create Hoverboard Model
-	local boardModel = HoverboardBuilder.createModel()
+	-- Get Hoverboard Model from ReplicatedStorage
+	local hoverboardModels = ReplicatedStorage:FindFirstChild("HoverboardModels")
+	if not hoverboardModels then
+		warn("HoverboardModels folder not found in ReplicatedStorage!")
+		return nil
+	end
+
+	local template = nil
+	if boardName then
+		template = hoverboardModels:FindFirstChild(boardName)
+	end
+	
+	if not template then
+		template = hoverboardModels:FindFirstChild("DefaultHoverboard")
+	end
+
+	if not template then
+		-- Fallback to the first model available
+		template = hoverboardModels:GetChildren()[1]
+	end
+	
+	if not template or not template:IsA("Model") then
+		warn("No valid Hoverboard model found in ReplicatedStorage.HoverboardModels!")
+		return nil
+	end
+
+	local boardModel = template:Clone()
 	boardModel.Name = "EquippedHoverboard"
 
 	-- Unanchor ALL parts of equipped hoverboard
@@ -109,6 +133,16 @@ local function attachHoverboardToCharacter(player: Player): Model?
 
 	local rootPart = boardModel.PrimaryPart
 	if not rootPart then return nil end
+
+	-- Ensure all parts stay together (Auto-Weld)
+	for _, part in ipairs(boardModel:GetDescendants()) do
+		if part:IsA("BasePart") and part ~= rootPart then
+			local weld = Instance.new("WeldConstraint")
+			weld.Part0 = rootPart
+			weld.Part1 = part
+			weld.Parent = part
+		end
+	end
 
 	local defaultWeldC0 = CFrame.new(0, -3.25, 0)
 
@@ -161,9 +195,10 @@ local function detachHoverboardFromCharacter(player: Player)
 end
 
 -- Remote Listeners
-mountRemote.OnServerEvent:Connect(function(player: Player)
+mountRemote.OnServerEvent:Connect(function(player: Player, boardName: any)
+	if type(boardName) ~= "string" then boardName = nil end
 	if not player:GetAttribute("IsHoverboarding") then
-		attachHoverboardToCharacter(player)
+		attachHoverboardToCharacter(player, boardName)
 	end
 end)
 
@@ -174,20 +209,6 @@ dismountRemote.OnServerEvent:Connect(function(player: Player)
 end)
 
 -- Setup Workspace.Hoverboards Folder for Template Clones
-local FOLDER_NAME = "Hoverboards"
-local hoverboardFolder = Workspace:FindFirstChild(FOLDER_NAME)
-if not hoverboardFolder then
-	hoverboardFolder = Instance.new("Folder")
-	hoverboardFolder.Name = FOLDER_NAME
-	hoverboardFolder.Parent = Workspace
-end
-
--- Template Hoverboard for GameLoopManager race matches
-local templateBoard = HoverboardBuilder.createModel()
-templateBoard.Name = "Hoverboard_MetallicSlate"
-if templateBoard.PrimaryPart then
-	templateBoard.PrimaryPart.Anchored = true
-end
-templateBoard.Parent = hoverboardFolder
+-- (Removed procedural template generation; rely on ReplicatedStorage models directly)
 
 print("⚡ [HoverboardServer] 레이스 게임 루프 서버 모듈 준비 완료!")
