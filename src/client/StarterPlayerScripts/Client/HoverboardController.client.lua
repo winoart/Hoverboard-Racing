@@ -142,66 +142,97 @@ local function createHUDUI()
 	rankStroke.Thickness = 3.0
 	rankStroke.Parent = rankBadgeLabel
 
-	-- Leaderboard Card 1 (Current Player)
-	local pCard1 = Instance.new("Frame")
-	pCard1.Name = "PlayerCard1"
-	pCard1.Size = UDim2.new(1, 0, 0, 26)
-	pCard1.Position = UDim2.new(0, 0, 0, 54)
-	pCard1.BackgroundColor3 = Color3.fromRGB(20, 25, 35)
-	pCard1.BackgroundTransparency = 0.2
-	pCard1.BorderSizePixel = 0
-	pCard1.ZIndex = 11
-	pCard1.Parent = topLeftFrame
+	-- =========================================================================
+	-- 🏁 DYNAMIC LEADERBOARD SYSTEM
+	-- =========================================================================
+	local leaderboardContainer = Instance.new("Frame")
+	leaderboardContainer.Name = "LeaderboardContainer"
+	leaderboardContainer.Size = UDim2.new(1, 0, 0, 300)
+	leaderboardContainer.Position = UDim2.new(0, 0, 0, 54)
+	leaderboardContainer.BackgroundTransparency = 1
+	leaderboardContainer.ZIndex = 11
+	leaderboardContainer.Parent = topLeftFrame
 
-	local card1Corner = Instance.new("UICorner")
-	card1Corner.CornerRadius = UDim.new(0, 6)
-	card1Corner.Parent = pCard1
+	-- Dictionary to hold player cards
+	local playerCardFrames = {}
 
-	local card1Stroke = Instance.new("UIStroke")
-	card1Stroke.Color = Color3.fromRGB(255, 200, 30)
-	card1Stroke.Thickness = 1.5
-	card1Stroke.Parent = pCard1
+	local function getRankSuffix(rank)
+		if rank == 1 then return "1st" end
+		if rank == 2 then return "2nd" end
+		if rank == 3 then return "3rd" end
+		return rank .. "th"
+	end
 
-	leaderNameLabel1 = Instance.new("TextLabel")
-	leaderNameLabel1.Name = "P1Name"
-	leaderNameLabel1.Size = UDim2.new(1, -12, 1, 0)
-	leaderNameLabel1.Position = UDim2.new(0, 8, 0, 0)
-	leaderNameLabel1.BackgroundTransparency = 1
-	leaderNameLabel1.Font = Enum.Font.GothamBold
-	leaderNameLabel1.Text = "1  " .. LocalPlayer.DisplayName
-	leaderNameLabel1.TextColor3 = Color3.fromRGB(255, 230, 120)
-	leaderNameLabel1.TextSize = 13
-	leaderNameLabel1.TextXAlignment = Enum.TextXAlignment.Left
-	leaderNameLabel1.ZIndex = 12
-	leaderNameLabel1.Parent = pCard1
+	local function createPlayerCard(playerName, isLocal)
+		local pCard = Instance.new("Frame")
+		pCard.Name = "Card_" .. playerName
+		pCard.Size = UDim2.new(isLocal and 1 or 0.9, 0, 0, isLocal and 26 or 24)
+		pCard.BackgroundColor3 = isLocal and Color3.fromRGB(20, 25, 35) or Color3.fromRGB(15, 18, 26)
+		pCard.BackgroundTransparency = isLocal and 0.2 or 0.3
+		pCard.BorderSizePixel = 0
+		pCard.ZIndex = 11
+		-- Initialize position off-screen or at 0
+		pCard.Position = UDim2.new(0, 0, 0, 0)
+		pCard.Parent = leaderboardContainer
 
-	-- Leaderboard Card 2 (Rival)
-	local pCard2 = Instance.new("Frame")
-	pCard2.Name = "PlayerCard2"
-	pCard2.Size = UDim2.new(0.9, 0, 0, 24)
-	pCard2.Position = UDim2.new(0, 0, 0, 84)
-	pCard2.BackgroundColor3 = Color3.fromRGB(15, 18, 26)
-	pCard2.BackgroundTransparency = 0.3
-	pCard2.BorderSizePixel = 0
-	pCard2.ZIndex = 11
-	pCard2.Parent = topLeftFrame
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(0, 6)
+		corner.Parent = pCard
 
-	local card2Corner = Instance.new("UICorner")
-	card2Corner.CornerRadius = UDim.new(0, 6)
-	card2Corner.Parent = pCard2
+		if isLocal then
+			local stroke = Instance.new("UIStroke")
+			stroke.Color = Color3.fromRGB(255, 200, 30)
+			stroke.Thickness = 1.5
+			stroke.Parent = pCard
+		end
 
-	local card2Label = Instance.new("TextLabel")
-	card2Label.Name = "P2Name"
-	card2Label.Size = UDim2.new(1, -12, 1, 0)
-	card2Label.Position = UDim2.new(0, 8, 0, 0)
-	card2Label.BackgroundTransparency = 1
-	card2Label.Font = Enum.Font.GothamBold
-	card2Label.Text = "2  Rival_Racer"
-	card2Label.TextColor3 = Color3.fromRGB(180, 190, 205)
-	card2Label.TextSize = 12
-	card2Label.TextXAlignment = Enum.TextXAlignment.Left
-	card2Label.ZIndex = 12
-	card2Label.Parent = pCard2
+		local nameLabel = Instance.new("TextLabel")
+		nameLabel.Name = "NameLabel"
+		nameLabel.Size = UDim2.new(1, -12, 1, 0)
+		nameLabel.Position = UDim2.new(0, 8, 0, 0)
+		nameLabel.BackgroundTransparency = 1
+		nameLabel.Font = Enum.Font.GothamBold
+		nameLabel.TextColor3 = isLocal and Color3.fromRGB(255, 230, 120) or Color3.fromRGB(180, 190, 205)
+		nameLabel.TextSize = isLocal and 13 or 12
+		nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+		nameLabel.ZIndex = 12
+		nameLabel.Parent = pCard
+
+		return { frame = pCard, label = nameLabel }
+	end
+
+	local function updateRankings(sortedPlayerNames, isStartingLine)
+		for rank, pName in ipairs(sortedPlayerNames) do
+			if not playerCardFrames[pName] then
+				playerCardFrames[pName] = createPlayerCard(pName, pName == LocalPlayer.DisplayName)
+			end
+			local cardData = playerCardFrames[pName]
+			
+			local displayRank = isStartingLine and "-" or tostring(rank)
+			cardData.label.Text = displayRank .. "  " .. pName
+			
+			local targetY = (rank - 1) * 30
+			local targetPos = UDim2.new(0, 0, 0, targetY)
+			
+			-- Smooth animation
+			TweenService:Create(cardData.frame, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Position = targetPos }):Play()
+			
+			-- Update top badge if it's me
+			if pName == LocalPlayer.DisplayName then
+				rankBadgeLabel.Text = isStartingLine and "-" or getRankSuffix(rank)
+			end
+		end
+	end
+
+	-- =========================================================================
+	-- 🏁 REAL-TIME RANKING UPDATE LISTENER
+	-- =========================================================================
+	local updateRankingsRemote = remotesFolder:WaitForChild("UpdateRankings") :: RemoteEvent
+	updateRankingsRemote.OnClientEvent:Connect(function(sortedPlayerNames, isStartingLine)
+		if leaderboardContainer and leaderboardContainer.Parent then
+			updateRankings(sortedPlayerNames, isStartingLine)
+		end
+	end)
 
 	-- =========================================================================
 	-- ⏱️ [2] TOP-RIGHT: RACE TIMER & LAPS COUNTER

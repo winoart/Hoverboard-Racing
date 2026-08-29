@@ -27,7 +27,14 @@ local totalLapsForMap = 3
 local raceStartTime = 0
 local checkpointConnections: { RBXScriptConnection } = {}
 
+local RunService = game:GetService("RunService")
+
 -- Clean up any existing `.Touched` events
+local lastRankingsStr = ""
+local heartbeatConnection: RBXScriptConnection? = nil
+local checkpointPositions: { [number]: Vector3 } = {}
+local playerStartPositions: { [number]: Vector3 } = {}
+
 local function cleanupCheckpoints()
 	for _, conn in ipairs(checkpointConnections) do
 		if conn.Connected then
@@ -35,6 +42,12 @@ local function cleanupCheckpoints()
 		end
 	end
 	table.clear(checkpointConnections)
+	
+	if heartbeatConnection then
+		heartbeatConnection:Disconnect()
+		heartbeatConnection = nil
+	end
+	table.clear(checkpointPositions)
 end
 
 function LapManager.startTracking(mapName: string, startTime: number)
@@ -50,6 +63,11 @@ function LapManager.startTracking(mapName: string, startTime: number)
 			finished = false,
 			finishTime = 0,
 		}
+		
+		if player.Character and player.Character.PrimaryPart then
+			playerStartPositions[player.UserId] = player.Character.PrimaryPart.Position
+		end
+		
 		-- Initialize UI
 		lapUpdatedRemote:FireClient(player, 0, totalLapsForMap)
 	end
@@ -85,9 +103,20 @@ function LapManager.startTracking(mapName: string, startTime: number)
 	print("👀 [LapManager Init] Finished scanning map. Found " .. #activeMap:GetChildren() .. " direct children in " .. activeMap.Name)
 
 	local maxCheckpoints = 0
-	for i, _ in pairs(checkpoints) do
+	for i, cpList in pairs(checkpoints) do
 		if i > maxCheckpoints then
 			maxCheckpoints = i
+		end
+		
+		-- Calculate average position for this checkpoint
+		local posSum = Vector3.zero
+		local count = 0
+		for _, cpPart in ipairs(cpList) do
+			posSum += cpPart.Position
+			count += 1
+		end
+		if count > 0 then
+			checkpointPositions[i] = posSum / count
 		end
 	end
 
@@ -155,6 +184,79 @@ function LapManager.startTracking(mapName: string, startTime: number)
 			table.insert(checkpointConnections, conn)
 		end
 	end
+	
+	-- Start real-time ranking loop
+	heartbeatConnection = RunService.Heartbeat:Connect(function()
+		local sortedPlayers = {}
+		local maxDistTraveled = 0
+		
+		for userId, data in pairs(playerLaps) do
+			local p = Players:GetPlayerByUserId(userId)
+			if p and p.Character and p.Character.PrimaryPart then
+				local distPenalty = 0
+				
+				if data.currentLap == 0 and data.nextCheckpoint == 1 then
+					-- 첫 번째 체크포인트를 향해 갈 때는 시작 위치로부터 '이동한 거리'를 사용하여 출발선 불균형 해결
+					local startPos = playerStartPositions[userId]
+					if startPos then
+						local distTraveled = (p.Character.PrimaryPart.Position - startPos).Magnitude
+						-- 미세한 대기 모션(Idle) 등으로 인한 거리 떨림을 무시하기 위해 1.0 미만은 0으로 고정
+						if distTraveled < 1.0 then
+							distTraveled = 0
+						end
+						distPenalty = -distTraveled -- 빼주었을 때 점수가 더해지도록 음수로 설정
+						if distTraveled > maxDistTraveled then
+							maxDistTraveled = distTraveled
+						end
+					end
+				else
+					local targetCpPos = checkpointPositions[data.nextCheckpoint]
+					if targetCpPos then
+						distPenalty = (p.Character.PrimaryPart.Position - targetCpPos).Magnitude
+					end
+					maxDistTraveled = 9999 -- 이미 출발선을 꽤 벗어남
+				end
+				
+				local score = 0
+				if data.finished then
+					score = 99999999 + (10000 - data.finishTime) -- faster finish time = higher score
+				else
+					score = (data.currentLap * 10000) + (data.nextCheckpoint * 100) - distPenalty
+				end
+				
+				table.insert(sortedPlayers, {
+					name = p.DisplayName,
+					score = score
+				})
+			end
+		end
+		
+		table.sort(sortedPlayers, function(a, b)
+			-- 점수(거리) 차이가 거의 없을 때는 이름순으로 정렬하여 UI가 미친듯이 떨리는 현상(Flickering) 방지
+			if math.abs(a.score - b.score) < 0.01 then
+				return a.name < b.name
+			end
+			return a.score > b.score
+		end)
+		
+		local sortedNames = {}
+		local namesStr = ""
+		for _, pData in ipairs(sortedPlayers) do
+			table.insert(sortedNames, pData.name)
+			namesStr ..= pData.name .. ","
+		end
+		
+		local isStartingLine = maxDistTraveled < 1.0
+		namesStr ..= tostring(isStartingLine)
+		
+		if namesStr ~= lastRankingsStr and #sortedNames > 0 then
+			lastRankingsStr = namesStr
+			local updateRankingsRemote = remotesFolder:FindFirstChild("UpdateRankings")
+			if updateRankingsRemote and updateRankingsRemote:IsA("RemoteEvent") then
+				updateRankingsRemote:FireAllClients(sortedNames, isStartingLine)
+			end
+		end
+	end)
 end
 
 function LapManager.stopTracking()
