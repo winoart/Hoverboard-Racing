@@ -6,3 +6,17 @@
 /*.rbxl.lock
 
 sourcemap.json
+
+# 기타 Roblox 바이너리 파일
+*.rbxl
+*.rbxlx
+*.rbxm
+*.rbxmx
+
+# 로그 및 임시 파일
+*.log
+.DS_Store
+
+# 패키지 매니저 파일 (선택)
+node_modules/
+Packages/

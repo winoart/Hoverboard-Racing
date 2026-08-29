@@ -15,21 +15,21 @@ export type StoreItem = {
 StoreConfig.Items = {
 	{
 		id = "DefaultHoverboard",
-		name = "Basic Board",
+		name = "블루토닉",
 		imageId = "rbxassetid://10078028148", -- Example placeholder
 		goldPrice = 0,
 		robuxPrice = 0,
 	},
 	{
 		id = "CloudHoverboard",
-		name = "Nimbus Cloud",
+		name = "근두운",
 		imageId = "rbxassetid://10078028148",
 		goldPrice = 500,
 		robuxPrice = 50,
 	},
 	{
 		id = "MagicBroom",
-		name = "Magic Broom",
+		name = "님부스2000",
 		imageId = "rbxassetid://10078028148",
 		goldPrice = 1200,
 		robuxPrice = 120,

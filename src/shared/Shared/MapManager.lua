@@ -38,20 +38,35 @@ end
 
 -- 2. Find WaitingRoom Lounge CFrame in Workspace
 function MapManager.getLoungeCFrame(): CFrame
+	-- Helper to find the largest floor part in a folder/model
+	local function getLargestFloorPart(container: Instance): BasePart?
+		local bestPart = nil
+		local maxArea = 0
+		for _, child in ipairs(container:GetDescendants()) do
+			if child:IsA("BasePart") and child.Name ~= "BoardStore" then
+				local area = child.Size.X * child.Size.Z
+				if area > maxArea then
+					maxArea = area
+					bestPart = child
+				end
+			end
+		end
+		return bestPart
+	end
+
 	for _, child in ipairs(Workspace:GetChildren()) do
 		local nameLower = child.Name:lower():gsub("%s+", "")
 		if nameLower:find("waitingroom") or nameLower:find("lounge") or nameLower:find("대기실") or nameLower:find("스폰장소") or nameLower:find("스폰") then
 			if child:IsA("BasePart") then
 				return child.CFrame
-			elseif child:IsA("Model") then
-				return child:GetPivot()
-			elseif child:IsA("Folder") then
-				for _, sub in ipairs(child:GetChildren()) do
-					if sub:IsA("BasePart") then
-						return sub.CFrame
-					elseif sub:IsA("Model") then
-						return sub:GetPivot()
-					end
+			elseif child:IsA("Model") or child:IsA("Folder") then
+				local primary = child:IsA("Model") and child.PrimaryPart or nil
+				local targetPart = primary or getLargestFloorPart(child)
+				
+				if targetPart then
+					return targetPart.CFrame
+				else
+					return child:IsA("Model") and child:GetPivot() or CFrame.new(0, 85, 0)
 				end
 			end
 		end
@@ -118,8 +133,13 @@ function MapManager.LoadMap(mapName: string): (Model, CFrame)
 	local loungeCFrame = MapManager.getLoungeCFrame()
 	local targetMapPos = Vector3.new(loungeCFrame.Position.X, loungeCFrame.Position.Y - 80, loungeCFrame.Position.Z)
 
-	-- Pivot active map to target position directly under WaitingRoom
-	activeMap:PivotTo(CFrame.new(targetMapPos))
+	-- Calculate the offset between the map's pivot and its true visual center (bounding box)
+	local originalPivot = activeMap:GetPivot()
+	local bbCFrame = activeMap:GetBoundingBox()
+	local pivotOffset = originalPivot.Position - bbCFrame.Position
+
+	-- Pivot active map to target position directly under WaitingRoom, preserving its original rotation
+	activeMap:PivotTo(CFrame.new(targetMapPos + pivotOffset) * originalPivot.Rotation)
 	activeMap.Parent = Workspace
 
 	-- Locate start grid CFrame inside loaded map model

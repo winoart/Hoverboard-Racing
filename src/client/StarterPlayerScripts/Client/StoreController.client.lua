@@ -49,7 +49,7 @@ titleLabel.Size = UDim2.new(1, 0, 0, 50)
 titleLabel.Position = UDim2.new(0, 0, 0, 10)
 titleLabel.BackgroundTransparency = 1
 titleLabel.Font = Enum.Font.GothamBlack
-titleLabel.Text = "🛒 HOVERBOARD STORE"
+titleLabel.Text = "🛒 호버보드 상점"
 titleLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
 titleLabel.TextSize = 28
 titleLabel.Parent = bgFrame
@@ -203,7 +203,7 @@ for idx, item in ipairs(StoreConfig.Items) do
 			else
 				-- Owned, not equipped
 				statusBtn.BackgroundColor3 = Color3.fromRGB(30, 120, 255)
-				statusBtn.Text = "🧰 보유중"
+				statusBtn.Text = "👆 장착하기"
 				statusBtn.AutoButtonColor = true
 			end
 		else

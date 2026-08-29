@@ -12,31 +12,37 @@ end
 
 -- Find User's Custom WaitingRoom Part/Model ("스폰장소" or "WaitingRoom" floating platform)
 local function findUserWaitingRoom(): (Instance?, CFrame?)
+	-- Helper to find the largest floor part in a folder/model
+	local function getLargestFloorPart(container: Instance): BasePart?
+		local bestPart = nil
+		local maxArea = 0
+		for _, child in ipairs(container:GetDescendants()) do
+			if child:IsA("BasePart") and child.Name ~= "BoardStore" then
+				local area = child.Size.X * child.Size.Z
+				if area > maxArea then
+					maxArea = area
+					bestPart = child
+				end
+			end
+		end
+		return bestPart
+	end
+
 	-- 1. Search for named objects
 	for _, child in ipairs(Workspace:GetChildren()) do
 		local nameLower = child.Name:lower():gsub("%s+", "")
 		if nameLower:find("waitingroom") or nameLower:find("lounge") or nameLower:find("대기실") or nameLower:find("스폰장소") or nameLower:find("스폰") then
 			if child:IsA("BasePart") then
 				return child, child.CFrame * CFrame.new(0, (child.Size.Y / 2) + 1.5, 0)
-			elseif child:IsA("Model") then
-				local primary = child.PrimaryPart
-				if primary then
-					return child, primary.CFrame * CFrame.new(0, (primary.Size.Y / 2) + 1.5, 0)
+			elseif child:IsA("Model") or child:IsA("Folder") then
+				local primary = child:IsA("Model") and child.PrimaryPart or nil
+				local targetPart = primary or getLargestFloorPart(child)
+				
+				if targetPart then
+					return child, targetPart.CFrame * CFrame.new(0, (targetPart.Size.Y / 2) + 1.5, 0)
 				else
-					return child, child:GetPivot() * CFrame.new(0, 2, 0)
-				end
-			elseif child:IsA("Folder") then
-				for _, sub in ipairs(child:GetChildren()) do
-					if sub:IsA("BasePart") then
-						return sub, sub.CFrame * CFrame.new(0, (sub.Size.Y / 2) + 1.5, 0)
-					elseif sub:IsA("Model") then
-						local primary = sub.PrimaryPart
-						if primary then
-							return sub, primary.CFrame * CFrame.new(0, (primary.Size.Y / 2) + 1.5, 0)
-						else
-							return sub, sub:GetPivot() * CFrame.new(0, 2, 0)
-						end
-					end
+					local pivot = child:IsA("Model") and child:GetPivot() or CFrame.new(0, 85, 0)
+					return child, pivot * CFrame.new(0, 2, 0)
 				end
 			end
 		end

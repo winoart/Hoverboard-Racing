@@ -21,10 +21,13 @@ local equipItemRemote = Instance.new("RemoteFunction")
 equipItemRemote.Name = "EquipItem"
 equipItemRemote.Parent = remotesFolder
 
+local DataStoreService = game:GetService("DataStoreService")
+local PlayerDataStore = DataStoreService:GetDataStore("HoverboardData_v1")
+
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local StoreConfig = require(Shared:WaitForChild("StoreConfig") :: ModuleScript)
 
--- 1. Setup Leaderstats & Inventory
+-- 1. Setup Leaderstats & Inventory with DataStore
 Players.PlayerAdded:Connect(function(player)
 	local leaderstats = Instance.new("Folder")
 	leaderstats.Name = "leaderstats"
@@ -32,21 +35,71 @@ Players.PlayerAdded:Connect(function(player)
 	
 	local gold = Instance.new("IntValue")
 	gold.Name = "Gold"
-	gold.Value = 1000 -- Give some initial gold for testing
-	gold.Parent = leaderstats
-
+	
 	local ownedFolder = Instance.new("Folder")
 	ownedFolder.Name = "OwnedHoverboards"
 	ownedFolder.Parent = player
 	
-	local defaultOwned = Instance.new("StringValue")
-	defaultOwned.Name = "DefaultHoverboard"
-	defaultOwned.Parent = ownedFolder
-	
 	local equippedId = Instance.new("StringValue")
 	equippedId.Name = "EquippedHoverboardId"
-	equippedId.Value = "DefaultHoverboard"
+	
+	-- Load Data
+	local success, data = pcall(function()
+		return PlayerDataStore:GetAsync(tostring(player.UserId))
+	end)
+
+	if success and data then
+		gold.Value = data.Gold or 1000
+		equippedId.Value = data.EquippedHoverboardId or "DefaultHoverboard"
+		local ownedList = data.OwnedHoverboards or {"DefaultHoverboard"}
+		for _, boardId in ipairs(ownedList) do
+			local owned = Instance.new("StringValue")
+			owned.Name = boardId
+			owned.Parent = ownedFolder
+		end
+		print("💾 [StoreServer] Data loaded for " .. player.Name)
+	else
+		-- Default new player data
+		gold.Value = 1000 -- Give some initial gold for testing
+		equippedId.Value = "DefaultHoverboard"
+		local defaultOwned = Instance.new("StringValue")
+		defaultOwned.Name = "DefaultHoverboard"
+		defaultOwned.Parent = ownedFolder
+		print("🆕 [StoreServer] New player profile created for " .. player.Name)
+	end
+
+	gold.Parent = leaderstats
 	equippedId.Parent = player
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+	local leaderstats = player:FindFirstChild("leaderstats")
+	local gold = leaderstats and leaderstats:FindFirstChild("Gold") :: IntValue
+	local ownedFolder = player:FindFirstChild("OwnedHoverboards")
+	local equippedId = player:FindFirstChild("EquippedHoverboardId") :: StringValue
+
+	if gold and ownedFolder and equippedId then
+		local ownedList = {}
+		for _, child in ipairs(ownedFolder:GetChildren()) do
+			table.insert(ownedList, child.Name)
+		end
+
+		local dataToSave = {
+			Gold = gold.Value,
+			OwnedHoverboards = ownedList,
+			EquippedHoverboardId = equippedId.Value
+		}
+
+		local success, err = pcall(function()
+			PlayerDataStore:SetAsync(tostring(player.UserId), dataToSave)
+		end)
+
+		if not success then
+			warn("🚨 [StoreServer] Failed to save data for " .. player.Name .. ": " .. tostring(err))
+		else
+			print("💾 [StoreServer] Data saved for " .. player.Name)
+		end
+	end
 end)
 
 -- 2. Setup BoardStore ClickDetector
