@@ -909,7 +909,7 @@ end
 -- Setup RaceFinished listener
 local raceFinishedRemote = remotesFolder:WaitForChild("RaceFinished") :: RemoteEvent
 if raceFinishedRemote then
-	raceFinishedRemote.OnClientEvent:Connect(function(finishTime, finalLap, totalLaps)
+	raceFinishedRemote.OnClientEvent:Connect(function(finishTime, finalLap, totalLaps, finalRank)
 		isRaceStarted = false
 		isFinished = true
 		currentLap = totalLaps
@@ -919,23 +919,30 @@ if raceFinishedRemote then
 			lapNumLabel.Text = string.format("%d / %d LAPS", totalLaps, totalLaps)
 		end
 		
-		if timerLabel then
+		if timerLabel and finalRank ~= 999 then
 			local mins = math.floor(finishTime / 60)
 			local secs = math.floor(finishTime % 60)
 			local cs = math.floor((finishTime * 100) % 100)
 			timerLabel.Text = string.format("TIME  %02d:%02d:%02d", mins, secs, cs)
 		end
 		
-		-- Show FINISHED UI
+		-- Show FINISHED or RETIRED UI
 		local finishLabel = Instance.new("TextLabel")
 		finishLabel.Name = "FinishText"
 		finishLabel.Size = UDim2.new(1, 0, 1, 0)
 		finishLabel.Position = UDim2.new(0, 0, 0, 0)
 		finishLabel.BackgroundTransparency = 1
 		finishLabel.Font = Enum.Font.GothamBlack
-		finishLabel.Text = "FINISHED!\nTime: " .. string.format("%.2f", finishTime) .. "s"
-		finishLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
-		finishLabel.TextSize = 100
+		
+		if finalRank == 999 then
+			finishLabel.Text = "RETIRED!\nTime Over"
+			finishLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
+		else
+			finishLabel.Text = "FINISHED!\nRank: " .. finalRank .. "\nTime: " .. string.format("%.2f", finishTime) .. "s"
+			finishLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
+		end
+		
+		finishLabel.TextSize = 80
 		finishLabel.TextWrapped = true
 		
 		local stroke = Instance.new("UIStroke")
@@ -962,5 +969,186 @@ if raceFinishedRemote then
 			hum.WalkSpeed = 0
 			hum.JumpPower = 0
 		end
+	end)
+end
+
+-- =========================================================================
+-- 🚨 SUDDEN DEATH & SCOREBOARD UI
+-- =========================================================================
+local suddenDeathLabel = nil
+
+local suddenDeathRemote = remotesFolder:WaitForChild("SuddenDeathUpdate") :: RemoteEvent
+if suddenDeathRemote then
+	suddenDeathRemote.OnClientEvent:Connect(function(timeLeft)
+		if not suddenDeathLabel then
+			suddenDeathLabel = Instance.new("TextLabel")
+			suddenDeathLabel.Name = "SuddenDeathText"
+			suddenDeathLabel.Size = UDim2.new(1, 0, 0, 100)
+			suddenDeathLabel.Position = UDim2.new(0, 0, 0.7, 0)
+			suddenDeathLabel.BackgroundTransparency = 1
+			suddenDeathLabel.Font = Enum.Font.GothamBlack
+			suddenDeathLabel.TextColor3 = Color3.fromRGB(255, 60, 60)
+			suddenDeathLabel.TextSize = 60
+			suddenDeathLabel.ZIndex = 20
+			
+			local stroke = Instance.new("UIStroke")
+			stroke.Color = Color3.fromRGB(0, 0, 0)
+			stroke.Thickness = 4
+			stroke.Parent = suddenDeathLabel
+			
+			if guiScreen then
+				suddenDeathLabel.Parent = guiScreen
+			end
+		end
+		
+		if timeLeft > 0 then
+			suddenDeathLabel.Text = "SUDDEN DEATH: " .. timeLeft
+		else
+			suddenDeathLabel:Destroy()
+			suddenDeathLabel = nil
+		end
+	end)
+end
+
+local showScoreboardRemote = remotesFolder:WaitForChild("ShowScoreboard") :: RemoteEvent
+if showScoreboardRemote then
+	showScoreboardRemote.OnClientEvent:Connect(function(results)
+		if suddenDeathLabel then
+			suddenDeathLabel:Destroy()
+			suddenDeathLabel = nil
+		end
+		
+		-- Background Darken
+		local bg = Instance.new("Frame")
+		bg.Size = UDim2.new(1, 0, 1, 0)
+		bg.BackgroundColor3 = Color3.new(0, 0, 0)
+		bg.BackgroundTransparency = 0.5
+		bg.ZIndex = 50
+		bg.Parent = guiScreen
+		
+		-- Scoreboard Panel
+		local panel = Instance.new("Frame")
+		panel.Size = UDim2.new(0, 500, 0, 400)
+		panel.Position = UDim2.new(0.5, -250, 0.5, -200)
+		panel.BackgroundColor3 = Color3.fromRGB(25, 30, 40)
+		panel.ZIndex = 51
+		panel.Parent = bg
+		
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(0, 12)
+		corner.Parent = panel
+		
+		local stroke = Instance.new("UIStroke")
+		stroke.Color = Color3.fromRGB(255, 200, 0)
+		stroke.Thickness = 3
+		stroke.Parent = panel
+		
+		-- Title
+		local title = Instance.new("TextLabel")
+		title.Size = UDim2.new(1, 0, 0, 60)
+		title.BackgroundTransparency = 1
+		title.Font = Enum.Font.GothamBlack
+		title.Text = "RACE RESULTS"
+		title.TextColor3 = Color3.fromRGB(255, 200, 0)
+		title.TextSize = 36
+		title.ZIndex = 52
+		title.Parent = panel
+		
+		-- Scroll Frame for results
+		local scroll = Instance.new("ScrollingFrame")
+		scroll.Size = UDim2.new(1, -20, 1, -80)
+		scroll.Position = UDim2.new(0, 10, 0, 70)
+		scroll.BackgroundTransparency = 1
+		scroll.ScrollBarThickness = 6
+		scroll.ZIndex = 52
+		scroll.Parent = panel
+		
+		local layout = Instance.new("UIListLayout")
+		layout.SortOrder = Enum.SortOrder.LayoutOrder
+		layout.Padding = UDim.new(0, 5)
+		layout.Parent = scroll
+		
+		for i, data in ipairs(results) do
+			local item = Instance.new("Frame")
+			item.Size = UDim2.new(1, -10, 0, 40)
+			item.BackgroundColor3 = Color3.fromRGB(40, 45, 55)
+			item.ZIndex = 53
+			item.Parent = scroll
+			
+			local itemCorner = Instance.new("UICorner")
+			itemCorner.CornerRadius = UDim.new(0, 6)
+			itemCorner.Parent = item
+			
+			local rankText = "RETIRE"
+			local rankColor = Color3.fromRGB(150, 150, 150)
+			if data.rank ~= 999 then
+				rankText = data.rank .. "st"
+				if data.rank == 2 then rankText = "2nd"
+				elseif data.rank == 3 then rankText = "3rd"
+				elseif data.rank > 3 then rankText = data.rank .. "th" end
+				
+				if data.rank == 1 then rankColor = Color3.fromRGB(255, 215, 0)
+				elseif data.rank == 2 then rankColor = Color3.fromRGB(192, 192, 192)
+				elseif data.rank == 3 then rankColor = Color3.fromRGB(205, 127, 50)
+				else rankColor = Color3.fromRGB(255, 255, 255) end
+			end
+			
+			local rLabel = Instance.new("TextLabel")
+			rLabel.Size = UDim2.new(0, 60, 1, 0)
+			rLabel.Position = UDim2.new(0, 10, 0, 0)
+			rLabel.BackgroundTransparency = 1
+			rLabel.Font = Enum.Font.GothamBold
+			rLabel.Text = rankText
+			rLabel.TextColor3 = rankColor
+			rLabel.TextSize = 20
+			rLabel.TextXAlignment = Enum.TextXAlignment.Left
+			rLabel.ZIndex = 54
+			rLabel.Parent = item
+			
+			local nLabel = Instance.new("TextLabel")
+			nLabel.Size = UDim2.new(0, 180, 1, 0)
+			nLabel.Position = UDim2.new(0, 80, 0, 0)
+			nLabel.BackgroundTransparency = 1
+			nLabel.Font = Enum.Font.GothamSemibold
+			nLabel.Text = data.name
+			nLabel.TextColor3 = Color3.new(1, 1, 1)
+			nLabel.TextSize = 20
+			nLabel.TextXAlignment = Enum.TextXAlignment.Left
+			nLabel.ZIndex = 54
+			nLabel.Parent = item
+			
+			local tLabel = Instance.new("TextLabel")
+			tLabel.Size = UDim2.new(0, 100, 1, 0)
+			tLabel.Position = UDim2.new(0, 270, 0, 0)
+			tLabel.BackgroundTransparency = 1
+			tLabel.Font = Enum.Font.RobotoMono
+			tLabel.Text = data.time
+			tLabel.TextColor3 = Color3.new(0.8, 0.8, 0.8)
+			tLabel.TextSize = 18
+			tLabel.TextXAlignment = Enum.TextXAlignment.Right
+			tLabel.ZIndex = 54
+			tLabel.Parent = item
+			
+			local gLabel = Instance.new("TextLabel")
+			gLabel.Size = UDim2.new(0, 80, 1, 0)
+			gLabel.Position = UDim2.new(0, 390, 0, 0)
+			gLabel.BackgroundTransparency = 1
+			gLabel.Font = Enum.Font.GothamBold
+			gLabel.Text = "+" .. data.gold .. "G"
+			gLabel.TextColor3 = Color3.fromRGB(255, 230, 0)
+			gLabel.TextSize = 20
+			gLabel.TextXAlignment = Enum.TextXAlignment.Right
+			gLabel.ZIndex = 54
+			gLabel.Parent = item
+		end
+		
+		scroll.CanvasSize = UDim2.new(0, 0, 0, #results * 45)
+		
+		-- Destroy after 7 seconds
+		task.delay(7.5, function()
+			if bg and bg.Parent then
+				bg:Destroy()
+			end
+		end)
 	end)
 end

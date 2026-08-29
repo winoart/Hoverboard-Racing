@@ -25,6 +25,7 @@ export type PlayerLapData = {
 local playerLaps: { [number]: PlayerLapData } = {}
 local totalLapsForMap = 3
 local raceStartTime = 0
+local finishedCount = 0
 local checkpointConnections: { RBXScriptConnection } = {}
 
 local RunService = game:GetService("RunService")
@@ -54,6 +55,7 @@ function LapManager.startTracking(mapName: string, startTime: number)
 	cleanupCheckpoints()
 	totalLapsForMap = MapManager.getTotalLaps(mapName)
 	raceStartTime = startTime
+	finishedCount = 0
 	table.clear(playerLaps)
 
 	for _, player in ipairs(Players:GetPlayers()) do
@@ -157,16 +159,25 @@ function LapManager.startTracking(mapName: string, startTime: number)
 							data.currentLap += 1
 							data.finished = true
 							data.finishTime = os.clock() - raceStartTime
-							raceFinishedRemote:FireClient(player, data.finishTime, data.currentLap, totalLapsForMap)
-							print("🏆 " .. player.Name .. " finished the race in " .. string.format("%.2f", data.finishTime) .. "s!")
+							
+							finishedCount += 1
+							data.finalRank = finishedCount
+							
+							raceFinishedRemote:FireClient(player, data.finishTime, data.currentLap, totalLapsForMap, data.finalRank)
+							print("🏆 " .. player.Name .. " finished the race in " .. string.format("%.2f", data.finishTime) .. "s! Rank: " .. data.finalRank)
 							
 							-- Award Gold
 							local leaderstats = player:FindFirstChild("leaderstats")
 							if leaderstats then
 								local gold = leaderstats:FindFirstChild("Gold")
 								if gold then
-									gold.Value += 50
-									print("💰 Awarded 50 Gold to " .. player.Name)
+									local reward = 100
+									if data.finalRank == 1 then reward = 1000
+									elseif data.finalRank == 2 then reward = 600
+									elseif data.finalRank == 3 then reward = 300
+									end
+									gold.Value += reward
+									print("💰 Awarded " .. reward .. " Gold to " .. player.Name)
 								end
 							end
 						else
@@ -219,9 +230,9 @@ function LapManager.startTracking(mapName: string, startTime: number)
 				
 				local score = 0
 				if data.finished then
-					score = 99999999 + (10000 - data.finishTime) -- faster finish time = higher score
+					score = 10000000000 + (10000 - data.finishTime) -- faster finish time = higher score
 				else
-					score = (data.currentLap * 10000) + (data.nextCheckpoint * 100) - distPenalty
+					score = (data.currentLap * 100000000) + (data.nextCheckpoint * 1000000) - distPenalty
 				end
 				
 				table.insert(sortedPlayers, {
@@ -262,6 +273,72 @@ end
 function LapManager.stopTracking()
 	cleanupCheckpoints()
 	table.clear(playerLaps)
+end
+
+function LapManager.getFinishedCount()
+	return finishedCount
+end
+
+function LapManager.getActivePlayersCount()
+	local count = 0
+	for _, _ in pairs(playerLaps) do
+		count += 1
+	end
+	return count
+end
+
+function LapManager.retireUnfinishedPlayers()
+	for userId, data in pairs(playerLaps) do
+		if not data.finished then
+			data.finished = true
+			data.finalRank = 999
+			local p = Players:GetPlayerByUserId(userId)
+			if p then
+				raceFinishedRemote:FireClient(p, 0, data.currentLap, totalLapsForMap, data.finalRank)
+				
+				local leaderstats = p:FindFirstChild("leaderstats")
+				if leaderstats then
+					local gold = leaderstats:FindFirstChild("Gold")
+					if gold then
+						gold.Value += 10
+						print("💰 Awarded 10 Gold (Retire) to " .. p.Name)
+					end
+				end
+			end
+		end
+	end
+end
+
+function LapManager.getFinalScoreboardData()
+	local results = {}
+	for userId, data in pairs(playerLaps) do
+		local p = Players:GetPlayerByUserId(userId)
+		if p then
+			local timeStr = "RETIRE"
+			if data.finalRank ~= 999 then
+				timeStr = string.format("%.2fs", data.finishTime)
+			end
+			local reward = 10
+			if data.finalRank == 1 then reward = 1000
+			elseif data.finalRank == 2 then reward = 600
+			elseif data.finalRank == 3 then reward = 300
+			elseif data.finalRank ~= 999 then reward = 100
+			end
+			
+			table.insert(results, {
+				name = p.DisplayName,
+				rank = data.finalRank,
+				time = timeStr,
+				gold = reward
+			})
+		end
+	end
+	
+	table.sort(results, function(a, b)
+		return a.rank < b.rank
+	end)
+	
+	return results
 end
 
 return LapManager

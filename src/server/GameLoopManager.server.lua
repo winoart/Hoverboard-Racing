@@ -387,16 +387,62 @@ task.spawn(function()
 			task.wait(1)
 		end
 
+		local suddenDeathStarted = false
+		local suddenDeathTimer = 10
+		local suddenDeathRemote = getOrCreateRemote("SuddenDeathUpdate")
+		local showScoreboardRemote = getOrCreateRemote("ShowScoreboard")
+		
 		while phaseTimeLeft > 0 do
+			local activePlayers = LapManager.getActivePlayersCount()
+			local finishedPlayers = LapManager.getFinishedCount()
+			
+			if activePlayers > 0 and finishedPlayers >= activePlayers then
+				print("🏁 [GameLoop] 전원 완주! 레이스를 조기 종료합니다.")
+				break
+			end
+			
+			if finishedPlayers > 0 and not suddenDeathStarted then
+				suddenDeathStarted = true
+				print("🚨 [GameLoop] 1등 골인! 서든데스 카운트다운 시작!")
+				suddenDeathRemote:FireAllClients(suddenDeathTimer)
+			end
+			
+			if suddenDeathStarted then
+				suddenDeathTimer -= 1
+				suddenDeathRemote:FireAllClients(suddenDeathTimer)
+				if suddenDeathTimer <= 0 then
+					print("🚨 [GameLoop] 서든데스 종료! 미완주자 강제 리타이어.")
+					break
+				end
+			end
+			
 			broadcastPhaseUpdate()
 			task.wait(1)
-			phaseTimeLeft -= 1
+			if not suddenDeathStarted then
+				phaseTimeLeft -= 1
+			end
 		end
+		
+		-- 제한 시간 초과 또는 서든데스 종료로 못 들어온 사람 리타이어 처리
+		LapManager.retireUnfinishedPlayers()
 
 		-- ---------------------------------------------------------------------
-		-- STEP 5: RACE FINISH -> RETURN ALL PARTICIPANTS TO WAITINGROOM LOUNGE
+		-- STEP 5: POST-RACE SCOREBOARD (7 Seconds)
 		-- ---------------------------------------------------------------------
-		print("🏁 [GameLoop] 110초 레이스 종료! 모든 참가자 대기실로 전원 복귀...")
+		print("🏆 [GameLoop] 레이스 종료! 결과창 표시 (7초)")
+		currentPhase = "POST_RACE"
+		phaseTimeLeft = 7
+		broadcastPhaseUpdate()
+		
+		local scoreboardData = LapManager.getFinalScoreboardData()
+		showScoreboardRemote:FireAllClients(scoreboardData)
+		
+		task.wait(7)
+		
+		-- ---------------------------------------------------------------------
+		-- STEP 6: RETURN ALL PARTICIPANTS TO WAITINGROOM LOUNGE
+		-- ---------------------------------------------------------------------
+		print("🏁 [GameLoop] 대기실로 전원 복귀...")
 		LapManager.stopTracking()
 		teleportAllToLounge()
 		MapManager.UnloadCurrentMap()
