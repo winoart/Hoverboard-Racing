@@ -18,6 +18,8 @@ local phaseRemote = hoverRemotes:WaitForChild("GamePhaseChanged") :: RemoteEvent
 local countdownRemote = hoverRemotes:WaitForChild("StartCountdownSignal") :: RemoteEvent
 local useSkillRemote = hoverRemotes:WaitForChild("UseSkill") :: RemoteEvent
 local skillWarningRemote = hoverRemotes:WaitForChild("SkillWarning") :: RemoteEvent
+local blindEffectRemote = hoverRemotes:WaitForChild("BlindEffect") :: RemoteEvent
+local empEffectRemote = hoverRemotes:WaitForChild("EMPEffect") :: RemoteEvent
 
 -- Temporary Product ID for unlocking the 3rd slot
 local UNLOCK_SLOT3_PRODUCT_ID = 123456789 
@@ -29,6 +31,11 @@ local isRaceStarted = false
 local clientCooldowns = {}
 local SKILL_COOLDOWNS = {
 	Skill_IceBomb = 10,
+	Skill_Shield = 15,
+	Skill_IceTrap = 15,
+	Skill_BlindFog = 15,
+	Skill_Ghost = 20,
+	Skill_EMP = 30,
 }
 
 -- Create UI
@@ -122,6 +129,73 @@ local function showWarningToast(message: string)
 		t.Completed:Connect(function()
 			toast:Destroy()
 		end)
+	end)
+end
+
+local fogOverlay = Instance.new("ImageLabel")
+fogOverlay.Name = "BlindFogOverlay"
+fogOverlay.Size = UDim2.new(1, 0, 1, 0)
+fogOverlay.Position = UDim2.new(0, 0, 0, 0)
+fogOverlay.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
+fogOverlay.BackgroundTransparency = 1
+fogOverlay.Image = "rbxassetid://733568916" -- Foggy texture
+fogOverlay.ImageTransparency = 1
+fogOverlay.ImageColor3 = Color3.fromRGB(150, 150, 150)
+fogOverlay.ZIndex = 100
+fogOverlay.Visible = false
+fogOverlay.Parent = gui
+
+local function setBlindEffect(active: boolean)
+	if active then
+		fogOverlay.Visible = true
+		TweenService:Create(fogOverlay, TweenInfo.new(0.5), {
+			BackgroundTransparency = 0.2,
+			ImageTransparency = 0.5
+		}):Play()
+	else
+		local t = TweenService:Create(fogOverlay, TweenInfo.new(1), {
+			BackgroundTransparency = 1,
+			ImageTransparency = 1
+		})
+		t:Play()
+		t.Completed:Connect(function()
+			if fogOverlay.BackgroundTransparency >= 0.99 then
+				fogOverlay.Visible = false
+			end
+		end)
+	end
+end
+
+-- Glitch UI for EMP
+local glitchOverlay = Instance.new("Frame")
+glitchOverlay.Name = "EMPGlitchOverlay"
+glitchOverlay.Size = UDim2.new(1, 0, 1, 0)
+glitchOverlay.BackgroundColor3 = Color3.fromRGB(0, 255, 255)
+glitchOverlay.BackgroundTransparency = 1
+glitchOverlay.ZIndex = 99
+glitchOverlay.Visible = false
+glitchOverlay.Parent = gui
+
+-- For static noise, a UIGradient or ImageLabel can be used. We'll use a fast flickering frame.
+local function playGlitchEffect()
+	glitchOverlay.Visible = true
+	
+	-- Play a short loud zap sound
+	local zapSound = Instance.new("Sound")
+	zapSound.SoundId = "rbxassetid://138084050" -- Glitch/zap
+	zapSound.Volume = 1
+	zapSound.Parent = workspace
+	zapSound:Play()
+	game.Debris:AddItem(zapSound, 3)
+	
+	task.spawn(function()
+		for i = 1, 15 do
+			glitchOverlay.BackgroundTransparency = math.random(5, 9) / 10
+			glitchOverlay.BackgroundColor3 = math.random() > 0.5 and Color3.fromRGB(0, 255, 255) or Color3.fromRGB(255, 0, 255)
+			task.wait(math.random(3, 10)/100)
+		end
+		glitchOverlay.BackgroundTransparency = 1
+		glitchOverlay.Visible = false
 	end)
 end
 
@@ -339,6 +413,40 @@ skillWarningRemote.OnClientEvent:Connect(function(casterName: string, skillId: s
 	local sInfo = getSkillInfo(skillId)
 	local sName = sInfo and sInfo.name or skillId
 	showWarningToast(casterName .. "님이 당신에게 " .. sName .. "을(를) 사용했습니다!")
+end)
+
+blindEffectRemote.OnClientEvent:Connect(function(active: boolean)
+	setBlindEffect(active)
+end)
+
+empEffectRemote.OnClientEvent:Connect(function(casterName: string)
+	print("⚡ EMP detected from " .. casterName)
+	-- Global Aurora Effect
+	local lighting = game:GetService("Lighting")
+	local origColor = lighting.ColorShift_Top
+	local origAmbient = lighting.Ambient
+	
+	local auroraColor = Color3.fromRGB(0, 255, 255) -- Cyan Aurora
+	TweenService:Create(lighting, TweenInfo.new(0.5, Enum.EasingStyle.Sine), {
+		ColorShift_Top = auroraColor,
+		Ambient = auroraColor
+	}):Play()
+	
+	-- Glitch effect for everyone (except the caster)
+	if Players.LocalPlayer.Name ~= casterName then
+		playGlitchEffect()
+		showWarningToast("⚡ " .. casterName .. "님이 EMP를 터뜨렸습니다!")
+	else
+		showWarningToast("⚡ EMP 가동 완료!")
+	end
+	
+	-- Revert sky after 2.5s
+	task.delay(2.5, function()
+		TweenService:Create(lighting, TweenInfo.new(2), {
+			ColorShift_Top = origColor,
+			Ambient = origAmbient
+		}):Play()
+	end)
 end)
 
 -- Key inputs
