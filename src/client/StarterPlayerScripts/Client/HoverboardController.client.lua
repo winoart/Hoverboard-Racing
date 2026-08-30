@@ -440,7 +440,36 @@ local function createHUDUI()
 	guiScreen.Enabled = false
 end
 
+-- =========================================================================
+-- 🐛 REALTIME PHYSICS DEBUGGER HUD
+-- =========================================================================
+local debugLabel: TextLabel? = nil
+
+local function getOrCreateDebugUI()
+	if debugLabel and debugLabel.Parent then return debugLabel end
+	if not guiScreen then return nil end
+	
+	debugLabel = Instance.new("TextLabel")
+	debugLabel.Name = "PhysicsDebugLabel"
+	debugLabel.Size = UDim2.new(0, 400, 0, 100)
+	debugLabel.Position = UDim2.new(0, 10, 0.4, 0)
+	debugLabel.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+	debugLabel.BackgroundTransparency = 0.5
+	debugLabel.Font = Enum.Font.RobotoMono
+	debugLabel.Text = "Awaiting Debug Data..."
+	debugLabel.TextColor3 = Color3.fromRGB(0, 255, 100)
+	debugLabel.TextSize = 14
+	debugLabel.TextXAlignment = Enum.TextXAlignment.Left
+	debugLabel.TextYAlignment = Enum.TextYAlignment.Top
+	debugLabel.ZIndex = 100
+	debugLabel.Parent = guiScreen
+	return debugLabel
+end
+
 createHUDUI()
+getOrCreateDebugUI()
+
+local skaterJoints = {}
 
 -- Handle Server State Changes & Steering Initialization
 stateRemote.OnClientEvent:Connect(function(mounted: boolean, boardModel: Model?)
@@ -467,6 +496,20 @@ stateRemote.OnClientEvent:Connect(function(mounted: boolean, boardModel: Model?)
 		task.defer(function()
 			local char = LocalPlayer.Character
 			local hrp = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?
+			
+			-- Cache joints for procedural skater animation
+			if char then
+				skaterJoints.Waist = char:FindFirstChild("Waist", true)
+				skaterJoints.RightShoulder = char:FindFirstChild("RightShoulder", true)
+				skaterJoints.LeftShoulder = char:FindFirstChild("LeftShoulder", true)
+				skaterJoints.RightElbow = char:FindFirstChild("RightElbow", true)
+				skaterJoints.LeftElbow = char:FindFirstChild("LeftElbow", true)
+				skaterJoints.RightHip = char:FindFirstChild("RightHip", true)
+				skaterJoints.LeftHip = char:FindFirstChild("LeftHip", true)
+				skaterJoints.RightKnee = char:FindFirstChild("RightKnee", true)
+				skaterJoints.LeftKnee = char:FindFirstChild("LeftKnee", true)
+			end
+			
 			if hrp then
 				local currentPos = hrp.Position
 				-- Keep the orientation set by the Server's GameLoopManager teleport
@@ -490,6 +533,12 @@ stateRemote.OnClientEvent:Connect(function(mounted: boolean, boardModel: Model?)
 			hum.WalkSpeed = 16
 			hum:SetStateEnabled(Enum.HumanoidStateType.Jumping, true)
 		end
+		
+		local hrp = character and character:FindFirstChild("HumanoidRootPart")
+		if hrp then
+			local gyro = hrp:FindFirstChild("SteeringGyro")
+			if gyro then gyro:Destroy() end
+		end
 
 		if playerControls and playerControls.Enable then
 			playerControls:Enable()
@@ -500,6 +549,26 @@ stateRemote.OnClientEvent:Connect(function(mounted: boolean, boardModel: Model?)
 			TweenService:Create(Camera, TweenInfo.new(0.4), { FieldOfView = defaultFOV }):Play()
 		end
 	end
+end)
+
+-- 🛹 PROCEDURAL ANIMATION: Dynamic Skater Stance (Runs after Animator)
+RunService.Stepped:Connect(function(_, deltaTime)
+	if not isMounted then return end
+
+	-- Lean into turns dynamically based on steer rate
+	local leanFactor = currentSteerRate * 0.35 
+
+	-- Apply custom Transform to joints to override Idle animation
+	if skaterJoints.Waist then skaterJoints.Waist.Transform = CFrame.Angles(math.rad(-18), leanFactor, leanFactor * 0.5) end
+	if skaterJoints.RightShoulder then skaterJoints.RightShoulder.Transform = CFrame.Angles(math.rad(45), 0, math.rad(20)) end
+	if skaterJoints.LeftShoulder then skaterJoints.LeftShoulder.Transform = CFrame.Angles(math.rad(45), 0, math.rad(-20)) end
+	if skaterJoints.RightElbow then skaterJoints.RightElbow.Transform = CFrame.Angles(math.rad(25), 0, 0) end
+	if skaterJoints.LeftElbow then skaterJoints.LeftElbow.Transform = CFrame.Angles(math.rad(25), 0, 0) end
+	
+	if skaterJoints.RightHip then skaterJoints.RightHip.Transform = CFrame.Angles(math.rad(35), 0, math.rad(12)) end
+	if skaterJoints.LeftHip then skaterJoints.LeftHip.Transform = CFrame.Angles(math.rad(35), 0, math.rad(-12)) end
+	if skaterJoints.RightKnee then skaterJoints.RightKnee.Transform = CFrame.Angles(math.rad(-65), 0, 0) end
+	if skaterJoints.LeftKnee then skaterJoints.LeftKnee.Transform = CFrame.Angles(math.rad(-65), 0, 0) end
 end)
 
 -- Main Render Loop for Arcade Racing HUD, Hovering Physics, Speedometer, Booster Gauge & Wind FX
@@ -556,8 +625,16 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 		currentSteerRate += (targetSteerRate - currentSteerRate) * math.clamp(deltaTime * dampFactor, 0, 1)
 		currentHeadingYaw += currentSteerRate * deltaTime
 
-		local currentPos = hrp.Position
-		hrp.CFrame = CFrame.new(currentPos) * CFrame.Angles(0, currentHeadingYaw, 0)
+		local gyro = hrp:FindFirstChild("SteeringGyro") :: BodyGyro?
+		if not gyro then
+			gyro = Instance.new("BodyGyro")
+			gyro.Name = "SteeringGyro"
+			gyro.MaxTorque = Vector3.new(0, 400000, 0)
+			gyro.P = 50000
+			gyro.D = 500
+			gyro.Parent = hrp
+		end
+		gyro.CFrame = CFrame.Angles(0, currentHeadingYaw, 0)
 
 		if isBoosting then
 			boosterGauge = math.max(0, boosterGauge - (HoverboardConfig.BOOSTER_DRAIN_RATE * deltaTime))
@@ -590,13 +667,7 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 		local rearLED = boardModel and boardModel:FindFirstChild("RearLED") :: BasePart?
 
 		if rootPart and (isW or isS) then
-			local wDir = Vector3.zero
-			if frontLED and rearLED then
-				local forwardDir = (frontLED.Position - rearLED.Position).Unit
-				wDir = CFrame.Angles(0, math.rad(-90), 0) * forwardDir
-			else
-				wDir = hrp.CFrame.RightVector
-			end
+			local wDir = hrp.CFrame.RightVector
 
 			local moveVector = Vector3.zero
 			if isW then
@@ -613,7 +684,7 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 		end
 	end
 
-	-- 1. Sine wave bobbing
+	-- 1. Sine wave bobbing (Re-enabled!)
 	local clockTime = os.clock()
 	local bobOffset = math.sin(clockTime * HoverboardConfig.BOB_FREQUENCY) * HoverboardConfig.BOB_AMPLITUDE
 	humanoid.HipHeight = HoverboardConfig.HOVER_HEIGHT + bobOffset
@@ -636,7 +707,7 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 		if weld then
 			local pitchRad = math.rad(-pitchAngleDeg)
 			local bankRad = math.rad(currentBankAngle)
-			local baseStanceCFrame = CFrame.new(0, -3.25, 0)
+			local baseStanceCFrame = CFrame.new(0, -2.5, 0) -- Adjusted for bent skater knees!
 			weld.C0 = baseStanceCFrame * CFrame.Angles(pitchRad, 0, bankRad)
 		end
 		-- Aerodynamic Wind Breaking Particles Control
@@ -666,21 +737,20 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 		local targetCameraFOV = isBoosting and HoverboardConfig.BOOSTER_FOV or defaultFOV + (math.clamp(currentSpeed / HoverboardConfig.RIDE_WALKSPEED, 0, 1) * 10)
 		Camera.FieldOfView += (targetCameraFOV - Camera.FieldOfView) * math.clamp(deltaTime * 8, 0, 1)
 
-		local wDir = Vector3.zero
-		if frontLED and rearLED then
-			local forwardDir = (frontLED.Position - rearLED.Position).Unit
-			wDir = CFrame.Angles(0, math.rad(-90), 0) * forwardDir
-		else
-			wDir = hrp.CFrame.RightVector
-		end
+		-- 카메라와 캐릭터의 위치가 어긋나면서 발생하는 시각적 떨림(Lerp Jitter) 해결
+		-- 위치는 정확히 고정하고, 바라보는 방향(wDir)만 부드럽게 보간(Lerp)합니다.
+		local targetWDir = hrp.CFrame.RightVector
+		if not _G.smoothCamDir then _G.smoothCamDir = targetWDir end
+		_G.smoothCamDir = _G.smoothCamDir:Lerp(targetWDir, math.clamp(deltaTime * 10, 0, 1)).Unit
+		
+		local wDir = _G.smoothCamDir
 
 		local camDist = 16.0
 		local camHeight = 6.5
 		local desiredCamPos = hrp.Position - (wDir * camDist) + Vector3.new(0, camHeight, 0)
 		local lookAtTarget = hrp.Position + (wDir * 25.0) + Vector3.new(0, 3.5, 0)
 
-		local targetCamCFrame = CFrame.lookAt(desiredCamPos, lookAtTarget)
-		Camera.CFrame = Camera.CFrame:Lerp(targetCamCFrame, math.clamp(deltaTime * 14, 0, 1))
+		Camera.CFrame = CFrame.lookAt(desiredCamPos, lookAtTarget)
 
 		if isBoosting then
 			local shakeX = (math.random() - 0.5) * 0.08
@@ -771,6 +841,27 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 			stroke.Transparency += (targetTrans - stroke.Transparency) * math.clamp(deltaTime * 10, 0, 1)
 		end
 	end
+	
+	-- 8. 🐛 UPDATE PHYSICS DEBUG HUD (Jitter Spike Detector)
+	if not _G.lastVel then _G.lastVel = hrp.AssemblyLinearVelocity end
+	
+	local pos = hrp.Position
+	local vel = hrp.AssemblyLinearVelocity
+	local deltaVel = vel - _G.lastVel
+	
+	-- 만약 1프레임(약 0.016초) 만에 속도가 비정상적으로 튀면(가속도 스파이크) 콘솔에 즉시 출력!
+	if deltaVel.Magnitude > 10.0 and currentWalkSpeed > 5 then
+		print(string.format(
+			"🚨 [JITTER DETECTED!] DeltaVel: %.1f | Pos(X:%.1f, Z:%.1f) | Vel(X:%.1f, Z:%.1f) | Spd:%.1f (Tgt:%.1f) | HipHeight:%.2f",
+			deltaVel.Magnitude,
+			pos.X, pos.Z,
+			vel.X, vel.Z,
+			currentSpeed, currentWalkSpeed,
+			humanoid.HipHeight
+		))
+	end
+	
+	_G.lastVel = vel
 end)
 
 -- Trigger One-Tap Continuous Booster on Spacebar press
@@ -854,13 +945,13 @@ countdownRemote.OnClientEvent:Connect(function(count: number)
 		label.TextColor3 = Color3.fromRGB(40, 255, 80) -- 🟢 Green
 		label.TextSize = 130
 
-		-- ⏱️ RECORD TIMER STARTS AT COUNT == 1!
-		raceStartTime = os.clock()
 	elseif count == 0 then
 		label.Text = "GO! 🏁"
 		label.TextColor3 = Color3.fromRGB(0, 240, 255) -- ⚡ Cyan/Gold GO!
 		label.TextSize = 110
 
+		-- ⏱️ RECORD TIMER STARTS AT GO!
+		raceStartTime = os.clock()
 		-- 🏁 UNLOCK MOVEMENT AT GO!
 		isRaceStarted = true
 

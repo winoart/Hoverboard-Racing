@@ -1,6 +1,6 @@
 --!strict
--- StoreController.client.luau
--- Displays the Hoverboard Store UI
+-- SkillStoreController.client.luau
+-- Displays the Skill Store UI (Purchase Only)
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -9,17 +9,18 @@ local StarterGui = game:GetService("StarterGui")
 local LocalPlayer = Players.LocalPlayer
 local playerGui = LocalPlayer:WaitForChild("PlayerGui")
 
-local remotesFolder = ReplicatedStorage:WaitForChild("HoverboardRemotes")
-local openStoreRemote = remotesFolder:WaitForChild("OpenStore") :: RemoteEvent
-local purchaseItemRemote = remotesFolder:WaitForChild("PurchaseItem") :: RemoteFunction
-local equipItemRemote = remotesFolder:WaitForChild("EquipItem") :: RemoteFunction
+local remotesFolder = ReplicatedStorage:WaitForChild("SkillRemotes")
+local openStoreRemote = remotesFolder:WaitForChild("OpenSkillStore") :: RemoteEvent
+local purchaseItemRemote = remotesFolder:WaitForChild("PurchaseSkill") :: RemoteFunction
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
-local StoreConfig = require(Shared:WaitForChild("StoreConfig") :: ModuleScript)
+local SkillStoreConfig = require(Shared:WaitForChild("SkillStoreConfig") :: ModuleScript)
+
+print("💻 [SkillStoreController] 스킬상점 UI 클라이언트 스크립트 가동 시작!")
 
 -- Create the Store UI
 local storeGui = Instance.new("ScreenGui")
-storeGui.Name = "HoverboardStoreGui"
+storeGui.Name = "SkillStoreGui"
 storeGui.ResetOnSpawn = false
 storeGui.Enabled = false
 storeGui.Parent = playerGui
@@ -28,7 +29,7 @@ local bgFrame = Instance.new("Frame")
 bgFrame.Name = "Background"
 bgFrame.Size = UDim2.new(0, 800, 0, 500)
 bgFrame.Position = UDim2.new(0.5, -400, 0.5, -250)
-bgFrame.BackgroundColor3 = Color3.fromRGB(15, 20, 30)
+bgFrame.BackgroundColor3 = Color3.fromRGB(20, 15, 30)
 bgFrame.BackgroundTransparency = 0.05
 bgFrame.BorderSizePixel = 0
 bgFrame.Parent = storeGui
@@ -38,7 +39,7 @@ bgCorner.CornerRadius = UDim.new(0, 12)
 bgCorner.Parent = bgFrame
 
 local bgStroke = Instance.new("UIStroke")
-bgStroke.Color = Color3.fromRGB(255, 215, 0)
+bgStroke.Color = Color3.fromRGB(0, 215, 255)
 bgStroke.Thickness = 3
 bgStroke.Parent = bgFrame
 
@@ -49,8 +50,8 @@ titleLabel.Size = UDim2.new(1, 0, 0, 50)
 titleLabel.Position = UDim2.new(0, 0, 0, 10)
 titleLabel.BackgroundTransparency = 1
 titleLabel.Font = Enum.Font.GothamBlack
-titleLabel.Text = "🛒 호버보드 상점"
-titleLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
+titleLabel.Text = "🔮 스킬 상점"
+titleLabel.TextColor3 = Color3.fromRGB(0, 215, 255)
 titleLabel.TextSize = 28
 titleLabel.Parent = bgFrame
 
@@ -94,7 +95,7 @@ gridLayout.SortOrder = Enum.SortOrder.LayoutOrder
 gridLayout.Parent = scrollFrame
 
 -- Populate Store Items
-for idx, item in ipairs(StoreConfig.Items) do
+for idx, item in ipairs(SkillStoreConfig.Skills) do
 	local card = Instance.new("Frame")
 	card.Name = "ItemCard_" .. item.id
 	card.BackgroundColor3 = Color3.fromRGB(25, 30, 45)
@@ -122,7 +123,7 @@ for idx, item in ipairs(StoreConfig.Items) do
 	
 	-- Item Image
 	local img = Instance.new("ImageLabel")
-	img.Size = UDim2.new(1, -20, 0, 140)
+	img.Size = UDim2.new(1, -20, 0, 120)
 	img.Position = UDim2.new(0, 10, 0, 40)
 	img.BackgroundColor3 = Color3.fromRGB(15, 20, 30)
 	img.Image = item.imageId
@@ -132,6 +133,18 @@ for idx, item in ipairs(StoreConfig.Items) do
 	local imgCorner = Instance.new("UICorner")
 	imgCorner.CornerRadius = UDim.new(0, 8)
 	imgCorner.Parent = img
+
+	-- Description
+	local descLabel = Instance.new("TextLabel")
+	descLabel.Size = UDim2.new(1, -20, 0, 40)
+	descLabel.Position = UDim2.new(0, 10, 0, 160)
+	descLabel.BackgroundTransparency = 1
+	descLabel.Font = Enum.Font.Gotham
+	descLabel.Text = item.description
+	descLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+	descLabel.TextSize = 12
+	descLabel.TextWrapped = true
+	descLabel.Parent = card
 	
 	-- Buy Buttons Container
 	local btnsFrame = Instance.new("Frame")
@@ -143,7 +156,7 @@ for idx, item in ipairs(StoreConfig.Items) do
 	-- Gold Button
 	local goldBtn = Instance.new("TextButton")
 	goldBtn.Size = UDim2.new(1, 0, 0, 30)
-	goldBtn.Position = UDim2.new(0, 0, 0, 0)
+	goldBtn.Position = UDim2.new(0, 0, 0, 20)
 	goldBtn.BackgroundColor3 = Color3.fromRGB(255, 180, 0)
 	goldBtn.Font = Enum.Font.GothamBold
 	goldBtn.Text = "🟡 " .. item.goldPrice .. " G"
@@ -154,74 +167,43 @@ for idx, item in ipairs(StoreConfig.Items) do
 	local gCorner = Instance.new("UICorner")
 	gCorner.CornerRadius = UDim.new(0, 6)
 	gCorner.Parent = goldBtn
-	
-	-- Robux Button
-	local robuxBtn = Instance.new("TextButton")
-	robuxBtn.Size = UDim2.new(1, 0, 0, 30)
-	robuxBtn.Position = UDim2.new(0, 0, 0, 40)
-	robuxBtn.BackgroundColor3 = Color3.fromRGB(0, 180, 80)
-	robuxBtn.Font = Enum.Font.GothamBold
-	robuxBtn.Text = "💸 " .. item.robuxPrice .. " R$"
-	robuxBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-	robuxBtn.TextSize = 16
-	robuxBtn.Parent = btnsFrame
-	
-	local rCorner = Instance.new("UICorner")
-	rCorner.CornerRadius = UDim.new(0, 6)
-	rCorner.Parent = robuxBtn
 
-	-- Status Button (Owned / Equipped)
-	local statusBtn = Instance.new("TextButton")
-	statusBtn.Size = UDim2.new(1, 0, 1, 0)
-	statusBtn.Position = UDim2.new(0, 0, 0, 0)
-	statusBtn.Font = Enum.Font.GothamBold
-	statusBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-	statusBtn.TextSize = 18
-	statusBtn.Visible = false
-	statusBtn.Parent = btnsFrame
+	-- Status Label (Owned)
+	local statusLabel = Instance.new("TextLabel")
+	statusLabel.Size = UDim2.new(1, 0, 1, 0)
+	statusLabel.Position = UDim2.new(0, 0, 0, 0)
+	statusLabel.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
+	statusLabel.Font = Enum.Font.GothamBold
+	statusLabel.Text = "✅ 보유중"
+	statusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+	statusLabel.TextSize = 18
+	statusLabel.Visible = false
+	statusLabel.Parent = btnsFrame
 
 	local sCorner = Instance.new("UICorner")
 	sCorner.CornerRadius = UDim.new(0, 8)
-	sCorner.Parent = statusBtn
+	sCorner.Parent = statusLabel
 	
 	-- Update function for this card
 	local function updateCardState()
-		local ownedFolder = LocalPlayer:FindFirstChild("OwnedHoverboards")
-		local equippedId = LocalPlayer:FindFirstChild("EquippedHoverboardId") :: StringValue?
+		local ownedFolder = LocalPlayer:FindFirstChild("OwnedSkills")
 		
 		if ownedFolder and ownedFolder:FindFirstChild(item.id) then
 			-- Owned!
 			goldBtn.Visible = false
-			robuxBtn.Visible = false
-			statusBtn.Visible = true
-			
-			if equippedId and equippedId.Value == item.id then
-				-- Equipped
-				statusBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
-				statusBtn.Text = "✅ 장착중"
-				statusBtn.AutoButtonColor = false
-			else
-				-- Owned, not equipped
-				statusBtn.BackgroundColor3 = Color3.fromRGB(30, 120, 255)
-				statusBtn.Text = "👆 장착하기"
-				statusBtn.AutoButtonColor = true
-			end
+			statusLabel.Visible = true
 		else
 			-- Not owned
 			goldBtn.Visible = true
-			robuxBtn.Visible = true
-			statusBtn.Visible = false
+			statusLabel.Visible = false
 		end
 	end
 	
 	-- Hook events to update state
 	local function bindStateEvents()
-		local ownedFolder = LocalPlayer:WaitForChild("OwnedHoverboards")
+		local ownedFolder = LocalPlayer:WaitForChild("OwnedSkills")
 		ownedFolder.ChildAdded:Connect(updateCardState)
 		ownedFolder.ChildRemoved:Connect(updateCardState)
-		
-		local equippedId = LocalPlayer:WaitForChild("EquippedHoverboardId") :: StringValue
-		equippedId.Changed:Connect(updateCardState)
 	end
 	task.spawn(bindStateEvents)
 	task.spawn(updateCardState)
@@ -246,22 +228,10 @@ for idx, item in ipairs(StoreConfig.Items) do
 	end
 	
 	goldBtn.MouseButton1Click:Connect(function() buy("Gold") end)
-	robuxBtn.MouseButton1Click:Connect(function() buy("Robux") end)
-	
-	statusBtn.MouseButton1Click:Connect(function()
-		local equippedId = LocalPlayer:FindFirstChild("EquippedHoverboardId") :: StringValue?
-		if equippedId and equippedId.Value ~= item.id then
-			local success, msg = equipItemRemote:InvokeServer(item.id)
-			if success then
-				cardStroke.Color = Color3.fromRGB(0, 255, 0)
-				task.wait(0.5)
-				cardStroke.Color = Color3.fromRGB(100, 120, 150)
-			end
-		end
-	end)
 end
 
 -- Open Store Event
 openStoreRemote.OnClientEvent:Connect(function()
 	storeGui.Enabled = true
 end)
+

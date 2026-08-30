@@ -1,6 +1,6 @@
 --!strict
 -- StoreServer.server.luau
--- Handles Leaderstats, Store Part ClickDetector, and Purchase Logic
+-- Handles BoardStore ClickDetector and Roulette Spin Logic
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
@@ -8,195 +8,121 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local remotesFolder = ReplicatedStorage:WaitForChild("HoverboardRemotes")
 
--- Create RemoteEvents for Store
-local openStoreRemote = Instance.new("RemoteEvent")
-openStoreRemote.Name = "OpenStore"
-openStoreRemote.Parent = remotesFolder
+local openStoreRemote = remotesFolder:FindFirstChild("OpenStore") :: RemoteEvent
+if not openStoreRemote then
+	openStoreRemote = Instance.new("RemoteEvent")
+	openStoreRemote.Name = "OpenStore"
+	openStoreRemote.Parent = remotesFolder
+end
 
-local purchaseItemRemote = Instance.new("RemoteFunction")
-purchaseItemRemote.Name = "PurchaseItem"
-purchaseItemRemote.Parent = remotesFolder
-
-local equipItemRemote = Instance.new("RemoteFunction")
-equipItemRemote.Name = "EquipItem"
-equipItemRemote.Parent = remotesFolder
-
-local DataStoreService = game:GetService("DataStoreService")
-local PlayerDataStore = DataStoreService:GetDataStore("HoverboardData_v1")
+-- We create SpinRoulette if it doesn't exist (or just use a new one)
+local spinRouletteRemote = remotesFolder:FindFirstChild("SpinRoulette") :: RemoteFunction
+if not spinRouletteRemote then
+	spinRouletteRemote = Instance.new("RemoteFunction")
+	spinRouletteRemote.Name = "SpinRoulette"
+	spinRouletteRemote.Parent = remotesFolder
+end
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local StoreConfig = require(Shared:WaitForChild("StoreConfig") :: ModuleScript)
 
--- 1. Setup Leaderstats & Inventory with DataStore
-Players.PlayerAdded:Connect(function(player)
-	local leaderstats = Instance.new("Folder")
-	leaderstats.Name = "leaderstats"
-	leaderstats.Parent = player
+-- 1. Setup BoardStore ClickDetector
+local function setupStorePart(storeObj: Instance)
+	if storeObj:FindFirstChildOfClass("ClickDetector") then return end
 	
-	local gold = Instance.new("IntValue")
-	gold.Name = "Gold"
+	local clickDetector = Instance.new("ClickDetector")
+	clickDetector.MaxActivationDistance = 32
+	clickDetector.CursorIcon = "rbxasset://textures/DragCursor.png"
+	clickDetector.Parent = storeObj
 	
-	local ownedFolder = Instance.new("Folder")
-	ownedFolder.Name = "OwnedHoverboards"
-	ownedFolder.Parent = player
-	
-	local equippedId = Instance.new("StringValue")
-	equippedId.Name = "EquippedHoverboardId"
-	
-	-- Load Data
-	local success, data = pcall(function()
-		return PlayerDataStore:GetAsync(tostring(player.UserId))
+	clickDetector.MouseClick:Connect(function(player)
+		openStoreRemote:FireClient(player)
 	end)
-
-	if success and data then
-		gold.Value = data.Gold or 1000
-		equippedId.Value = data.EquippedHoverboardId or "DefaultHoverboard"
-		local ownedList = data.OwnedHoverboards or {"DefaultHoverboard"}
-		for _, boardId in ipairs(ownedList) do
-			local owned = Instance.new("StringValue")
-			owned.Name = boardId
-			owned.Parent = ownedFolder
-		end
-		print("💾 [StoreServer] Data loaded for " .. player.Name)
-	else
-		-- Default new player data
-		gold.Value = 1000 -- Give some initial gold for testing
-		equippedId.Value = "DefaultHoverboard"
-		local defaultOwned = Instance.new("StringValue")
-		defaultOwned.Name = "DefaultHoverboard"
-		defaultOwned.Parent = ownedFolder
-		print("🆕 [StoreServer] New player profile created for " .. player.Name)
-	end
-
-	gold.Parent = leaderstats
-	equippedId.Parent = player
-end)
-
-Players.PlayerRemoving:Connect(function(player)
-	local leaderstats = player:FindFirstChild("leaderstats")
-	local gold = leaderstats and leaderstats:FindFirstChild("Gold") :: IntValue
-	local ownedFolder = player:FindFirstChild("OwnedHoverboards")
-	local equippedId = player:FindFirstChild("EquippedHoverboardId") :: StringValue
-
-	if gold and ownedFolder and equippedId then
-		local ownedList = {}
-		for _, child in ipairs(ownedFolder:GetChildren()) do
-			table.insert(ownedList, child.Name)
-		end
-
-		local dataToSave = {
-			Gold = gold.Value,
-			OwnedHoverboards = ownedList,
-			EquippedHoverboardId = equippedId.Value
-		}
-
-		local success, err = pcall(function()
-			PlayerDataStore:SetAsync(tostring(player.UserId), dataToSave)
-		end)
-
-		if not success then
-			warn("🚨 [StoreServer] Failed to save data for " .. player.Name .. ": " .. tostring(err))
-		else
-			print("💾 [StoreServer] Data saved for " .. player.Name)
-		end
-	end
-end)
-
--- 2. Setup BoardStore ClickDetector
-local function setupStorePart()
-	-- The user created a part named 'BoardStore'
-	-- Search for it in Workspace (especially in WaitingRoom)
-	local function findStorePart(): BasePart?
-		for _, child in ipairs(Workspace:GetDescendants()) do
-			if child:IsA("BasePart") and child.Name == "BoardStore" then
-				return child
-			end
-		end
-		return nil
+	
+	if storeObj:IsA("BasePart") then
+		storeObj.CanQuery = true
 	end
 	
-	local storePart = findStorePart()
-	if storePart then
-		local clickDetector = storePart:FindFirstChildOfClass("ClickDetector")
-		if not clickDetector then
-			clickDetector = Instance.new("ClickDetector")
-			clickDetector.MaxActivationDistance = 15
-			clickDetector.CursorIcon = "rbxasset://textures/DragCursor.png"
-			clickDetector.Parent = storePart
+	print("🛒 [StoreServer] BoardStore ClickDetector successfully attached to:", storeObj.Name, "(", storeObj.ClassName, ")")
+end
+
+local function checkAndSetup(obj: Instance)
+	local function isTargetName(name)
+		return name:lower():gsub("%s+", "") == "boardstore"
+	end
+	
+	if isTargetName(obj.Name) then
+		if obj:IsA("BasePart") or obj:IsA("Model") then
+			setupStorePart(obj)
 		end
-		
-		clickDetector.MouseClick:Connect(function(player)
-			openStoreRemote:FireClient(player)
-		end)
-		print("🛒 [StoreServer] BoardStore ClickDetector set up!")
-	else
-		warn("⚠️ [StoreServer] Could not find 'BoardStore' part in Workspace. Store clicking disabled.")
 	end
 end
 
--- Wait a moment for map/workspace to load, then setup
-task.spawn(function()
-	task.wait(2)
-	setupStorePart()
-end)
+-- Check existing parts
+for _, child in ipairs(Workspace:GetDescendants()) do
+	checkAndSetup(child)
+end
 
--- 3. Handle Purchase Logic
-purchaseItemRemote.OnServerInvoke = function(player: Player, itemId: string, currencyType: string)
-	-- find item in config
-	local itemInfo = nil
+-- Listen for dynamically added parts
+Workspace.DescendantAdded:Connect(checkAndSetup)
+
+-- 2. Handle Roulette Spin Logic
+spinRouletteRemote.OnServerInvoke = function(player: Player)
+	local leaderstats = player:FindFirstChild("leaderstats")
+	local gold = leaderstats and leaderstats:FindFirstChild("Gold") :: IntValue
+	local ownedFolder = player:FindFirstChild("OwnedHoverboards")
+	
+	if not gold or not ownedFolder then
+		return false, "데이터 오류", false
+	end
+	
+	if gold.Value < StoreConfig.RouletteCost then
+		return false, "골드가 부족합니다.", false
+	end
+	
+	-- Calculate total weight
+	local totalWeight = 0
+	local pool = {}
 	for _, item in ipairs(StoreConfig.Items) do
-		if item.id == itemId then
-			itemInfo = item
+		if item.weight and item.weight > 0 then
+			totalWeight += item.weight
+			table.insert(pool, item)
+		end
+	end
+	
+	-- Spin
+	local randomVal = math.random(1, totalWeight)
+	local currentWeight = 0
+	local wonItem = nil
+	
+	for _, item in ipairs(pool) do
+		currentWeight += item.weight
+		if randomVal <= currentWeight then
+			wonItem = item
 			break
 		end
 	end
 	
-	if not itemInfo then return false, "Item not found" end
-	
-	local leaderstats = player:FindFirstChild("leaderstats")
-	local gold = leaderstats and leaderstats:FindFirstChild("Gold") :: IntValue
-	local ownedFolder = player:FindFirstChild("OwnedHoverboards")
-	
-	if ownedFolder and ownedFolder:FindFirstChild(itemId) then
-		return false, "Already owned!"
+	if not wonItem then
+		return false, "뽑기 실패 (풀 오류)", false
 	end
 	
-	if currencyType == "Gold" then
-		if gold and gold.Value >= itemInfo.goldPrice then
-			gold.Value -= itemInfo.goldPrice
-			print("💸 [StoreServer] " .. player.Name .. " bought " .. itemInfo.name .. " for " .. itemInfo.goldPrice .. " Gold!")
-			
-			local owned = Instance.new("StringValue")
-			owned.Name = itemId
-			owned.Parent = ownedFolder
-			
-			return true, "Successfully purchased " .. itemInfo.name .. "!"
-		else
-			return false, "Not enough Gold!"
-		end
-	elseif currencyType == "Robux" then
-		-- Mock Robux Purchase
-		print("💸 [StoreServer] " .. player.Name .. " bought " .. itemInfo.name .. " for " .. itemInfo.robuxPrice .. " Robux (MOCK)!")
-		
+	-- Deduct Gold
+	gold.Value -= StoreConfig.RouletteCost
+	
+	local isDuplicate = (ownedFolder:FindFirstChild(wonItem.id) ~= nil)
+	
+	if isDuplicate then
+		-- Refund 1/3
+		gold.Value += StoreConfig.RefundAmount
+		print("🎰 [StoreServer] " .. player.Name .. " spun and got DUPLICATE " .. wonItem.name .. ". Refunded " .. StoreConfig.RefundAmount .. "G")
+	else
+		-- Add to inventory
 		local owned = Instance.new("StringValue")
-		owned.Name = itemId
+		owned.Name = wonItem.id
 		owned.Parent = ownedFolder
-		
-		return true, "Successfully purchased " .. itemInfo.name .. " with Robux!"
+		print("🎰 [StoreServer] " .. player.Name .. " spun and WON " .. wonItem.name .. "!")
 	end
 	
-	return false, "Invalid currency"
-end
-
--- 4. Handle Equip Logic
-equipItemRemote.OnServerInvoke = function(player: Player, itemId: string)
-	local ownedFolder = player:FindFirstChild("OwnedHoverboards")
-	if ownedFolder and ownedFolder:FindFirstChild(itemId) then
-		local equippedId = player:FindFirstChild("EquippedHoverboardId") :: StringValue?
-		if equippedId then
-			equippedId.Value = itemId
-			return true, "Equipped " .. itemId
-		end
-	end
-	return false, "Item not owned!"
+	return true, wonItem, isDuplicate
 end

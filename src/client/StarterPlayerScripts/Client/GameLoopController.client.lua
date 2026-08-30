@@ -31,8 +31,8 @@ local loadingPercentLabel: TextLabel? = nil
 type VoterInfo = { userId: number, name: string }
 type MapVoteData = { [string]: { VoterInfo } }
 
-local currentPhase = "MAP_VOTING"
-local phaseTimeLeft = 15
+local currentPhase = "INTERMISSION"
+local phaseTimeLeft = 0
 local currentChosenMap = "Oval Speedway"
 local currentMapVotes: MapVoteData = {
 	["Oval Speedway"] = {},
@@ -562,6 +562,17 @@ phaseRemote.OnClientEvent:Connect(function(phase: string, timeLeft: number, mapV
 	if phase == "MAP_VOTING" and currentPhase ~= "MAP_VOTING" then
 		isVotingModalDismissed = false
 	end
+	
+	if phase ~= currentPhase and (phase == "MAP_VOTING" or phase == "MAP_BUILDING") then
+		local uisToClose = {"HoverboardRouletteGui", "SkillStoreGui", "InventoryGui"}
+		for _, name in ipairs(uisToClose) do
+			local gui = playerGui:FindFirstChild(name)
+			if gui and gui:IsA("ScreenGui") then
+				gui.Enabled = false
+			end
+		end
+	end
+	
 	currentPhase = phase
 	phaseTimeLeft = timeLeft
 	if mapVotes then

@@ -35,6 +35,7 @@ local lastRankingsStr = ""
 local heartbeatConnection: RBXScriptConnection? = nil
 local checkpointPositions: { [number]: Vector3 } = {}
 local playerStartPositions: { [number]: Vector3 } = {}
+local currentRankings: { {userId: number, name: string, score: number} } = {}
 
 local function cleanupCheckpoints()
 	for _, conn in ipairs(checkpointConnections) do
@@ -236,6 +237,7 @@ function LapManager.startTracking(mapName: string, startTime: number)
 				end
 				
 				table.insert(sortedPlayers, {
+					userId = userId,
 					name = p.DisplayName,
 					score = score
 				})
@@ -249,6 +251,8 @@ function LapManager.startTracking(mapName: string, startTime: number)
 			end
 			return a.score > b.score
 		end)
+		
+		currentRankings = sortedPlayers
 		
 		local sortedNames = {}
 		local namesStr = ""
@@ -273,6 +277,20 @@ end
 function LapManager.stopTracking()
 	cleanupCheckpoints()
 	table.clear(playerLaps)
+	table.clear(currentRankings)
+end
+
+function LapManager.getPlayerAhead(userId: number)
+	for i, rankData in ipairs(currentRankings) do
+		if rankData.userId == userId then
+			if i > 1 then
+				local aheadUserId = currentRankings[i - 1].userId
+				return Players:GetPlayerByUserId(aheadUserId)
+			end
+			return nil
+		end
+	end
+	return nil
 end
 
 function LapManager.getFinishedCount()
