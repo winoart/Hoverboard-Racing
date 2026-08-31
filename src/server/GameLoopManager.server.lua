@@ -56,7 +56,7 @@ local chosenMapName = "Oval Speedway"
 type VoterInfo = { userId: number, name: string }
 local mapVoteData: { [string]: { VoterInfo } } = {
 	["Oval Speedway"] = {},
-	["Cyber City"] = {},
+	["Desert Track"] = {},
 	["Magma Ridge"] = {},
 }
 
@@ -306,7 +306,7 @@ task.spawn(function()
 		chosenMapName = "Oval Speedway"
 		mapVoteData = {
 			["Oval Speedway"] = {},
-			["Cyber City"] = {},
+			["Desert Track"] = {},
 			["Magma Ridge"] = {},
 		}
 

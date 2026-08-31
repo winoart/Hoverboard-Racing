@@ -38,6 +38,7 @@ local currentMapVotes: MapVoteData = {
 	["Oval Speedway"] = {},
 	["Cyber City"] = {},
 	["Magma Ridge"] = {},
+	["Desert Track"] = {},
 }
 local selectedMapName = ""
 local isVotingModalDismissed = false
@@ -52,11 +53,11 @@ local MAP_CONFIGS = {
 		bgGrad = Color3.fromRGB(15, 45, 75),
 	},
 	{
-		id = "Cyber City",
-		title = "⚡ Cyber City",
-		sub = "Futuristic Highway",
-		color = Color3.fromRGB(220, 80, 255),
-		bgGrad = Color3.fromRGB(55, 15, 75),
+		id = "Desert Track",
+		title = "🏜️ Desert Track",
+		sub = "Sandy Dunes",
+		color = Color3.fromRGB(255, 200, 50),
+		bgGrad = Color3.fromRGB(80, 60, 20),
 	},
 	{
 		id = "Magma Ridge",

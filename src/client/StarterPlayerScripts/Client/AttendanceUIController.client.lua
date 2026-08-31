@@ -241,3 +241,11 @@ task.spawn(function()
 	refreshUI(hasClaimed, streak)
 	gui.Enabled = true -- Auto popup on join
 end)
+
+-- Hide Attendance UI when Map Voting or Race starts
+local gamePhaseRemote = ReplicatedStorage:WaitForChild("HoverboardRemotes"):WaitForChild("GamePhaseChanged") :: RemoteEvent
+gamePhaseRemote.OnClientEvent:Connect(function(phase: string)
+	if phase ~= "INTERMISSION" then
+		gui.Enabled = false
+	end
+end)

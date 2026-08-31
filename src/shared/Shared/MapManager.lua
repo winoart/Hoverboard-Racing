@@ -13,6 +13,7 @@ MapManager.MapLaps = {
 	["Oval Speedway"] = 5,
 	["Cyber City"] = 3,
 	["Magma Ridge"] = 3,
+	["Desert Track"] = 4,
 }
 
 function MapManager.getTotalLaps(mapName: string): number
@@ -133,21 +134,64 @@ function MapManager.LoadMap(mapName: string): (Model, CFrame)
 	local loungeCFrame = MapManager.getLoungeCFrame()
 	local targetMapPos = Vector3.new(loungeCFrame.Position.X, loungeCFrame.Position.Y - 80, loungeCFrame.Position.Z)
 
-	-- Calculate the offset between the map's pivot and its true visual center (bounding box)
-	local originalPivot = activeMap:GetPivot()
-	local bbCFrame = activeMap:GetBoundingBox()
-	local pivotOffset = originalPivot.Position - bbCFrame.Position
-
-	-- Pivot active map to target position directly under WaitingRoom, preserving its original rotation
-	activeMap:PivotTo(CFrame.new(targetMapPos + pivotOffset) * originalPivot.Rotation)
+	-- Find StartGrid to use as the center of our pivot
+	local startGridPart = activeMap:FindFirstChild("TrackStartGridPart", true) :: BasePart?
+	
+	if startGridPart then
+		-- Pivot map so that the startGrid is exactly at targetMapPos
+		local mapPivot = activeMap:GetPivot()
+		local offset = mapPivot:ToObjectSpace(startGridPart.CFrame)
+		
+		local targetCFrame = CFrame.new(targetMapPos) * mapPivot.Rotation
+		activeMap:PivotTo(targetCFrame * offset:Inverse())
+	else
+		-- Fallback to BoundingBox if no StartGrid exists
+		local originalPivot = activeMap:GetPivot()
+		local bbCFrame = activeMap:GetBoundingBox()
+		local pivotOffset = originalPivot.Position - bbCFrame.Position
+		activeMap:PivotTo(CFrame.new(targetMapPos + pivotOffset) * originalPivot.Rotation)
+	end
+	
 	activeMap.Parent = Workspace
 
 	-- Locate start grid CFrame inside loaded map model
-	local startGridPart = activeMap:FindFirstChild("TrackStartGridPart", true) :: BasePart?
 	local startGridCFrame: CFrame
 
 	if startGridPart then
 		startGridCFrame = startGridPart.CFrame
+		
+		local startModel = activeMap:FindFirstChild("StartingPoint", true) :: Model?
+		if startModel then
+			-- Generate missing CheckerTiles if user forgot to copy them
+			local startLineBase = startModel:FindFirstChild("StartLineBase") :: BasePart?
+			local hasChecker = startModel:FindFirstChild("CheckerTile")
+			if startLineBase and not hasChecker then
+				local lineWidth = startLineBase.Size.X
+				local lineLength = startLineBase.Size.Z
+				local sCFrame = startLineBase.CFrame
+				
+				local rows, cols = 2, 10
+				local tileW, tileL = lineWidth / cols, lineLength / rows
+				
+				for r = 1, rows do
+					for c = 1, cols do
+						local isWhite = ((r + c) % 2 == 0)
+						local offsetX = - (lineWidth / 2) + (c - 0.5) * tileW
+						local offsetZ = - (lineLength / 2) + (r - 0.5) * tileL
+						local tile = Instance.new("Part")
+						tile.Name = "CheckerTile"
+						tile.Anchored = true
+						tile.CanCollide = false
+						tile.Material = Enum.Material.SmoothPlastic
+						tile.Color = isWhite and Color3.fromRGB(245, 245, 250) or Color3.fromRGB(25, 25, 30)
+						tile.Size = Vector3.new(tileW, 0.18, tileL)
+						tile.CFrame = sCFrame * CFrame.new(offsetX, 0.02, offsetZ)
+						tile.TopSurface = Enum.SurfaceType.Smooth
+						tile.Parent = startModel
+					end
+				end
+			end
+		end
 	else
 		local startModel = activeMap:FindFirstChild("StartingPoint", true) :: Model?
 		if startModel then

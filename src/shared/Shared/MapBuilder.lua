@@ -528,4 +528,145 @@ function MapBuilder.buildOvalSpeedwayModel(): Model
 	return mapModel
 end
 
+function MapBuilder.addStartingPointToMap(mapModel, startCFrame, trackWidth)
+	local startModel = Instance.new("Model")
+	startModel.Name = "StartingPoint"
+	startModel.Parent = mapModel
+
+	local lineLength = 12.0
+	local lineWidth = trackWidth + 4.0
+	local lineYOffset = 1.08
+
+	local startLineBase = Instance.new("Part")
+	startLineBase.Name = "StartLineBase"
+	startLineBase.Anchored = true
+	startLineBase.CanCollide = false
+	startLineBase.Material = Enum.Material.SmoothPlastic
+	startLineBase.Color = Color3.fromRGB(15, 18, 25)
+	startLineBase.Size = Vector3.new(lineWidth, 0.15, lineLength)
+	startLineBase.CFrame = startCFrame * CFrame.new(0, lineYOffset, 0)
+	startLineBase.TopSurface = Enum.SurfaceType.Smooth
+	startLineBase.Parent = startModel
+
+	startModel.PrimaryPart = startLineBase
+
+	local rows = 2
+	local cols = 10
+	local tileW = lineWidth / cols
+	local tileL = lineLength / rows
+
+	for r = 1, rows do
+		for c = 1, cols do
+			local isWhite = ((r + c) % 2 == 0)
+			local offsetX = - (lineWidth / 2) + (c - 0.5) * tileW
+			local offsetZ = - (lineLength / 2) + (r - 0.5) * tileL
+
+			local tile = Instance.new("Part")
+			tile.Name = "CheckerTile"
+			tile.Anchored = true
+			tile.CanCollide = false
+			tile.Material = Enum.Material.SmoothPlastic
+			tile.Color = isWhite and Color3.fromRGB(245, 245, 250) or Color3.fromRGB(25, 25, 30)
+			tile.Size = Vector3.new(tileW, 0.18, tileL)
+			tile.CFrame = startCFrame * CFrame.new(offsetX, lineYOffset + 0.02, offsetZ)
+			tile.TopSurface = Enum.SurfaceType.Smooth
+			tile.Parent = startModel
+		end
+	end
+
+	local archAheadZ = 24.0
+	local archHeight = 28.0
+	local pillarOffset = (lineWidth / 2) + 4.0
+	local archCenterCFrame = startCFrame * CFrame.new(0, 0, archAheadZ)
+
+	for _, sideX in ipairs({ -pillarOffset, pillarOffset }) do
+		local pillar = Instance.new("Part")
+		pillar.Name = "StartArchPillar"
+		pillar.Anchored = true
+		pillar.CanCollide = true
+		pillar.Material = Enum.Material.Metal
+		pillar.Color = Color3.fromRGB(40, 45, 55)
+		pillar.Size = Vector3.new(5.0, archHeight, 6.0)
+		pillar.CFrame = archCenterCFrame * CFrame.new(sideX, archHeight / 2, 0)
+		pillar.Parent = startModel
+	end
+
+	local beamLength = (pillarOffset * 2) + 6.0
+	local beamCFrame = archCenterCFrame * CFrame.new(0, archHeight + 3, 0)
+
+	local topBeam = Instance.new("Part")
+	topBeam.Name = "StartArchTopBeam"
+	topBeam.Anchored = true
+	topBeam.CanCollide = true
+	topBeam.Material = Enum.Material.SmoothPlastic
+	topBeam.Color = Color3.fromRGB(20, 25, 35)
+	topBeam.Size = Vector3.new(beamLength, 7.0, 7.0)
+	topBeam.CFrame = beamCFrame
+	topBeam.Parent = startModel
+
+	local bannerFrame = Instance.new("Part")
+	bannerFrame.Name = "BannerSignboard"
+	bannerFrame.Anchored = true
+	bannerFrame.CanCollide = false
+	bannerFrame.Material = Enum.Material.SmoothPlastic
+	bannerFrame.Color = Color3.fromRGB(10, 14, 22)
+	bannerFrame.Size = Vector3.new(44.0, 6.5, 0.8)
+	bannerFrame.CFrame = beamCFrame * CFrame.new(0, 0, -3.6)
+	bannerFrame.Parent = startModel
+
+	local surfaceGui = Instance.new("SurfaceGui")
+	surfaceGui.Name = "StartSignGui"
+	surfaceGui.Face = Enum.NormalId.Back
+	surfaceGui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	surfaceGui.PixelsPerStud = 30
+	surfaceGui.Parent = bannerFrame
+
+	local titleLabel = Instance.new("TextLabel")
+	titleLabel.Name = "TitleText"
+	titleLabel.Size = UDim2.new(1, 0, 1, 0)
+	titleLabel.BackgroundTransparency = 1
+	titleLabel.Font = Enum.Font.GothamBlack
+	titleLabel.Text = "🏁 START POINT 🏁"
+	titleLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
+	titleLabel.TextSize = 52
+	titleLabel.ZIndex = 2
+	titleLabel.Parent = surfaceGui
+
+	local lightPodCFrame = beamCFrame * CFrame.new(0, -5.5, -3.6)
+	local lightPod = Instance.new("Part")
+	lightPod.Name = "SignalLightPod"
+	lightPod.Anchored = true
+	lightPod.CanCollide = false
+	lightPod.Material = Enum.Material.SmoothPlastic
+	lightPod.Color = Color3.fromRGB(15, 18, 24)
+	lightPod.Size = Vector3.new(22.0, 5.0, 2.5)
+	lightPod.CFrame = lightPodCFrame
+	lightPod.Parent = startModel
+
+	local signalColors = {
+		{ name = "RedLight", color = Color3.fromRGB(255, 40, 40), offsetX = -6.5 },
+		{ name = "YellowLight", color = Color3.fromRGB(255, 200, 30), offsetX = 0 },
+		{ name = "GreenLight", color = Color3.fromRGB(40, 255, 80), offsetX = 6.5 },
+	}
+
+	for _, sig in ipairs(signalColors) do
+		local lightPart = Instance.new("Part")
+		lightPart.Name = sig.name
+		lightPart.Anchored = true
+		lightPart.CanCollide = false
+		lightPart.Shape = Enum.PartType.Ball
+		lightPart.Material = Enum.Material.Neon
+		lightPart.Color = sig.color
+		lightPart.Size = Vector3.new(3.8, 3.8, 3.8)
+		lightPart.CFrame = lightPodCFrame * CFrame.new(sig.offsetX, 0, -0.6)
+		lightPart.Parent = startModel
+
+		local pLight = Instance.new("PointLight")
+		pLight.Color = sig.color
+		pLight.Brightness = 3.5
+		pLight.Range = 14
+		pLight.Parent = lightPart
+	end
+end
+
 return MapBuilder

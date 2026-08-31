@@ -85,8 +85,8 @@ Players.PlayerAdded:Connect(function(player)
 		lastAttendanceDate.Value = data.LastAttendanceDate or ""
 		attendanceStreak.Value = data.AttendanceStreak or 0
 		
-		-- [TESTING] Give 3000 gold
-		gold.Value += 3000
+		-- [TESTING] Give 50000 gold
+		gold.Value += 50000
 		
 		-- Load Boards
 		equippedBoardId.Value = data.EquippedHoverboardId or "DefaultHoverboard"
@@ -121,7 +121,7 @@ Players.PlayerAdded:Connect(function(player)
 		print("💾 [DataServer] Data loaded for " .. player.Name)
 	else
 		-- Default new player data
-		gold.Value = 1000 + 3000 -- [TESTING] Give 3000 extra
+		gold.Value = 1000 + 50000 -- [TESTING] Give 50000 extra
 		lastAttendanceDate.Value = ""
 		attendanceStreak.Value = 0
 		
