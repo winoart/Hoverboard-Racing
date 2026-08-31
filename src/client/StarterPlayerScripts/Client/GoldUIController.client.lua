@@ -20,64 +20,41 @@ if not goldValue then
 	return
 end
 
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "GoldDisplayHUD"
-screenGui.ResetOnSpawn = false
-screenGui.DisplayOrder = 10
-screenGui.Parent = playerGui
+local screenGui = playerGui:WaitForChild("GoldDisplayHUD")
+local goldFrame = screenGui:WaitForChild("GoldFrame")
+local goldIcon = goldFrame:WaitForChild("GoldIcon")
+local goldTextLabel = goldFrame:WaitForChild("GoldTextLabel")
+local addGoldButton = goldFrame:WaitForChild("AddGoldButton")
 
-local goldFrame = Instance.new("Frame")
-goldFrame.Name = "GoldFrame"
-goldFrame.Size = UDim2.new(0, 160, 0, 50)
-goldFrame.Position = UDim2.new(0, 20, 0.5, -25) -- 화면 왼쪽 중간
-goldFrame.BackgroundColor3 = Color3.fromRGB(20, 25, 35)
-goldFrame.BackgroundTransparency = 0.2
-goldFrame.BorderSizePixel = 0
-goldFrame.Parent = screenGui
+local suffixes = {"", "K", "M", "B", "T", "Qa", "Qi"}
 
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 12)
-corner.Parent = goldFrame
+local function FormatGold(n)
+	if n < 1000 then
+		return tostring(n)
+	end
+	
+	local index = 1
+	while n >= 1000 and index < #suffixes do
+		n = n / 1000
+		index = index + 1
+	end
+	
+	-- 1.0K 처럼 불필요한 소수점(.0)이 붙는 것을 제거
+	local formatted = string.format("%.1f", n)
+	if formatted:sub(-2) == ".0" then
+		formatted = formatted:sub(1, -3)
+	end
+	
+	return formatted .. suffixes[index]
+end
 
-local stroke = Instance.new("UIStroke")
-stroke.Color = Color3.fromRGB(255, 215, 0)
-stroke.Thickness = 2.5
-stroke.Parent = goldFrame
+local function UpdateGoldText()
+	goldTextLabel.Text = FormatGold(goldValue.Value)
+end
 
-local goldIconLabel = Instance.new("TextLabel")
-goldIconLabel.Size = UDim2.new(0, 45, 1, 0)
-goldIconLabel.Position = UDim2.new(0, 5, 0, 0)
-goldIconLabel.BackgroundTransparency = 1
-goldIconLabel.Font = Enum.Font.GothamBlack
-goldIconLabel.Text = "💰"
-goldIconLabel.TextSize = 22
-goldIconLabel.Parent = goldFrame
-
-local goldTextLabel = Instance.new("TextLabel")
-goldTextLabel.Size = UDim2.new(1, -90, 1, 0)
-goldTextLabel.Position = UDim2.new(0, 50, 0, 0)
-goldTextLabel.BackgroundTransparency = 1
-goldTextLabel.Font = Enum.Font.GothamBlack
-goldTextLabel.TextColor3 = Color3.fromRGB(255, 220, 0)
-goldTextLabel.TextSize = 20
-goldTextLabel.TextXAlignment = Enum.TextXAlignment.Left
-goldTextLabel.Text = tostring(goldValue.Value)
-goldTextLabel.Parent = goldFrame
-
-local addGoldButton = Instance.new("TextButton")
-addGoldButton.Name = "AddGoldButton"
-addGoldButton.Size = UDim2.new(0, 30, 0, 30)
-addGoldButton.Position = UDim2.new(1, -35, 0.5, -15)
-addGoldButton.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
-addGoldButton.Font = Enum.Font.GothamBlack
-addGoldButton.Text = "+"
-addGoldButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-addGoldButton.TextSize = 24
-addGoldButton.Parent = goldFrame
-
-local addCorner = Instance.new("UICorner")
-addCorner.CornerRadius = UDim.new(1, 0)
-addCorner.Parent = addGoldButton
+-- 최초 1회 업데이트 및 골드 변경 시 자동 업데이트 연결
+UpdateGoldText()
+goldValue.Changed:Connect(UpdateGoldText)
 
 -- Hover effect for plus button
 addGoldButton.MouseEnter:Connect(function()
@@ -222,21 +199,15 @@ for i, product in ipairs(MonetizationConfig.GoldProducts) do
 end
 productContainer.CanvasSize = UDim2.new(0, 0, 0, math.ceil(#MonetizationConfig.GoldProducts / 2) * 155)
 
--- 골드 값 변경 시 UI 업데이트
-local function updateGold()
-	goldTextLabel.Text = tostring(goldValue.Value)
-end
-goldValue.Changed:Connect(updateGold)
-updateGold()
 
--- 대기실(Hoverboard 미장착 상태)에서만 보이도록 처리
-RunService.RenderStepped:Connect(function()
-	local character = LocalPlayer.Character
-	local boardModel = character and character:FindFirstChild("EquippedHoverboard")
-	
-	-- 호버보드가 있으면 레이스 중이므로 숨김, 없으면 대기실이므로 표시
-	local isInRace = (boardModel ~= nil)
-	screenGui.Enabled = not isInRace
+local gamePhaseRemote = ReplicatedStorage:WaitForChild("HoverboardRemotes"):WaitForChild("GamePhaseChanged") :: RemoteEvent
+gamePhaseRemote.OnClientEvent:Connect(function(phase: string)
+	-- 대기실(INTERMISSION)이나 맵 투표 중일 때는 골드 UI 표시, 트랙에 진입하면 숨김
+	if phase == "INTERMISSION" or phase == "MAP_VOTING" then
+		screenGui.Enabled = true
+	else
+		screenGui.Enabled = false
+	end
 end)
 
 print("💰 [GoldUIController] Gold Display UI loaded.")

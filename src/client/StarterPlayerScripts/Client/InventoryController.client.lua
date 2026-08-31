@@ -20,29 +20,8 @@ local StoreConfig = require(Shared:WaitForChild("StoreConfig") :: ModuleScript)
 local SkillStoreConfig = require(Shared:WaitForChild("SkillStoreConfig") :: ModuleScript)
 
 -- Main Toggle Button (HUD)
-local hudGui = Instance.new("ScreenGui")
-hudGui.Name = "InventoryHUD"
-hudGui.ResetOnSpawn = false
-hudGui.Parent = playerGui
-
-local toggleBtn = Instance.new("TextButton")
-toggleBtn.Name = "InventoryToggle"
-toggleBtn.Size = UDim2.new(0, 70, 0, 70)
-toggleBtn.Position = UDim2.new(1, -90, 0, 20)
-toggleBtn.BackgroundColor3 = Color3.fromRGB(30, 40, 60)
-toggleBtn.Font = Enum.Font.GothamBlack
-toggleBtn.Text = "🎒"
-toggleBtn.TextSize = 36
-toggleBtn.Parent = hudGui
-
-local tCorner = Instance.new("UICorner")
-tCorner.CornerRadius = UDim.new(1, 0)
-tCorner.Parent = toggleBtn
-
-local tStroke = Instance.new("UIStroke")
-tStroke.Color = Color3.fromRGB(255, 255, 255)
-tStroke.Thickness = 2
-tStroke.Parent = toggleBtn
+local hudGui = playerGui:WaitForChild("InventoryHUD")
+local toggleBtn = hudGui:WaitForChild("InventoryToggle")
 
 -- Inventory UI
 local invGui = Instance.new("ScreenGui")
@@ -362,7 +341,7 @@ end
 -- Listen to GamePhase changes to hide inventory button during races
 local phaseRemote = hoverRemotes:WaitForChild("GamePhaseChanged") :: RemoteEvent
 phaseRemote.OnClientEvent:Connect(function(phase, timeLeft)
-	if phase == "INTERMISSION" then
+	if phase == "INTERMISSION" or phase == "MAP_VOTING" then
 		hudGui.Enabled = true
 	else
 		hudGui.Enabled = false
