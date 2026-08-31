@@ -35,6 +35,9 @@ local function createSubPart(
 	weld.Part1 = part
 	weld.C0 = c0Offset
 	weld.Parent = part
+	
+	-- Explicitly set CFrame for ViewportFrames (no physics simulation)
+	part.CFrame = deck.CFrame * c0Offset
 
 	return part
 end

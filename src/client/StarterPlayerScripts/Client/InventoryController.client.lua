@@ -4,6 +4,7 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
 local StarterGui = game:GetService("StarterGui")
 
 local LocalPlayer = Players.LocalPlayer
@@ -14,16 +15,38 @@ local equipBoardRemote = hoverRemotes:WaitForChild("EquipItem") :: RemoteFunctio
 
 local skillRemotes = ReplicatedStorage:WaitForChild("SkillRemotes")
 local equipSkillRemote = skillRemotes:WaitForChild("EquipSkill") :: RemoteFunction
+local buySkillRemote = skillRemotes:WaitForChild("PurchaseSkill") :: RemoteFunction
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local StoreConfig = require(Shared:WaitForChild("StoreConfig") :: ModuleScript)
 local SkillStoreConfig = require(Shared:WaitForChild("SkillStoreConfig") :: ModuleScript)
+local HoverboardBuilder = require(Shared:WaitForChild("HoverboardBuilder") :: ModuleScript)
+local RunService = game:GetService("RunService")
+
+-- Folder for custom models
+local customModelsFolder = ReplicatedStorage:FindFirstChild("HoverboardModels")
 
 -- Main Toggle Button (HUD)
 local hudGui = playerGui:WaitForChild("InventoryHUD")
 local toggleBtn = hudGui:WaitForChild("InventoryToggle")
 
--- Inventory UI
+-- Hover Effects on HUD
+local originalSize = toggleBtn.Size
+local hoverSize = UDim2.new(originalSize.X.Scale, originalSize.X.Offset + 8, originalSize.Y.Scale, originalSize.Y.Offset + 8)
+
+toggleBtn.MouseEnter:Connect(function()
+	TweenService:Create(toggleBtn, TweenInfo.new(0.15, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {Size = hoverSize}):Play()
+end)
+toggleBtn.MouseLeave:Connect(function()
+	TweenService:Create(toggleBtn, TweenInfo.new(0.15, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {Size = originalSize}):Play()
+end)
+
+-- State
+local currentTab = "Board"
+local selectedItem: any = nil
+local selectedItemType: string = "Board"
+
+-- Inventory UI Generation
 local invGui = Instance.new("ScreenGui")
 invGui.Name = "InventoryGui"
 invGui.ResetOnSpawn = false
@@ -32,23 +55,15 @@ invGui.Parent = playerGui
 
 local bgFrame = Instance.new("Frame")
 bgFrame.Name = "Background"
-bgFrame.Size = UDim2.new(0, 800, 0, 500)
-bgFrame.Position = UDim2.new(0.5, -400, 0.5, -250)
-bgFrame.BackgroundColor3 = Color3.fromRGB(15, 20, 30)
-bgFrame.BackgroundTransparency = 0.05
-bgFrame.BorderSizePixel = 0
+bgFrame.Size = UDim2.new(0, 850, 0, 500)
+bgFrame.Position = UDim2.new(0.5, -425, 0.5, -250)
+bgFrame.BackgroundColor3 = Color3.fromRGB(20, 25, 35)
 bgFrame.Parent = invGui
-
-local bgCorner = Instance.new("UICorner")
-bgCorner.CornerRadius = UDim.new(0, 12)
-bgCorner.Parent = bgFrame
-
-local bgStroke = Instance.new("UIStroke")
-bgStroke.Color = Color3.fromRGB(200, 200, 255)
+Instance.new("UICorner", bgFrame).CornerRadius = UDim.new(0, 12)
+local bgStroke = Instance.new("UIStroke", bgFrame)
+bgStroke.Color = Color3.fromRGB(150, 150, 200)
 bgStroke.Thickness = 3
-bgStroke.Parent = bgFrame
 
--- Title
 local titleLabel = Instance.new("TextLabel")
 titleLabel.Name = "Title"
 titleLabel.Size = UDim2.new(1, 0, 0, 50)
@@ -60,7 +75,6 @@ titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 titleLabel.TextSize = 28
 titleLabel.Parent = bgFrame
 
--- Close Button
 local closeBtn = Instance.new("TextButton")
 closeBtn.Name = "CloseButton"
 closeBtn.Size = UDim2.new(0, 40, 0, 40)
@@ -71,10 +85,7 @@ closeBtn.Text = "X"
 closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 closeBtn.TextSize = 20
 closeBtn.Parent = bgFrame
-
-local closeCorner = Instance.new("UICorner")
-closeCorner.CornerRadius = UDim.new(0, 8)
-closeCorner.Parent = closeBtn
+Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 8)
 
 toggleBtn.MouseButton1Click:Connect(function()
 	invGui.Enabled = not invGui.Enabled
@@ -90,74 +101,366 @@ tabsFrame.Position = UDim2.new(0, 20, 0, 60)
 tabsFrame.BackgroundTransparency = 1
 tabsFrame.Parent = bgFrame
 
-local tabLayout = Instance.new("UIListLayout")
+local tabLayout = Instance.new("UIListLayout", tabsFrame)
 tabLayout.FillDirection = Enum.FillDirection.Horizontal
 tabLayout.Padding = UDim.new(0, 10)
-tabLayout.SortOrder = Enum.SortOrder.LayoutOrder
-tabLayout.Parent = tabsFrame
 
-local boardsTabBtn = Instance.new("TextButton")
+local boardsTabBtn = Instance.new("TextButton", tabsFrame)
 boardsTabBtn.Size = UDim2.new(0, 150, 1, 0)
 boardsTabBtn.BackgroundColor3 = Color3.fromRGB(50, 100, 255)
 boardsTabBtn.Font = Enum.Font.GothamBold
 boardsTabBtn.Text = "호버보드"
 boardsTabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 boardsTabBtn.TextSize = 18
-boardsTabBtn.LayoutOrder = 1
-boardsTabBtn.Parent = tabsFrame
+Instance.new("UICorner", boardsTabBtn).CornerRadius = UDim.new(0, 6)
 
-local boardsCorner = Instance.new("UICorner")
-boardsCorner.CornerRadius = UDim.new(0, 6)
-boardsCorner.Parent = boardsTabBtn
-
-local skillsTabBtn = Instance.new("TextButton")
+local skillsTabBtn = Instance.new("TextButton", tabsFrame)
 skillsTabBtn.Size = UDim2.new(0, 150, 1, 0)
 skillsTabBtn.BackgroundColor3 = Color3.fromRGB(40, 50, 70)
 skillsTabBtn.Font = Enum.Font.GothamBold
 skillsTabBtn.Text = "스킬"
 skillsTabBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
 skillsTabBtn.TextSize = 18
-skillsTabBtn.LayoutOrder = 2
-skillsTabBtn.Parent = tabsFrame
+Instance.new("UICorner", skillsTabBtn).CornerRadius = UDim.new(0, 6)
 
-local skillsCorner = Instance.new("UICorner")
-skillsCorner.CornerRadius = UDim.new(0, 6)
-skillsCorner.Parent = skillsTabBtn
+-- Left Column (Scrolls)
+local leftCol = Instance.new("Frame", bgFrame)
+leftCol.Name = "LeftColumn"
+leftCol.Size = UDim2.new(0.6, -10, 1, -120)
+leftCol.Position = UDim2.new(0, 20, 0, 110)
+leftCol.BackgroundTransparency = 1
 
--- Scroll Frames for content
-local boardsScroll = Instance.new("ScrollingFrame")
-boardsScroll.Name = "BoardsScroll"
-boardsScroll.Size = UDim2.new(1, -40, 1, -120)
-boardsScroll.Position = UDim2.new(0, 20, 0, 110)
+local boardsScroll = Instance.new("ScrollingFrame", leftCol)
+boardsScroll.Size = UDim2.new(1, 0, 1, 0)
 boardsScroll.BackgroundTransparency = 1
 boardsScroll.ScrollBarThickness = 8
 boardsScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 boardsScroll.Visible = true
-boardsScroll.Parent = bgFrame
 
-local boardsGrid = Instance.new("UIGridLayout")
-boardsGrid.CellSize = UDim2.new(0, 220, 0, 260)
-boardsGrid.CellPadding = UDim2.new(0, 15, 0, 20)
-boardsGrid.HorizontalAlignment = Enum.HorizontalAlignment.Center
-boardsGrid.SortOrder = Enum.SortOrder.LayoutOrder
-boardsGrid.Parent = boardsScroll
+local boardsGrid = Instance.new("UIGridLayout", boardsScroll)
+boardsGrid.CellSize = UDim2.new(0, 150, 0, 180)
+boardsGrid.CellPadding = UDim2.new(0, 10, 0, 10)
+boardsGrid.HorizontalAlignment = Enum.HorizontalAlignment.Left
 
-local skillsScroll = Instance.new("ScrollingFrame")
-skillsScroll.Name = "SkillsScroll"
-skillsScroll.Size = UDim2.new(1, -40, 1, -120)
-skillsScroll.Position = UDim2.new(0, 20, 0, 110)
+local skillsScroll = Instance.new("ScrollingFrame", leftCol)
+skillsScroll.Size = UDim2.new(1, 0, 1, 0)
 skillsScroll.BackgroundTransparency = 1
 skillsScroll.ScrollBarThickness = 8
 skillsScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 skillsScroll.Visible = false
-skillsScroll.Parent = bgFrame
 
-local skillsGrid = Instance.new("UIGridLayout")
-skillsGrid.CellSize = UDim2.new(0, 220, 0, 260)
-skillsGrid.CellPadding = UDim2.new(0, 15, 0, 20)
-skillsGrid.HorizontalAlignment = Enum.HorizontalAlignment.Center
-skillsGrid.SortOrder = Enum.SortOrder.LayoutOrder
-skillsGrid.Parent = skillsScroll
+local skillsGrid = Instance.new("UIGridLayout", skillsScroll)
+skillsGrid.CellSize = UDim2.new(0, 150, 0, 180)
+skillsGrid.CellPadding = UDim2.new(0, 10, 0, 10)
+skillsGrid.HorizontalAlignment = Enum.HorizontalAlignment.Left
+
+-- Right Column (Details)
+local rightCol = Instance.new("Frame", bgFrame)
+rightCol.Name = "RightColumn"
+rightCol.Size = UDim2.new(0.4, -30, 1, -120)
+rightCol.Position = UDim2.new(0.6, 10, 0, 110)
+rightCol.BackgroundColor3 = Color3.fromRGB(15, 20, 30)
+Instance.new("UICorner", rightCol).CornerRadius = UDim.new(0, 12)
+local rcStroke = Instance.new("UIStroke", rightCol)
+rcStroke.Color = Color3.fromRGB(100, 120, 150)
+rcStroke.Thickness = 2
+
+local rImage = Instance.new("ImageLabel", rightCol)
+rImage.Size = UDim2.new(0.8, 0, 0.4, 0)
+rImage.Position = UDim2.new(0.1, 0, 0.05, 0)
+rImage.BackgroundTransparency = 1
+rImage.Image = ""
+rImage.ScaleType = Enum.ScaleType.Fit
+
+local rViewport = Instance.new("ViewportFrame", rightCol)
+rViewport.Size = UDim2.new(0.8, 0, 0.4, 0)
+rViewport.Position = UDim2.new(0.1, 0, 0.05, 0)
+rViewport.BackgroundColor3 = Color3.fromRGB(255, 230, 100)
+rViewport.BackgroundTransparency = 0
+Instance.new("UICorner", rViewport).CornerRadius = UDim.new(0, 8)
+rViewport.Visible = false
+
+local rCamera = Instance.new("Camera")
+rViewport.CurrentCamera = rCamera
+rCamera.Parent = rViewport
+
+local rName = Instance.new("TextLabel", rightCol)
+rName.Size = UDim2.new(1, 0, 0, 40)
+rName.Position = UDim2.new(0, 0, 0.45, 0)
+rName.BackgroundTransparency = 1
+rName.Font = Enum.Font.GothamBlack
+rName.Text = "아이템을 선택하세요"
+rName.TextColor3 = Color3.fromRGB(255, 255, 255)
+rName.TextSize = 22
+
+local rDesc = Instance.new("TextLabel", rightCol)
+rDesc.Size = UDim2.new(0.9, 0, 0, 60)
+rDesc.Position = UDim2.new(0.05, 0, 0.55, 0)
+rDesc.BackgroundTransparency = 1
+rDesc.Font = Enum.Font.GothamMedium
+rDesc.Text = ""
+rDesc.TextColor3 = Color3.fromRGB(180, 180, 200)
+rDesc.TextSize = 14
+rDesc.TextWrapped = true
+rDesc.TextYAlignment = Enum.TextYAlignment.Top
+
+local actionBtn = Instance.new("TextButton", rightCol)
+actionBtn.Size = UDim2.new(0.9, 0, 0, 50)
+actionBtn.Position = UDim2.new(0.05, 0, 1, -60)
+actionBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+actionBtn.Font = Enum.Font.GothamBlack
+actionBtn.Text = "선택 안됨"
+actionBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+actionBtn.TextSize = 20
+actionBtn.Visible = false
+Instance.new("UICorner", actionBtn).CornerRadius = UDim.new(0, 8)
+
+local allCards = {}
+local renderConnections = {}
+
+local function clearRenderConnections()
+	for _, conn in ipairs(renderConnections) do
+		conn:Disconnect()
+	end
+	table.clear(renderConnections)
+end
+
+local function updateRightColumn()
+	clearRenderConnections()
+	
+	if not selectedItem then
+		rImage.Image = ""
+		rName.Text = "아이템을 선택하세요"
+		rDesc.Text = ""
+		actionBtn.Visible = false
+		return
+	end
+	
+	rName.Text = selectedItem.name
+	
+	if selectedItemType == "Board" then
+		rImage.Visible = false
+		rViewport.Visible = true
+		rDesc.Text = selectedItem.rarity and ("등급: " .. selectedItem.rarity) or ""
+		
+		-- Setup 3D Model
+		for _, child in ipairs(rViewport:GetChildren()) do
+			if child:IsA("Model") then
+				child:Destroy()
+			end
+		end
+		local model = nil
+		if customModelsFolder and customModelsFolder:FindFirstChild(selectedItem.id) then
+			model = customModelsFolder:FindFirstChild(selectedItem.id):Clone()
+		else
+			model = HoverboardBuilder.createModel()
+		end
+		
+		model.Parent = rViewport
+		local pp = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
+		if pp then
+			rCamera.FieldOfView = 50
+			
+			-- Animation (Rotation + Bobbing)
+			local t = 0
+			local conn = RunService.RenderStepped:Connect(function(dt)
+				t += dt
+				local yOffset = math.sin(t * 3) * 0.3 -- Up and down bobbing
+				local rotation = CFrame.Angles(0, t * 1.0, 0) -- Slow rotation
+				
+				local offset = rotation * Vector3.new(2.5, 2 + yOffset, -3.5)
+				rCamera.CFrame = CFrame.new(pp.Position + offset, pp.Position)
+			end)
+			table.insert(renderConnections, conn)
+		end
+	else
+		rImage.Visible = true
+		rViewport.Visible = false
+		rImage.Image = selectedItem.imageId
+		rDesc.Text = selectedItem.description or ""
+	end
+	
+	actionBtn.Visible = true
+	actionBtn.AutoButtonColor = true
+	
+	local isEquipped = false
+	
+	if selectedItemType == "Board" then
+		local equippedVal = LocalPlayer:FindFirstChild("EquippedHoverboardId") :: StringValue?
+		if equippedVal and equippedVal.Value == selectedItem.id then
+			isEquipped = true
+		end
+	else
+		local equippedSkills = LocalPlayer:FindFirstChild("EquippedSkills")
+		if equippedSkills and equippedSkills:FindFirstChild(selectedItem.id) then
+			isEquipped = true
+		end
+	end
+	
+	if isEquipped then
+		actionBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+		actionBtn.Text = "✅ 장착 중"
+		actionBtn.AutoButtonColor = false
+	else
+		actionBtn.BackgroundColor3 = Color3.fromRGB(50, 150, 255)
+		actionBtn.Text = "👆 장착하기"
+	end
+end
+
+actionBtn.MouseButton1Click:Connect(function()
+	if not selectedItem or not actionBtn.AutoButtonColor then return end
+	
+	-- Equip
+	local remote = selectedItemType == "Board" and equipBoardRemote or equipSkillRemote
+	local s = remote:InvokeServer(selectedItem.id)
+	if s then
+		updateRightColumn()
+	end
+end)
+
+local function selectItem(item, iType)
+	selectedItem = item
+	selectedItemType = iType
+	
+	-- Highlight card
+	for _, data in ipairs(allCards) do
+		if data.item.id == item.id then
+			data.stroke.Color = Color3.fromRGB(0, 255, 100)
+			data.stroke.Thickness = 3
+		else
+			data.stroke.Color = Color3.fromRGB(100, 120, 150)
+			data.stroke.Thickness = 2
+		end
+	end
+	
+	updateRightColumn()
+end
+
+local function createInvCard(item, itemType, parentScroll)
+	local cardBtn = Instance.new("TextButton")
+	cardBtn.Name = "Card_" .. item.id
+	cardBtn.BackgroundColor3 = Color3.fromRGB(25, 30, 45)
+	cardBtn.Text = ""
+	cardBtn.Parent = parentScroll
+	
+	Instance.new("UICorner", cardBtn).CornerRadius = UDim.new(0, 10)
+	local cardStroke = Instance.new("UIStroke", cardBtn)
+	cardStroke.Color = Color3.fromRGB(100, 120, 150)
+	cardStroke.Thickness = 2
+	
+	local img
+	local vpf
+	if itemType == "Board" then
+		vpf = Instance.new("ViewportFrame", cardBtn)
+		vpf.Size = UDim2.new(1, -20, 0, 90)
+		vpf.Position = UDim2.new(0, 10, 0, 10)
+		vpf.BackgroundColor3 = Color3.fromRGB(255, 230, 100)
+		vpf.BackgroundTransparency = 0
+		Instance.new("UICorner", vpf).CornerRadius = UDim.new(0, 8)
+		
+		local cam = Instance.new("Camera")
+		vpf.CurrentCamera = cam
+		cam.Parent = vpf
+		
+		local model = nil
+		if customModelsFolder and customModelsFolder:FindFirstChild(item.id) then
+			model = customModelsFolder:FindFirstChild(item.id):Clone()
+		else
+			model = HoverboardBuilder.createModel()
+		end
+		
+		model.Parent = vpf
+		local pp = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
+		if pp then
+			cam.FieldOfView = 50
+			local t = 0
+			local conn = RunService.RenderStepped:Connect(function(dt)
+				t += dt
+				local yOffset = math.sin(t * 3) * 0.2
+				local rotation = CFrame.Angles(0, t * 1.0, 0)
+				local offset = rotation * Vector3.new(2.5, 2 + yOffset, -3.5)
+				cam.CFrame = CFrame.new(pp.Position + offset, pp.Position)
+			end)
+		end
+	else
+		img = Instance.new("ImageLabel", cardBtn)
+		img.Size = UDim2.new(1, -20, 0, 90)
+		img.Position = UDim2.new(0, 10, 0, 10)
+		img.BackgroundColor3 = Color3.fromRGB(15, 20, 30)
+		img.Image = item.imageId
+		img.ScaleType = Enum.ScaleType.Fit
+		Instance.new("UICorner", img).CornerRadius = UDim.new(0, 8)
+	end
+	
+	local nameLabel = Instance.new("TextLabel", cardBtn)
+	nameLabel.Size = UDim2.new(1, 0, 0, 30)
+	nameLabel.Position = UDim2.new(0, 0, 0, 110)
+	nameLabel.BackgroundTransparency = 1
+	nameLabel.Font = Enum.Font.GothamBold
+	nameLabel.Text = item.name
+	nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+	nameLabel.TextSize = 14
+	
+	local statusLabel = Instance.new("TextLabel", cardBtn)
+	statusLabel.Size = UDim2.new(1, 0, 0, 20)
+	statusLabel.Position = UDim2.new(0, 0, 0, 145)
+	statusLabel.BackgroundTransparency = 1
+	statusLabel.Font = Enum.Font.GothamBold
+	statusLabel.TextSize = 13
+	
+	table.insert(allCards, {card = cardBtn, stroke = cardStroke, item = item, itemType = itemType, statusLabel = statusLabel})
+	
+	cardBtn.MouseButton1Click:Connect(function()
+		selectItem(item, itemType)
+	end)
+end
+
+local function refreshCardsVisibility()
+	local boardOwned = LocalPlayer:FindFirstChild("OwnedHoverboards")
+	local skillOwned = LocalPlayer:FindFirstChild("OwnedSkills")
+	local boardEq = LocalPlayer:FindFirstChild("EquippedHoverboardId") :: StringValue?
+	local skillEq = LocalPlayer:FindFirstChild("EquippedSkills")
+	
+	for _, data in ipairs(allCards) do
+		if data.itemType == "Board" then
+			if data.item.id == "DefaultHoverboard" or (boardOwned and boardOwned:FindFirstChild(data.item.id)) then
+				data.card.Visible = true
+				if boardEq and boardEq.Value == data.item.id then
+					data.statusLabel.Text = "✅ 장착 중"
+					data.statusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+				else
+					data.statusLabel.Text = "보유 중"
+					data.statusLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+				end
+			else
+				data.card.Visible = false
+			end
+		else
+			if skillOwned and skillOwned:FindFirstChild(data.item.id) then
+				data.card.Visible = true
+				if skillEq and skillEq:FindFirstChild(data.item.id) then
+					data.statusLabel.Text = "✅ 장착 중"
+					data.statusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+				else
+					data.statusLabel.Text = "보유 중"
+					data.statusLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+				end
+			else
+				data.card.Visible = false
+			end
+		end
+	end
+	
+	if selectedItem then updateRightColumn() end
+end
+
+-- Init Cards
+for _, boardInfo in ipairs(StoreConfig.Items) do
+	createInvCard(boardInfo, "Board", boardsScroll)
+end
+for _, skillInfo in ipairs(SkillStoreConfig.Skills) do
+	createInvCard(skillInfo, "Skill", skillsScroll)
+end
 
 -- Tab Logic
 boardsTabBtn.MouseButton1Click:Connect(function()
@@ -167,6 +470,8 @@ boardsTabBtn.MouseButton1Click:Connect(function()
 	boardsTabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 	skillsTabBtn.BackgroundColor3 = Color3.fromRGB(40, 50, 70)
 	skillsTabBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+	selectedItem = nil
+	updateRightColumn()
 end)
 
 skillsTabBtn.MouseButton1Click:Connect(function()
@@ -176,176 +481,35 @@ skillsTabBtn.MouseButton1Click:Connect(function()
 	skillsTabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 	boardsTabBtn.BackgroundColor3 = Color3.fromRGB(40, 50, 70)
 	boardsTabBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+	selectedItem = nil
+	updateRightColumn()
 end)
 
--- Helper: Create Inventory Card
-local function createInvCard(item, itemType, parentScroll, equipRemote)
-	local card = Instance.new("Frame")
-	card.Name = "Card_" .. item.id
-	card.BackgroundColor3 = Color3.fromRGB(25, 30, 45)
-	card.Parent = parentScroll
+-- Bind updates
+task.spawn(function()
+	local eqBoard = LocalPlayer:WaitForChild("EquippedHoverboardId")
+	eqBoard.Changed:Connect(refreshCardsVisibility)
+	local ownBoard = LocalPlayer:WaitForChild("OwnedHoverboards")
+	ownBoard.ChildAdded:Connect(refreshCardsVisibility)
+	ownBoard.ChildRemoved:Connect(refreshCardsVisibility)
 	
-	local cardCorner = Instance.new("UICorner")
-	cardCorner.CornerRadius = UDim.new(0, 10)
-	cardCorner.Parent = card
+	local eqSkill = LocalPlayer:WaitForChild("EquippedSkills")
+	eqSkill.ChildAdded:Connect(refreshCardsVisibility)
+	eqSkill.ChildRemoved:Connect(refreshCardsVisibility)
+	local ownSkill = LocalPlayer:WaitForChild("OwnedSkills")
+	ownSkill.ChildAdded:Connect(refreshCardsVisibility)
+	ownSkill.ChildRemoved:Connect(refreshCardsVisibility)
 	
-	local cardStroke = Instance.new("UIStroke")
-	cardStroke.Color = Color3.fromRGB(100, 120, 150)
-	cardStroke.Thickness = 2
-	cardStroke.Parent = card
-	
-	-- Rarity (only for boards, for skills default color)
-	local rColor = Color3.fromRGB(200, 200, 200)
-	if itemType == "Board" and item.rarity then
-		rColor = StoreConfig.RarityColors[item.rarity] or rColor
-		
-		local rLabel = Instance.new("TextLabel")
-		rLabel.Size = UDim2.new(1, 0, 0, 20)
-		rLabel.BackgroundTransparency = 1
-		rLabel.Font = Enum.Font.GothamBold
-		rLabel.Text = item.rarity
-		rLabel.TextColor3 = rColor
-		rLabel.TextSize = 12
-		rLabel.Parent = card
-	end
-	
-	-- Item Name
-	local nameLabel = Instance.new("TextLabel")
-	nameLabel.Size = UDim2.new(1, 0, 0, 30)
-	nameLabel.Position = UDim2.new(0, 0, 0, 15)
-	nameLabel.BackgroundTransparency = 1
-	nameLabel.Font = Enum.Font.GothamBold
-	nameLabel.Text = item.name
-	nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-	nameLabel.TextSize = 16
-	nameLabel.Parent = card
-	
-	-- Item Image
-	local img = Instance.new("ImageLabel")
-	img.Size = UDim2.new(1, -20, 0, 110)
-	img.Position = UDim2.new(0, 10, 0, 50)
-	img.BackgroundColor3 = Color3.fromRGB(15, 20, 30)
-	img.Image = item.imageId
-	img.ScaleType = Enum.ScaleType.Fit
-	img.Parent = card
-	
-	local imgCorner = Instance.new("UICorner")
-	imgCorner.CornerRadius = UDim.new(0, 8)
-	imgCorner.Parent = img
-	
-	-- Equip Button
-	local equipBtn = Instance.new("TextButton")
-	equipBtn.Size = UDim2.new(1, -20, 0, 40)
-	equipBtn.Position = UDim2.new(0, 10, 1, -50)
-	equipBtn.Font = Enum.Font.GothamBold
-	equipBtn.TextSize = 18
-	equipBtn.Parent = card
-	
-	local eCorner = Instance.new("UICorner")
-	eCorner.CornerRadius = UDim.new(0, 8)
-	eCorner.Parent = equipBtn
-	
-	local function updateEquipState()
-		local ownedFolder
-		local isEquipped = false
-		
-		if itemType == "Board" then
-			local equippedVal = LocalPlayer:FindFirstChild("EquippedHoverboardId") :: StringValue?
-			ownedFolder = LocalPlayer:FindFirstChild("OwnedHoverboards")
-			if equippedVal and equippedVal.Value == item.id then
-				isEquipped = true
-			end
-		else
-			local equippedSkills = LocalPlayer:FindFirstChild("EquippedSkills")
-			ownedFolder = LocalPlayer:FindFirstChild("OwnedSkills")
-			if equippedSkills and equippedSkills:FindFirstChild(item.id) then
-				isEquipped = true
-			end
-		end
-		
-		-- Hide card if not owned (except default board)
-		if item.id == "DefaultHoverboard" or (ownedFolder and ownedFolder:FindFirstChild(item.id)) then
-			card.Visible = true
-		else
-			card.Visible = false
-			return
-		end
-		
-		if isEquipped then
-			equipBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
-			equipBtn.Text = "✅ 장착해제"
-			equipBtn.AutoButtonColor = true
-		else
-			equipBtn.BackgroundColor3 = Color3.fromRGB(30, 120, 255)
-			equipBtn.Text = "👆 장착하기"
-			equipBtn.AutoButtonColor = true
-		end
-	end
-	
-	-- Bind
-	task.spawn(function()
-		if itemType == "Board" then
-			local bVal = LocalPlayer:WaitForChild("EquippedHoverboardId")
-			bVal.Changed:Connect(updateEquipState)
-			local f = LocalPlayer:WaitForChild("OwnedHoverboards")
-			f.ChildAdded:Connect(updateEquipState)
-			f.ChildRemoved:Connect(updateEquipState)
-		else
-			local eqFolder = LocalPlayer:WaitForChild("EquippedSkills")
-			eqFolder.ChildAdded:Connect(updateEquipState)
-			eqFolder.ChildRemoved:Connect(updateEquipState)
-			local f = LocalPlayer:WaitForChild("OwnedSkills")
-			f.ChildAdded:Connect(updateEquipState)
-			f.ChildRemoved:Connect(updateEquipState)
-		end
-		updateEquipState()
-	end)
-	
-	equipBtn.MouseButton1Click:Connect(function()
-		if itemType == "Board" then
-			local equippedVal = LocalPlayer:FindFirstChild("EquippedHoverboardId") :: StringValue?
-			if equippedVal and equippedVal.Value ~= item.id then
-				local s, msg = equipRemote:InvokeServer(item.id)
-				if s then
-					cardStroke.Color = Color3.fromRGB(0, 255, 0)
-					task.wait(0.5)
-					cardStroke.Color = Color3.fromRGB(100, 120, 150)
-				end
-			end
-		else
-			-- Toggle Skill
-			local s, msg = equipRemote:InvokeServer(item.id)
-			if s then
-				cardStroke.Color = Color3.fromRGB(0, 255, 0)
-				task.wait(0.5)
-				cardStroke.Color = Color3.fromRGB(100, 120, 150)
-			else
-				-- If full slot error or something, flash red
-				cardStroke.Color = Color3.fromRGB(255, 0, 0)
-				task.wait(0.5)
-				cardStroke.Color = Color3.fromRGB(100, 120, 150)
-			end
-		end
-	end)
-end
+	refreshCardsVisibility()
+end)
 
--- Initialize Inventory Cards
-for _, boardInfo in ipairs(StoreConfig.Items) do
-	createInvCard(boardInfo, "Board", boardsScroll, equipBoardRemote)
-end
-
-for _, skillInfo in ipairs(SkillStoreConfig.Skills) do
-	createInvCard(skillInfo, "Skill", skillsScroll, equipSkillRemote)
-end
-
--- Listen to GamePhase changes to hide inventory button during races
+-- Game Phase Integration
 local phaseRemote = hoverRemotes:WaitForChild("GamePhaseChanged") :: RemoteEvent
 phaseRemote.OnClientEvent:Connect(function(phase, timeLeft)
 	if phase == "INTERMISSION" or phase == "MAP_VOTING" then
 		hudGui.Enabled = true
 	else
 		hudGui.Enabled = false
-		invGui.Enabled = false -- Auto close if open when race starts
+		invGui.Enabled = false
 	end
 end)
-
