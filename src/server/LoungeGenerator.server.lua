@@ -17,7 +17,7 @@ local function findUserWaitingRoom(): (Instance?, CFrame?)
 		local bestPart = nil
 		local maxArea = 0
 		for _, child in ipairs(container:GetDescendants()) do
-			if child:IsA("BasePart") and child.Name ~= "BoardStore" then
+			if child:IsA("BasePart") and child.Name ~= "Model1" then
 				local area = child.Size.X * child.Size.Z
 				if area > maxArea then
 					maxArea = area

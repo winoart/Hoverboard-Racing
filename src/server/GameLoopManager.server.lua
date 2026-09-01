@@ -36,6 +36,8 @@ local stateRemote = getOrCreateRemote("StateChanged")
 local lapUpdatedRemote = getOrCreateRemote("LapUpdated")
 local raceFinishedRemote = getOrCreateRemote("RaceFinished")
 local updateRankingsRemote = getOrCreateRemote("UpdateRankings")
+local suddenDeathRemote = getOrCreateRemote("SuddenDeathUpdate")
+local showScoreboardRemote = getOrCreateRemote("ShowScoreboard")
 
 local LapManager = require(script.Parent:WaitForChild("LapManager") :: ModuleScript)
 

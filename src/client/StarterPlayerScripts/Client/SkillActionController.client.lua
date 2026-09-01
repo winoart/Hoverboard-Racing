@@ -20,6 +20,7 @@ local useSkillRemote = hoverRemotes:WaitForChild("UseSkill") :: RemoteEvent
 local skillWarningRemote = hoverRemotes:WaitForChild("SkillWarning") :: RemoteEvent
 local blindEffectRemote = hoverRemotes:WaitForChild("BlindEffect") :: RemoteEvent
 local empEffectRemote = hoverRemotes:WaitForChild("EMPEffect") :: RemoteEvent
+local frostEffectRemote = hoverRemotes:WaitForChild("FrostEffect") :: RemoteEvent
 
 -- Temporary Product ID for unlocking the 3rd slot
 local UNLOCK_SLOT3_PRODUCT_ID = 123456789 
@@ -60,6 +61,142 @@ listLayout.Parent = container
 local slots = {}
 local hotkeys = { Enum.KeyCode.Q, Enum.KeyCode.E, Enum.KeyCode.R }
 local hotkeyStrs = { "Q", "E", "R" }
+
+-- [클라이언트 사이드 시각화 (KartRider 방식 표준)]
+-- 투사체 스킬을 쓸 때 핑 지연 없이 내 화면에 즉시 발사되는 연출을 만듭니다.
+local function spawnLocalProjectileVisual(skillId: string)
+	local casterChar = LocalPlayer.Character
+	local rootPart = casterChar and (casterChar.PrimaryPart or casterChar:FindFirstChild("HumanoidRootPart"))
+	if not rootPart then 
+		warn("❌ [Client] No RootPart found! Cannot spawn Ice Bomb visual.")
+		return 
+	end
+	
+	print("❄️ [Client] Spawning local Ice Bomb visual!")
+	
+	local projectile = Instance.new("Part")
+	projectile.Name = "LocalProjectile_" .. skillId
+	projectile.Shape = Enum.PartType.Ball
+	projectile.Size = Vector3.new(8, 8, 8)
+	projectile.Color = Color3.fromRGB(0, 255, 255) -- Cyan
+	projectile.Material = Enum.Material.Neon -- Make it glow so it's super visible
+	projectile.CanCollide = false
+	projectile.Anchored = true
+	
+	local rootPos = rootPart.Position
+	
+	local flatVel = rootPart.AssemblyLinearVelocity
+	flatVel = Vector3.new(flatVel.X, 0, flatVel.Z)
+	
+	-- 카메라가 고정이므로 카메라 방향을 쓸 수 없습니다.
+	-- 코너링 시 원심력(Velocity)도 벽을 향하므로 쓸 수 없습니다.
+	-- 따라서 '호버보드 기체'가 현재 바라보고 있는 시각적인 기수(앞코) 방향을 찾아 씁니다.
+	-- 유저분이 첨부해주신 사진(3인칭 백뷰)을 보면 카메라가 캐릭터 뒤에 고정되어 트랙 앞을 바라보고 있습니다.
+	-- 모델의 축(LookVector)이 왼쪽/오른쪽으로 틀어져 있는 문제를 피하기 위해, 
+	-- 무조건 가장 정확한 '카메라가 바라보는 정면 방향(빨간 화살표)'을 사용합니다.
+	local camLook = workspace.CurrentCamera.CFrame.LookVector
+	local flatLook = Vector3.new(camLook.X, 0, camLook.Z)
+	
+	if flatLook.Magnitude < 0.001 then
+		flatLook = Vector3.new(0, 0, -1)
+	else
+		flatLook = flatLook.Unit
+	end
+	
+	-- 클라이언트에서 직접 생성하므로 서버 지연(Latency)을 예측할 필요가 전혀 없습니다!
+	-- 오프셋을 0으로 설정하여 완벽하게 내 몸 정중앙에서부터 출발하도록 합니다.
+	local startPos = rootPos + Vector3.new(0, 3, 0)
+	projectile.Position = startPos
+	projectile.Parent = workspace
+	
+	-- 발사 시 파티클 폭발 연출을 위한 임시 투명 파트 생성
+	local explosionPart = Instance.new("Part")
+	explosionPart.Size = Vector3.new(1, 1, 1)
+	explosionPart.Position = startPos
+	explosionPart.Transparency = 1
+	explosionPart.Anchored = true
+	explosionPart.CanCollide = false
+	explosionPart.Parent = workspace
+	
+	local launchSound = Instance.new("Sound")
+	launchSound.SoundId = "rbxassetid://138081509" -- 발사/폭발음
+	launchSound.Volume = 0.8
+	launchSound.Parent = explosionPart
+	launchSound:Play()
+	
+	local launchEmit = Instance.new("ParticleEmitter")
+	-- 텍스처를 생략하여 로블록스 기본 파티클을 강제 사용 (무조건 렌더링되게 보장)
+	launchEmit.Size = NumberSequence.new({NumberSequenceKeypoint.new(0, 2), NumberSequenceKeypoint.new(1, 6)})
+	launchEmit.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0),
+		NumberSequenceKeypoint.new(0.5, 0.5),
+		NumberSequenceKeypoint.new(1, 1)
+	})
+	launchEmit.Color = ColorSequence.new(Color3.fromRGB(150, 255, 255))
+	launchEmit.LightEmission = 0.5 -- 눈부심 완화
+	launchEmit.ZOffset = 1
+	launchEmit.Speed = NumberRange.new(30, 60)
+	launchEmit.Drag = 5
+	launchEmit.Lifetime = NumberRange.new(0.5, 1.0)
+	launchEmit.Rate = 0
+	launchEmit.SpreadAngle = Vector2.new(180, 180) 
+	launchEmit.Parent = explosionPart
+	launchEmit:Emit(50) -- 개수를 50개로 대폭 줄임
+	
+	game:GetService("Debris"):AddItem(explosionPart, 2)
+	
+	
+	local trail = Instance.new("Trail")
+	local a0 = Instance.new("Attachment", projectile)
+	a0.Position = Vector3.new(0, 2, 0)
+	local a1 = Instance.new("Attachment", projectile)
+	a1.Position = Vector3.new(0, -2, 0)
+	trail.Attachment0 = a0
+	trail.Attachment1 = a1
+	trail.Lifetime = 0.5
+	trail.Color = ColorSequence.new(Color3.fromRGB(0, 255, 255))
+	trail.Parent = projectile
+	
+	-- 서버 통신 없이 2초간 350 속도로 내 눈앞으로 쏘아보냅니다.
+	local flySpeed = 350
+	local duration = 2.0
+	local elapsed = 0
+	local maxHeight = 150 -- 곡사포처럼 위로 솟구칠 최대 높이
+	
+	local RunService = game:GetService("RunService")
+	local conn
+	conn = RunService.RenderStepped:Connect(function(dt)
+		elapsed += dt
+		if elapsed > duration or not projectile.Parent then
+			if conn then conn:Disconnect() end
+			if projectile then
+				-- Small pop animation
+				local ts = TweenService:Create(projectile, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+					Size = Vector3.new(15, 15, 15),
+					Transparency = 1
+				})
+				ts:Play()
+				ts.Completed:Connect(function() projectile:Destroy() end)
+			end
+			return
+		end
+		
+		-- 무조건 하늘로 치솟게 만듭니다. (앞으로는 조금만 전진하고 위로)
+		local forwardOffset = flatLook * (100 * elapsed)
+		local arcHeight = 100 * elapsed -- 속도를 100으로 줄임
+		
+		-- 최종 위치 계산
+		local newPos = startPos + forwardOffset + Vector3.new(0, arcHeight, 0)
+		projectile.Position = newPos
+		
+		-- 화면(모니터) 위쪽으로 완전히 벗어나면 즉시 삭제
+		local _, onScreen = workspace.CurrentCamera:WorldToViewportPoint(newPos)
+		if elapsed > 0.1 and not onScreen then
+			if conn then conn:Disconnect() end
+			if projectile then projectile:Destroy() end
+		end
+	end)
+end
 
 local function showSkillToast(skillName: string)
 	local toast = Instance.new("TextLabel")
@@ -311,6 +448,10 @@ local function createSlot(index: number)
 			print("🔥 스킬 사용: " .. sName)
 			showSkillToast(sName)
 			
+			if skillId == "Skill_IceBomb" then
+				spawnLocalProjectileVisual(skillId)
+			end
+			
 			useSkillRemote:FireServer(skillId)
 			
 			-- Cooldown UI logic
@@ -410,9 +551,26 @@ countdownRemote.OnClientEvent:Connect(function(count)
 end)
 
 skillWarningRemote.OnClientEvent:Connect(function(casterName: string, skillId: string)
+	if skillId == "Skill_Shield_Break" then
+		if casterName == "SYSTEM" then
+			showWarningToast("🛡️ 방어막이 파괴되었습니다!")
+			
+			-- 화면 피격 피드백 (빨간 번쩍임)
+			local cc = Instance.new("ColorCorrectionEffect")
+			cc.TintColor = Color3.fromRGB(255, 150, 150)
+			cc.Parent = game:GetService("Lighting")
+			local tween = TweenService:Create(cc, TweenInfo.new(0.4), {TintColor = Color3.fromRGB(255, 255, 255)})
+			tween:Play()
+			tween.Completed:Connect(function() cc:Destroy() end)
+		else
+			showWarningToast("💥 " .. casterName .. "님의 방어막을 무력화했습니다!")
+		end
+		return
+	end
+	
 	local sInfo = getSkillInfo(skillId)
 	local sName = sInfo and sInfo.name or skillId
-	showWarningToast(casterName .. "님이 당신에게 " .. sName .. "을(를) 사용했습니다!")
+	showWarningToast("⚠️ " .. casterName .. "님이 당신에게 " .. sName .. "을(를) 사용했습니다!")
 end)
 
 blindEffectRemote.OnClientEvent:Connect(function(active: boolean)
@@ -471,6 +629,10 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 				local sName = sInfo and sInfo.name or skillId
 				print("🔥 단축키로 스킬 사용: " .. sName)
 				showSkillToast(sName)
+				
+				if skillId == "Skill_IceBomb" then
+					spawnLocalProjectileVisual(skillId)
+				end
 				
 				useSkillRemote:FireServer(skillId)
 				

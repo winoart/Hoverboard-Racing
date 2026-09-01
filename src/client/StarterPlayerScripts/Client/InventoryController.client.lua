@@ -46,174 +46,47 @@ local currentTab = "Board"
 local selectedItem: any = nil
 local selectedItemType: string = "Board"
 
--- Inventory UI Generation
-local invGui = Instance.new("ScreenGui")
-invGui.Name = "InventoryGui"
-invGui.ResetOnSpawn = false
+-- Inventory UI References
+local invGui = playerGui:WaitForChild("InventoryGui")
 invGui.Enabled = false
-invGui.Parent = playerGui
 
-local bgFrame = Instance.new("Frame")
-bgFrame.Name = "Background"
-bgFrame.Size = UDim2.new(0, 850, 0, 500)
-bgFrame.Position = UDim2.new(0.5, -425, 0.5, -250)
-bgFrame.BackgroundColor3 = Color3.fromRGB(20, 25, 35)
-bgFrame.Parent = invGui
-Instance.new("UICorner", bgFrame).CornerRadius = UDim.new(0, 12)
-local bgStroke = Instance.new("UIStroke", bgFrame)
-bgStroke.Color = Color3.fromRGB(150, 150, 200)
-bgStroke.Thickness = 3
+local bgFrame = invGui:WaitForChild("Background")
+local titleLabel = bgFrame:WaitForChild("Title")
+local closeBtn = bgFrame:WaitForChild("CloseButton")
 
-local titleLabel = Instance.new("TextLabel")
-titleLabel.Name = "Title"
-titleLabel.Size = UDim2.new(1, 0, 0, 50)
-titleLabel.Position = UDim2.new(0, 0, 0, 10)
-titleLabel.BackgroundTransparency = 1
-titleLabel.Font = Enum.Font.GothamBlack
-titleLabel.Text = "내 인벤토리"
-titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-titleLabel.TextSize = 28
-titleLabel.Parent = bgFrame
-
-local closeBtn = Instance.new("TextButton")
-closeBtn.Name = "CloseButton"
-closeBtn.Size = UDim2.new(0, 40, 0, 40)
-closeBtn.Position = UDim2.new(1, -50, 0, 10)
-closeBtn.BackgroundColor3 = Color3.fromRGB(200, 40, 40)
-closeBtn.Font = Enum.Font.GothamBold
-closeBtn.Text = "X"
-closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-closeBtn.TextSize = 20
-closeBtn.Parent = bgFrame
-Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 8)
-
-toggleBtn.MouseButton1Click:Connect(function()
-	invGui.Enabled = not invGui.Enabled
-end)
 closeBtn.MouseButton1Click:Connect(function()
 	invGui.Enabled = false
 end)
+toggleBtn.MouseButton1Click:Connect(function()
+	invGui.Enabled = not invGui.Enabled
+end)
 
 -- Tabs
-local tabsFrame = Instance.new("Frame")
-tabsFrame.Size = UDim2.new(1, -40, 0, 40)
-tabsFrame.Position = UDim2.new(0, 20, 0, 60)
-tabsFrame.BackgroundTransparency = 1
-tabsFrame.Parent = bgFrame
-
-local tabLayout = Instance.new("UIListLayout", tabsFrame)
-tabLayout.FillDirection = Enum.FillDirection.Horizontal
-tabLayout.Padding = UDim.new(0, 10)
-
-local boardsTabBtn = Instance.new("TextButton", tabsFrame)
-boardsTabBtn.Size = UDim2.new(0, 150, 1, 0)
-boardsTabBtn.BackgroundColor3 = Color3.fromRGB(50, 100, 255)
-boardsTabBtn.Font = Enum.Font.GothamBold
-boardsTabBtn.Text = "호버보드"
-boardsTabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-boardsTabBtn.TextSize = 18
-Instance.new("UICorner", boardsTabBtn).CornerRadius = UDim.new(0, 6)
-
-local skillsTabBtn = Instance.new("TextButton", tabsFrame)
-skillsTabBtn.Size = UDim2.new(0, 150, 1, 0)
-skillsTabBtn.BackgroundColor3 = Color3.fromRGB(40, 50, 70)
-skillsTabBtn.Font = Enum.Font.GothamBold
-skillsTabBtn.Text = "스킬"
-skillsTabBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
-skillsTabBtn.TextSize = 18
-Instance.new("UICorner", skillsTabBtn).CornerRadius = UDim.new(0, 6)
+local tabsFrame = bgFrame:WaitForChild("Tabs")
+local boardsTabBtn = tabsFrame:WaitForChild("BoardsTab")
+local skillsTabBtn = tabsFrame:WaitForChild("SkillsTab")
 
 -- Left Column (Scrolls)
-local leftCol = Instance.new("Frame", bgFrame)
-leftCol.Name = "LeftColumn"
-leftCol.Size = UDim2.new(0.6, -10, 1, -120)
-leftCol.Position = UDim2.new(0, 20, 0, 110)
-leftCol.BackgroundTransparency = 1
-
-local boardsScroll = Instance.new("ScrollingFrame", leftCol)
-boardsScroll.Size = UDim2.new(1, 0, 1, 0)
-boardsScroll.BackgroundTransparency = 1
-boardsScroll.ScrollBarThickness = 8
-boardsScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-boardsScroll.Visible = true
-
-local boardsGrid = Instance.new("UIGridLayout", boardsScroll)
-boardsGrid.CellSize = UDim2.new(0, 150, 0, 180)
-boardsGrid.CellPadding = UDim2.new(0, 10, 0, 10)
-boardsGrid.HorizontalAlignment = Enum.HorizontalAlignment.Left
-
-local skillsScroll = Instance.new("ScrollingFrame", leftCol)
-skillsScroll.Size = UDim2.new(1, 0, 1, 0)
-skillsScroll.BackgroundTransparency = 1
-skillsScroll.ScrollBarThickness = 8
-skillsScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-skillsScroll.Visible = false
-
-local skillsGrid = Instance.new("UIGridLayout", skillsScroll)
-skillsGrid.CellSize = UDim2.new(0, 150, 0, 180)
-skillsGrid.CellPadding = UDim2.new(0, 10, 0, 10)
-skillsGrid.HorizontalAlignment = Enum.HorizontalAlignment.Left
+local leftCol = bgFrame:WaitForChild("LeftColumn")
+local boardsScroll = leftCol:WaitForChild("BoardsScroll")
+local skillsScroll = leftCol:WaitForChild("SkillsScroll")
 
 -- Right Column (Details)
-local rightCol = Instance.new("Frame", bgFrame)
-rightCol.Name = "RightColumn"
-rightCol.Size = UDim2.new(0.4, -30, 1, -120)
-rightCol.Position = UDim2.new(0.6, 10, 0, 110)
-rightCol.BackgroundColor3 = Color3.fromRGB(15, 20, 30)
-Instance.new("UICorner", rightCol).CornerRadius = UDim.new(0, 12)
-local rcStroke = Instance.new("UIStroke", rightCol)
-rcStroke.Color = Color3.fromRGB(100, 120, 150)
-rcStroke.Thickness = 2
+local rightCol = bgFrame:WaitForChild("RightColumn")
+local rImage = rightCol:WaitForChild("ItemImage")
+local rViewport = rightCol:WaitForChild("ItemViewport")
 
-local rImage = Instance.new("ImageLabel", rightCol)
-rImage.Size = UDim2.new(0.8, 0, 0.4, 0)
-rImage.Position = UDim2.new(0.1, 0, 0.05, 0)
-rImage.BackgroundTransparency = 1
-rImage.Image = ""
-rImage.ScaleType = Enum.ScaleType.Fit
-
-local rViewport = Instance.new("ViewportFrame", rightCol)
-rViewport.Size = UDim2.new(0.8, 0, 0.4, 0)
-rViewport.Position = UDim2.new(0.1, 0, 0.05, 0)
-rViewport.BackgroundColor3 = Color3.fromRGB(255, 230, 100)
-rViewport.BackgroundTransparency = 0
-Instance.new("UICorner", rViewport).CornerRadius = UDim.new(0, 8)
-rViewport.Visible = false
-
-local rCamera = Instance.new("Camera")
+local rCamera = rViewport:FindFirstChild("ViewportCamera")
+if not rCamera then
+	rCamera = Instance.new("Camera")
+	rCamera.Name = "ViewportCamera"
+	rCamera.Parent = rViewport
+end
 rViewport.CurrentCamera = rCamera
-rCamera.Parent = rViewport
 
-local rName = Instance.new("TextLabel", rightCol)
-rName.Size = UDim2.new(1, 0, 0, 40)
-rName.Position = UDim2.new(0, 0, 0.45, 0)
-rName.BackgroundTransparency = 1
-rName.Font = Enum.Font.GothamBlack
-rName.Text = "아이템을 선택하세요"
-rName.TextColor3 = Color3.fromRGB(255, 255, 255)
-rName.TextSize = 22
-
-local rDesc = Instance.new("TextLabel", rightCol)
-rDesc.Size = UDim2.new(0.9, 0, 0, 60)
-rDesc.Position = UDim2.new(0.05, 0, 0.55, 0)
-rDesc.BackgroundTransparency = 1
-rDesc.Font = Enum.Font.GothamMedium
-rDesc.Text = ""
-rDesc.TextColor3 = Color3.fromRGB(180, 180, 200)
-rDesc.TextSize = 14
-rDesc.TextWrapped = true
-rDesc.TextYAlignment = Enum.TextYAlignment.Top
-
-local actionBtn = Instance.new("TextButton", rightCol)
-actionBtn.Size = UDim2.new(0.9, 0, 0, 50)
-actionBtn.Position = UDim2.new(0.05, 0, 1, -60)
-actionBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-actionBtn.Font = Enum.Font.GothamBlack
-actionBtn.Text = "선택 안됨"
-actionBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-actionBtn.TextSize = 20
-actionBtn.Visible = false
-Instance.new("UICorner", actionBtn).CornerRadius = UDim.new(0, 8)
+local rName = rightCol:WaitForChild("ItemName")
+local rDesc = rightCol:WaitForChild("ItemDesc")
+local actionBtn = rightCol:WaitForChild("ActionButton")
 
 local allCards = {}
 local renderConnections = {}
@@ -298,12 +171,12 @@ local function updateRightColumn()
 	end
 	
 	if isEquipped then
-		actionBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
-		actionBtn.Text = "✅ 장착 중"
+		actionBtn.BackgroundColor3 = Color3.fromRGB(150, 150, 150)
+		actionBtn.Text = "장착 중"
 		actionBtn.AutoButtonColor = false
 	else
-		actionBtn.BackgroundColor3 = Color3.fromRGB(50, 150, 255)
-		actionBtn.Text = "👆 장착하기"
+		actionBtn.BackgroundColor3 = Color3.fromRGB(50, 255, 100)
+		actionBtn.Text = "장착하기"
 	end
 end
 
@@ -325,42 +198,38 @@ local function selectItem(item, iType)
 	-- Highlight card
 	for _, data in ipairs(allCards) do
 		if data.item.id == item.id then
-			data.stroke.Color = Color3.fromRGB(0, 255, 100)
-			data.stroke.Thickness = 3
+			data.stroke.Thickness = 8
 		else
-			data.stroke.Color = Color3.fromRGB(100, 120, 150)
-			data.stroke.Thickness = 2
+			data.stroke.Thickness = 5
 		end
 	end
 	
 	updateRightColumn()
 end
 
+local cardTemplate = invGui:WaitForChild("CardTemplate")
+
 local function createInvCard(item, itemType, parentScroll)
-	local cardBtn = Instance.new("TextButton")
+	local cardBtn = cardTemplate:Clone()
 	cardBtn.Name = "Card_" .. item.id
-	cardBtn.BackgroundColor3 = Color3.fromRGB(25, 30, 45)
-	cardBtn.Text = ""
 	cardBtn.Parent = parentScroll
+	cardBtn.Visible = true
 	
-	Instance.new("UICorner", cardBtn).CornerRadius = UDim.new(0, 10)
-	local cardStroke = Instance.new("UIStroke", cardBtn)
-	cardStroke.Color = Color3.fromRGB(100, 120, 150)
-	cardStroke.Thickness = 2
+	local cardStroke = cardBtn:WaitForChild("UIStroke")
 	
-	local img
-	local vpf
+	local img = cardBtn:FindFirstChild("Image")
+	local vpf = cardBtn:FindFirstChild("Viewport")
 	if itemType == "Board" then
-		vpf = Instance.new("ViewportFrame", cardBtn)
-		vpf.Size = UDim2.new(1, -20, 0, 90)
-		vpf.Position = UDim2.new(0, 10, 0, 10)
-		vpf.BackgroundColor3 = Color3.fromRGB(255, 230, 100)
-		vpf.BackgroundTransparency = 0
-		Instance.new("UICorner", vpf).CornerRadius = UDim.new(0, 8)
+		img.Visible = false
+		vpf.Visible = true
 		
-		local cam = Instance.new("Camera")
+		local cam = vpf:FindFirstChild("Camera")
+		if not cam then
+			cam = Instance.new("Camera")
+			cam.Name = "Camera"
+			cam.Parent = vpf
+		end
 		vpf.CurrentCamera = cam
-		cam.Parent = vpf
 		
 		local model = nil
 		if customModelsFolder and customModelsFolder:FindFirstChild(item.id) then
@@ -383,30 +252,15 @@ local function createInvCard(item, itemType, parentScroll)
 			end)
 		end
 	else
-		img = Instance.new("ImageLabel", cardBtn)
-		img.Size = UDim2.new(1, -20, 0, 90)
-		img.Position = UDim2.new(0, 10, 0, 10)
-		img.BackgroundColor3 = Color3.fromRGB(15, 20, 30)
+		img.Visible = true
+		vpf.Visible = false
 		img.Image = item.imageId
-		img.ScaleType = Enum.ScaleType.Fit
-		Instance.new("UICorner", img).CornerRadius = UDim.new(0, 8)
 	end
 	
-	local nameLabel = Instance.new("TextLabel", cardBtn)
-	nameLabel.Size = UDim2.new(1, 0, 0, 30)
-	nameLabel.Position = UDim2.new(0, 0, 0, 110)
-	nameLabel.BackgroundTransparency = 1
-	nameLabel.Font = Enum.Font.GothamBold
+	local nameLabel = cardBtn:WaitForChild("ItemName")
 	nameLabel.Text = item.name
-	nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-	nameLabel.TextSize = 14
 	
-	local statusLabel = Instance.new("TextLabel", cardBtn)
-	statusLabel.Size = UDim2.new(1, 0, 0, 20)
-	statusLabel.Position = UDim2.new(0, 0, 0, 145)
-	statusLabel.BackgroundTransparency = 1
-	statusLabel.Font = Enum.Font.GothamBold
-	statusLabel.TextSize = 13
+	local statusLabel = cardBtn:WaitForChild("Status")
 	
 	table.insert(allCards, {card = cardBtn, stroke = cardStroke, item = item, itemType = itemType, statusLabel = statusLabel})
 	
@@ -466,10 +320,8 @@ end
 boardsTabBtn.MouseButton1Click:Connect(function()
 	boardsScroll.Visible = true
 	skillsScroll.Visible = false
-	boardsTabBtn.BackgroundColor3 = Color3.fromRGB(50, 100, 255)
-	boardsTabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-	skillsTabBtn.BackgroundColor3 = Color3.fromRGB(40, 50, 70)
-	skillsTabBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+	boardsTabBtn.BackgroundColor3 = Color3.fromRGB(255, 180, 50)
+	skillsTabBtn.BackgroundColor3 = Color3.fromRGB(150, 150, 150)
 	selectedItem = nil
 	updateRightColumn()
 end)
@@ -477,10 +329,8 @@ end)
 skillsTabBtn.MouseButton1Click:Connect(function()
 	boardsScroll.Visible = false
 	skillsScroll.Visible = true
-	skillsTabBtn.BackgroundColor3 = Color3.fromRGB(50, 100, 255)
-	skillsTabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-	boardsTabBtn.BackgroundColor3 = Color3.fromRGB(40, 50, 70)
-	boardsTabBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+	skillsTabBtn.BackgroundColor3 = Color3.fromRGB(255, 180, 50)
+	boardsTabBtn.BackgroundColor3 = Color3.fromRGB(150, 150, 150)
 	selectedItem = nil
 	updateRightColumn()
 end)

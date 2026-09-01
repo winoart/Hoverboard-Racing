@@ -38,6 +38,13 @@ if not blindEffectRemote then
 	blindEffectRemote.Parent = remotesFolder
 end
 
+local frostEffectRemote = remotesFolder:FindFirstChild("FrostEffect") :: RemoteEvent?
+if not frostEffectRemote then
+	frostEffectRemote = Instance.new("RemoteEvent")
+	frostEffectRemote.Name = "FrostEffect"
+	frostEffectRemote.Parent = remotesFolder
+end
+
 local empEffectRemote = remotesFolder:FindFirstChild("EMPEffect") :: RemoteEvent?
 if not empEffectRemote then
 	empEffectRemote = Instance.new("RemoteEvent")
@@ -80,154 +87,198 @@ local function setCooldown(player: Player, skillId: string)
 	playerCooldowns[player.UserId][skillId] = os.clock()
 end
 
--- Create Ice Bomb Projectile and Fire
+-- [KartRider-Style Projectile Standard]
+-- 투사체(얼음폭탄 등)의 물리적 이동(Visuals)은 발사하는 클라이언트가 전담합니다.
+-- 서버는 물리 파트를 생성하지 않고, 논리적 타격 판정(무조건 2초 후 적중)만 담당합니다.
 local function fireIceBomb(caster: Player, target: Player?)
 	local casterChar = caster.Character
 	if not casterChar or not casterChar.PrimaryPart then return end
 	
 	setCooldown(caster, "Skill_IceBomb")
 	
-	-- 1. Create Projectile Part
-	local projectile = Instance.new("Part")
-	projectile.Name = "IceBombProjectile"
-	projectile.Shape = Enum.PartType.Ball
-	projectile.Size = Vector3.new(2, 2, 2)
-	projectile.Color = Color3.fromRGB(100, 200, 255)
-	projectile.Material = Enum.Material.Ice
-	projectile.CanCollide = false
-	projectile.Anchored = true
-	projectile.Position = casterChar.PrimaryPart.Position + Vector3.new(0, 5, 0)
-	projectile.Parent = Workspace
-	
-	-- Add some basic particle to projectile
-	local trail = Instance.new("Trail")
-	local a0 = Instance.new("Attachment", projectile)
-	a0.Position = Vector3.new(0, 1, 0)
-	local a1 = Instance.new("Attachment", projectile)
-	a1.Position = Vector3.new(0, -1, 0)
-	trail.Attachment0 = a0
-	trail.Attachment1 = a1
-	trail.Lifetime = 0.5
-	trail.Color = ColorSequence.new(Color3.fromRGB(150, 220, 255))
-	trail.Parent = projectile
-	
 	if not target or not target.Character or not target.Character.PrimaryPart then
-		-- Fizzle (No Target / 1st place)
 		print("❄️ [SkillServer] Ice Bomb fizzled (No Target) for " .. caster.Name)
-		
-		-- Small pop animation
-		local ts = TweenService:Create(projectile, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-			Size = Vector3.new(4, 4, 4),
-			Transparency = 1
-		})
-		ts:Play()
-		ts.Completed:Connect(function()
-			projectile:Destroy()
-		end)
 		return
 	end
 	
-	-- We have a target! Tween it to the target
-	print("❄️ [SkillServer] Ice Bomb fired by " .. caster.Name .. " at " .. target.Name)
+	print("❄️ [SkillServer] Ice Bomb fired by " .. caster.Name .. " at " .. target.Name .. " (Will hit in 2 seconds)")
 	
 	if skillWarningRemote then
 		skillWarningRemote:FireClient(target, caster.Name, "Skill_IceBomb")
 	end
 	
-	local targetChar = target.Character
-	local targetRoot = targetChar.PrimaryPart
-	
-	-- Simple following logic using Heartbeat (since target is moving)
-	local RunService = game:GetService("RunService")
-	local connection
-	local speed = 120 -- studs per sec
-	
-	connection = RunService.Heartbeat:Connect(function(dt)
-		if not projectile.Parent or not targetRoot or not targetRoot.Parent then
-			if connection then connection:Disconnect() end
-			projectile:Destroy()
+	-- 서버는 타겟을 찾아 2초 뒤에 꽂히는 판정만 수행합니다.
+	task.delay(2, function()
+		if not target or not target.Character or not target.Character.PrimaryPart then return end
+		local targetChar = target.Character
+		local targetRoot = targetChar.PrimaryPart
+		
+		if activeGhosts[target.UserId] then
+			print("👻 [SkillServer] " .. target.Name .. " DODGED Ice Bomb as a Ghost!")
 			return
 		end
 		
-		local dir = (targetRoot.Position - projectile.Position)
-		local dist = dir.Magnitude
+
 		
-		if dist < 5 then
-			-- Hit!
-			connection:Disconnect()
-			projectile:Destroy()
-			
-			if activeGhosts[target.UserId] then
-				print("👻 [SkillServer] " .. target.Name .. " DODGED Ice Bomb as a Ghost!")
-				return
+		-- 떨어지는 액션 연출 (Weld를 사용하여 타겟의 빠른 이동에도 완벽하게 추적)
+		local fallingBomb = Instance.new("Part")
+		fallingBomb.Name = "FallingIceBomb"
+		fallingBomb.Shape = Enum.PartType.Ball
+		fallingBomb.Size = Vector3.new(5.5, 5.5, 5.5)
+		fallingBomb.Color = Color3.fromRGB(0, 255, 255)
+		fallingBomb.Material = Enum.Material.Neon
+		fallingBomb.CanCollide = false
+		fallingBomb.Anchored = false
+		fallingBomb.CFrame = targetRoot.CFrame * CFrame.new(0, 40, 0)
+		fallingBomb.Parent = workspace
+		
+		local weld = Instance.new("Weld")
+		weld.Part0 = targetRoot
+		weld.Part1 = fallingBomb
+		weld.C0 = CFrame.new(0, 40, 0) -- 40스터드 위에서 시작
+		weld.Parent = fallingBomb
+		
+		local trail = Instance.new("Trail")
+		local a0 = Instance.new("Attachment", fallingBomb)
+		a0.Position = Vector3.new(0, 0, 1.5)
+		local a1 = Instance.new("Attachment", fallingBomb)
+		a1.Position = Vector3.new(0, 0, -1.5)
+		trail.Attachment0 = a0
+		trail.Attachment1 = a1
+		trail.Lifetime = 0.2
+		trail.Color = ColorSequence.new(Color3.fromRGB(0, 255, 255))
+		trail.Parent = fallingBomb
+		
+		local fallDuration = 0.4
+		-- 부드러운 가속도(Quad, In)로 타겟 머리 위로 꽂힘
+		local fallTween = TweenService:Create(weld, TweenInfo.new(fallDuration, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+			C0 = CFrame.new(0, 0, 0)
+		})
+		fallTween:Play()
+		
+		task.delay(fallDuration, function()
+			if fallingBomb and fallingBomb.Parent then
+				fallingBomb:Destroy()
 			end
 			
+			if not target or not target.Character or not target.Character.PrimaryPart then return end
+			local targetChar = target.Character
+			local targetRoot = targetChar.PrimaryPart
+			
+			-- 타격 직전(떨어진 후) 방어막 체크
 			if activeShields[target.UserId] then
 				print("🛡️ [SkillServer] " .. target.Name .. " BLOCKED Ice Bomb with a Shield!")
-				
-				-- Break shield
 				activeShields[target.UserId] = false
-				
-				local shieldBreakSound = Instance.new("Sound")
-				shieldBreakSound.SoundId = "rbxassetid://600832910" -- Glass shatter sound (placeholder)
-				shieldBreakSound.Volume = 1
-				shieldBreakSound.Parent = targetRoot
-				shieldBreakSound:Play()
 				
 				if skillWarningRemote then
 					skillWarningRemote:FireClient(caster, target.Name, "Skill_Shield_Break")
 				end
-				
-				game.Debris:AddItem(shieldBreakSound, 2)
 				return
 			end
 			
+			-- 타격 파티클 이펙트
+			local hitAtt = Instance.new("Attachment", targetRoot)
+			local hitEmit = Instance.new("ParticleEmitter")
+			hitEmit.Size = NumberSequence.new({NumberSequenceKeypoint.new(0, 4), NumberSequenceKeypoint.new(1, 12)})
+			hitEmit.Transparency = NumberSequence.new(0, 1)
+			hitEmit.Color = ColorSequence.new(Color3.fromRGB(200, 255, 255))
+			hitEmit.Speed = NumberRange.new(40, 80)
+			hitEmit.Drag = 5
+			hitEmit.Lifetime = NumberRange.new(0.5, 1)
+			hitEmit.Rate = 0
+			hitEmit.SpreadAngle = Vector2.new(180, 180)
+			hitEmit.Parent = hitAtt
+			hitEmit:Emit(100)
+			game:GetService("Debris"):AddItem(hitAtt, 2)
+			
 			-- FREEZE TARGET
 			print("❄️ [SkillServer] " .. target.Name .. " is FROZEN by " .. caster.Name .. "!")
-			
-			local hoverboard = targetChar:FindFirstChild("Hoverboard")
-			if hoverboard and hoverboard:IsA("Model") and hoverboard.PrimaryPart then
-				hoverboard.PrimaryPart.Anchored = true
-			else
-				targetRoot.Anchored = true
-			end
-			
-			-- Ice Block visual on target
-			local iceBlock = Instance.new("Part")
-			iceBlock.Name = "IceBlockFreeze"
-			iceBlock.Size = Vector3.new(6, 6, 6)
-			iceBlock.CFrame = targetRoot.CFrame
-			iceBlock.Color = Color3.fromRGB(150, 220, 255)
-			iceBlock.Material = Enum.Material.Ice
-			iceBlock.Transparency = 0.4
-			iceBlock.Anchored = true
-			iceBlock.CanCollide = false
-			iceBlock.Parent = targetChar
-			
-			-- Unfreeze after 2 seconds
-			task.delay(2, function()
+				
+				local hoverboard = targetChar:FindFirstChild("Hoverboard")
 				if hoverboard and hoverboard:IsA("Model") and hoverboard.PrimaryPart then
-					hoverboard.PrimaryPart.Anchored = false
-				elseif targetRoot and targetRoot.Parent then
-					targetRoot.Anchored = false
+					hoverboard.PrimaryPart.Anchored = true
+				else
+					targetRoot.Anchored = true
 				end
 				
-				if iceBlock and iceBlock.Parent then
-					-- Shatter animation
-					local shatterTween = TweenService:Create(iceBlock, TweenInfo.new(0.3), {
-						Size = Vector3.new(8, 8, 8),
-						Transparency = 1
-					})
-					shatterTween:Play()
-					shatterTween.Completed:Connect(function()
-						iceBlock:Destroy()
-					end)
+				-- 얼음 큐브 생성 (서버/클라이언트 지연 시간 차이를 막기 위해 Weld로 부착)
+				local iceCube = Instance.new("Part")
+				iceCube.Name = "IceCubeEffect"
+				iceCube.Size = Vector3.new(6, 7, 6)
+				iceCube.Color = Color3.fromRGB(150, 220, 255)
+				iceCube.Material = Enum.Material.Ice
+				iceCube.Transparency = 0.4
+				iceCube.Anchored = false
+				iceCube.Massless = true
+				iceCube.CanCollide = false
+				iceCube.CFrame = targetRoot.CFrame
+				iceCube.Parent = targetChar
+				
+				local iceWeld = Instance.new("WeldConstraint")
+				iceWeld.Part0 = targetRoot
+				iceWeld.Part1 = iceCube
+				iceWeld.Parent = iceCube
+				
+				local humanoid = targetChar:FindFirstChild("Humanoid")
+				local animator = humanoid and humanoid:FindFirstChild("Animator")
+				local pausedTracks = {}
+				if animator then
+					for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+						track:AdjustSpeed(0)
+						table.insert(pausedTracks, track)
+					end
 				end
+				
+				task.delay(2, function()
+					if hoverboard and hoverboard:IsA("Model") and hoverboard.PrimaryPart then
+						hoverboard.PrimaryPart.Anchored = false
+					elseif targetRoot and targetRoot.Parent then
+						targetRoot.Anchored = false
+					end
+					
+					for _, track in ipairs(pausedTracks) do
+						if track.IsPlaying then
+							track:AdjustSpeed(1)
+						end
+					end
+					
+					if iceCube and iceCube.Parent then
+						local shatterSound = Instance.new("Sound")
+						shatterSound.SoundId = "rbxassetid://131148590" -- 유효한 유리 깨지는 소리
+						shatterSound.Volume = 1
+						shatterSound.Parent = targetRoot
+						shatterSound:Play()
+						game:GetService("Debris"):AddItem(shatterSound, 2)
+						
+						-- 물리적 파편 연출
+						for i = 1, 8 do
+							local debris = Instance.new("Part")
+							debris.Name = "IceDebris"
+							debris.Size = Vector3.new(math.random(1,3), math.random(1,3), math.random(1,3))
+							debris.Color = Color3.fromRGB(150, 220, 255)
+							debris.Material = Enum.Material.Ice
+							debris.Position = iceCube.Position + Vector3.new(math.random(-3,3), math.random(0,5), math.random(-3,3))
+							debris.Anchored = false
+							debris.CanCollide = true
+							debris.Parent = workspace
+							
+							debris.Velocity = Vector3.new(math.random(-20, 20), math.random(20, 50), math.random(-20, 20))
+							debris.RotVelocity = Vector3.new(math.random(-10, 10), math.random(-10, 10), math.random(-10, 10))
+							
+							game:GetService("Debris"):AddItem(debris, 1)
+						end
+						
+						local shatterTween = game:GetService("TweenService"):Create(iceCube, TweenInfo.new(0.3), {
+							Size = Vector3.new(8, 9, 8),
+							Transparency = 1
+						})
+						shatterTween:Play()
+						shatterTween.Completed:Connect(function()
+							iceCube:Destroy()
+						end)
+					end
+				end)
 			end)
-		else
-			-- Move towards target
-			projectile.Position += dir.Unit * speed * dt
-		end
 	end)
 end
 
@@ -247,7 +298,7 @@ local function fireShield(player: Player)
 	shieldPart.Name = "SkillShield"
 	shieldPart.Shape = Enum.PartType.Ball
 	shieldPart.Size = Vector3.new(12, 12, 12)
-	shieldPart.Color = Color3.fromRGB(150, 200, 255)
+	shieldPart.Color = Color3.fromRGB(0, 255, 255) -- 형광 하늘색 (SF 느낌)
 	shieldPart.Material = Enum.Material.ForceField
 	shieldPart.Transparency = 0.5
 	shieldPart.Anchored = false
@@ -262,6 +313,22 @@ local function fireShield(player: Player)
 	shieldPart.CFrame = root.CFrame
 	shieldPart.Parent = char
 	
+	-- 발동 사운드
+	local startSound = Instance.new("Sound")
+	startSound.SoundId = "rbxassetid://888568674" -- SF 에너지 쉴드 발동음
+	startSound.Volume = 1
+	startSound.Parent = root
+	startSound:Play()
+	game:GetService("Debris"):AddItem(startSound, 2)
+	
+	-- 맥박 뛰는(Pulse) 애니메이션
+	local pulseInfo = TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true)
+	local pulseTween = TweenService:Create(shieldPart, pulseInfo, {
+		Size = Vector3.new(13, 13, 13),
+		Transparency = 0.3
+	})
+	pulseTween:Play()
+	
 	-- Keep track of state
 	task.delay(5, function()
 		if activeShields[player.UserId] then
@@ -269,6 +336,7 @@ local function fireShield(player: Player)
 			print("🛡️ [SkillServer] " .. player.Name .. "'s Shield expired naturally.")
 			
 			if shieldPart.Parent then
+				pulseTween:Cancel()
 				local ts = TweenService:Create(shieldPart, TweenInfo.new(0.5), {Transparency = 1, Size = Vector3.new(15, 15, 15)})
 				ts:Play()
 				ts.Completed:Connect(function()
@@ -283,11 +351,34 @@ local function fireShield(player: Player)
 		while shieldPart.Parent do
 			if not activeShields[player.UserId] then
 				-- Broken!
-				local ts = TweenService:Create(shieldPart, TweenInfo.new(0.2), {Transparency = 1, Size = Vector3.new(15, 15, 15)})
-				ts:Play()
-				ts.Completed:Connect(function()
-					shieldPart:Destroy()
-				end)
+				pulseTween:Cancel()
+				
+				if skillWarningRemote then
+					skillWarningRemote:FireClient(player, "SYSTEM", "Skill_Shield_Break")
+				end
+				-- 방어 성공(무력화) 사운드
+				local breakSound = Instance.new("Sound")
+				breakSound.SoundId = "rbxassetid://258057783" -- 에너지 충돌/튕겨내는 소리
+				breakSound.Volume = 1
+				breakSound.Parent = root
+				breakSound:Play()
+				game:GetService("Debris"):AddItem(breakSound, 2)
+				
+				-- 방어막 깜빡거림 연출 (3~4번 깜빡인 후 소멸)
+				if shieldPart and shieldPart.Parent then
+					for i = 1, 4 do
+						if not shieldPart or not shieldPart.Parent then break end
+						shieldPart.Transparency = 1
+						task.wait(0.08)
+						if not shieldPart or not shieldPart.Parent then break end
+						shieldPart.Transparency = 0.2
+						task.wait(0.08)
+					end
+					
+					if shieldPart and shieldPart.Parent then
+						shieldPart:Destroy()
+					end
+				end
 				break
 			end
 			task.wait(0.1)
@@ -369,17 +460,9 @@ local function fireIceTrap(player: Player)
 			print("🛡️ [SkillServer] " .. targetPlayer.Name .. " BLOCKED Ice Trap with a Shield!")
 			activeShields[targetPlayer.UserId] = false
 			
-			local shieldBreakSound = Instance.new("Sound")
-			shieldBreakSound.SoundId = "rbxassetid://600832910" 
-			shieldBreakSound.Volume = 1
-			shieldBreakSound.Parent = targetRoot
-			shieldBreakSound:Play()
-			
 			if skillWarningRemote then
 				skillWarningRemote:FireClient(player, targetPlayer.Name, "Skill_Shield_Break")
 			end
-			
-			game.Debris:AddItem(shieldBreakSound, 2)
 			
 			-- Debounce clear in case they step on it again later?
 			task.delay(1, function() hitDebounce[targetPlayer.UserId] = nil end)
