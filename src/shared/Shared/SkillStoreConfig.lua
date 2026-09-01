@@ -20,9 +20,9 @@ SkillStoreConfig.Skills = {
 		goldPrice = 3000
 	},
 	{
-		id = "Skill_IceTrap",
-		name = "빙판 (Ice Trap)",
-		description = "내 뒤에 빙판 함정을 설치하여, 밟은 상대방을 미끄러지게 합니다.",
+		id = "Skill_OrbitalLaser",
+		name = "위성 타격 (Orbital Laser)",
+		description = "맵 상의 모든 상대방에게 위성 레이저를 발사하여 엔진을 일시 정지시킵니다.",
 		imageId = "rbxassetid://10000000004", -- Placeholder
 		goldPrice = 4000
 	},

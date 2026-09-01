@@ -52,6 +52,18 @@ local raceStartTime = 0.0
 local currentLap = 1
 local totalLaps = 2
 
+-- Stun State (for Orbital Laser)
+local isStunned = false
+local stunTimer = 0.0
+
+local skillWarningRemote = ReplicatedStorage:WaitForChild("HoverboardRemotes"):WaitForChild("SkillWarning") :: RemoteEvent
+skillWarningRemote.OnClientEvent:Connect(function(casterName: string, skillId: string)
+	if skillId == "OrbitalStun" and casterName == "SYSTEM" then
+		isStunned = true
+		stunTimer = 2.0
+	end
+end)
+
 -- PlayerModule Controls reference for disabling default movement
 local playerScripts = LocalPlayer:WaitForChild("PlayerScripts")
 local playerModuleScript = playerScripts:WaitForChild("PlayerModule", 5) :: ModuleScript?
@@ -440,34 +452,7 @@ local function createHUDUI()
 	guiScreen.Enabled = false
 end
 
--- =========================================================================
--- 🐛 REALTIME PHYSICS DEBUGGER HUD
--- =========================================================================
-local debugLabel: TextLabel? = nil
-
-local function getOrCreateDebugUI()
-	if debugLabel and debugLabel.Parent then return debugLabel end
-	if not guiScreen then return nil end
-	
-	debugLabel = Instance.new("TextLabel")
-	debugLabel.Name = "PhysicsDebugLabel"
-	debugLabel.Size = UDim2.new(0, 400, 0, 100)
-	debugLabel.Position = UDim2.new(0, 10, 0.4, 0)
-	debugLabel.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-	debugLabel.BackgroundTransparency = 0.5
-	debugLabel.Font = Enum.Font.RobotoMono
-	debugLabel.Text = "Awaiting Debug Data..."
-	debugLabel.TextColor3 = Color3.fromRGB(0, 255, 100)
-	debugLabel.TextSize = 14
-	debugLabel.TextXAlignment = Enum.TextXAlignment.Left
-	debugLabel.TextYAlignment = Enum.TextYAlignment.Top
-	debugLabel.ZIndex = 100
-	debugLabel.Parent = guiScreen
-	return debugLabel
-end
-
 createHUDUI()
-getOrCreateDebugUI()
 
 local skaterJoints = {}
 
@@ -609,6 +594,19 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 		local isW = UserInputService:IsKeyDown(Enum.KeyCode.W) or UserInputService:IsKeyDown(Enum.KeyCode.Up)
 		local isS = UserInputService:IsKeyDown(Enum.KeyCode.S) or UserInputService:IsKeyDown(Enum.KeyCode.Down)
 		local isBoostKey = UserInputService:IsKeyDown(HoverboardConfig.BOOSTER_KEY) or UserInputService:IsKeyDown(Enum.KeyCode.Space)
+		
+		if isStunned then
+			stunTimer -= deltaTime
+			if stunTimer <= 0 then
+				isStunned = false
+			end
+			-- 강제로 조작 불가 상태 및 급정거
+			isW = false
+			isS = false
+			isBoostKey = false
+			isBoosting = false
+			currentWalkSpeed = math.max(0, currentWalkSpeed - (200 * deltaTime)) -- 급격한 감속
+		end
 
 		-- Steering Controls
 		local isA = UserInputService:IsKeyDown(Enum.KeyCode.A) or UserInputService:IsKeyDown(Enum.KeyCode.Left)

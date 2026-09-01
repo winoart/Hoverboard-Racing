@@ -57,7 +57,7 @@ local playerCooldowns: { [number]: { [string]: number } } = {}
 local SKILL_COOLDOWNS = {
 	Skill_IceBomb = 10,
 	Skill_Shield = 15,
-	Skill_IceTrap = 15,
+	Skill_OrbitalLaser = 20,
 	Skill_BlindFog = 15,
 	Skill_Ghost = 20,
 	Skill_EMP = 30,
@@ -386,132 +386,100 @@ local function fireShield(player: Player)
 	end)
 end
 
--- Create Ice Trap
-local function fireIceTrap(player: Player)
-	local char = player.Character
-	if not char or not char.PrimaryPart then return end
+-- Create Orbital Laser
+local function fireOrbitalLaser(player: Player)
+	setCooldown(player, "Skill_OrbitalLaser")
+	print("🛰️ [SkillServer] " .. player.Name .. " called Orbital Laser on all opponents!")
 	
-	setCooldown(player, "Skill_IceTrap")
-	
-	print("🧊 [SkillServer] " .. player.Name .. " placed an Ice Trap!")
-	
-	local root = char.PrimaryPart
-	-- Find position behind player
-	local backwardCFrame = root.CFrame * CFrame.new(0, 0, 15) -- 15 studs behind
-	
-	-- Raycast down to find ground
-	local rayOrigin = backwardCFrame.Position + Vector3.new(0, 10, 0)
-	local rayDirection = Vector3.new(0, -50, 0)
-	
-	local raycastParams = RaycastParams.new()
-	raycastParams.FilterDescendantsInstances = {char}
-	raycastParams.FilterType = Enum.RaycastFilterType.Exclude
-	
-	local rayResult = Workspace:Raycast(rayOrigin, rayDirection, raycastParams)
-	local trapPosition = rayResult and rayResult.Position or (backwardCFrame.Position - Vector3.new(0, 3, 0))
-	local trapNormal = rayResult and rayResult.Normal or Vector3.new(0, 1, 0)
-	
-	-- Create Ice Trap part (A flat cylinder/disc)
-	local trapPart = Instance.new("Part")
-	trapPart.Name = "IceTrapField"
-	trapPart.Shape = Enum.PartType.Cylinder
-	trapPart.Size = Vector3.new(1, 20, 20) -- Flat disc (Cylinder is oriented along X axis by default)
-	trapPart.CFrame = CFrame.lookAt(trapPosition, trapPosition + trapNormal) * CFrame.Angles(0, math.pi/2, 0)
-	-- To make a flat disc on the ground:
-	trapPart.CFrame = CFrame.new(trapPosition) * CFrame.Angles(0, 0, math.pi/2) 
-	-- If ground is sloped, we align with normal
-	if rayResult then
-		trapPart.CFrame = CFrame.lookAt(trapPosition, trapPosition + trapNormal) * CFrame.Angles(0, math.pi/2, 0)
-	end
-	
-	trapPart.Color = Color3.fromRGB(150, 220, 255)
-	trapPart.Material = Enum.Material.Ice
-	trapPart.Transparency = 0.5
-	trapPart.Anchored = true
-	trapPart.CanCollide = false
-	trapPart.Parent = Workspace
-	
-	local hitDebounce = {}
-	
-	trapPart.Touched:Connect(function(hit)
-		if not trapPart.Parent then return end
-		local targetChar = hit.Parent
-		if not targetChar then return end
+	for _, targetPlayer in ipairs(Players:GetPlayers()) do
+		if targetPlayer.UserId == player.UserId then continue end
+		if activeGhosts[targetPlayer.UserId] then continue end -- Ghosts are immune
 		
-		-- Also support if it hits Hoverboard parts
-		if targetChar.Name == "Hoverboard" then
-			targetChar = targetChar.Parent
+		local char = targetPlayer.Character
+		if not char then continue end
+		
+		-- 1. 2초 경고 연출
+		if skillWarningRemote then
+			skillWarningRemote:FireClient(targetPlayer, player.Name, "Skill_OrbitalLaser")
 		end
 		
-		local targetPlayer = Players:GetPlayerFromCharacter(targetChar)
-		if not targetPlayer then return end
+		-- 서버 측 경고 이펙트 (빨간 기둥)
+		local root = char.PrimaryPart
+		if not root then continue end
 		
-		if targetPlayer.UserId == player.UserId then return end -- Caster is immune
-		if hitDebounce[targetPlayer.UserId] then return end
-		if activeGhosts[targetPlayer.UserId] then return end -- Ghosts are immune
+		local warningPillar = Instance.new("Part")
+		warningPillar.Name = "OrbitalWarning"
+		warningPillar.Shape = Enum.PartType.Cylinder
+		warningPillar.Size = Vector3.new(500, 4, 4) -- Tall cylinder
+		warningPillar.Color = Color3.fromRGB(255, 50, 50)
+		warningPillar.Material = Enum.Material.Neon
+		warningPillar.Transparency = 0.5
+		warningPillar.Anchored = false
+		warningPillar.CanCollide = false
+		warningPillar.Massless = true
 		
-		hitDebounce[targetPlayer.UserId] = true
+		local weld = Instance.new("Weld")
+		weld.Part0 = root
+		weld.Part1 = warningPillar
+		weld.C0 = CFrame.new(0, 250, 0) * CFrame.Angles(0, 0, math.pi/2) -- Stick it straight up
+		weld.Parent = warningPillar
+		warningPillar.Parent = char
 		
-		-- Target stepped on trap!
-		local targetRoot = targetChar.PrimaryPart
-		if not targetRoot then return end
+		local warningSound = Instance.new("Sound")
+		warningSound.SoundId = "rbxassetid://1596766779" -- lock on / warning sound
+		warningSound.Volume = 1
+		warningSound.Parent = root
+		warningSound:Play()
+		game:GetService("Debris"):AddItem(warningSound, 3)
 		
-		if activeShields[targetPlayer.UserId] then
-			print("🛡️ [SkillServer] " .. targetPlayer.Name .. " BLOCKED Ice Trap with a Shield!")
-			activeShields[targetPlayer.UserId] = false
+		-- 2. 2초 뒤 실제 타격
+		task.delay(2, function()
+			if warningPillar.Parent then warningPillar:Destroy() end
+			if not targetPlayer.Parent or not char.Parent then return end
 			
-			if skillWarningRemote then
-				skillWarningRemote:FireClient(player, targetPlayer.Name, "Skill_Shield_Break")
+			-- 쉴드 방어 체크
+			if activeShields[targetPlayer.UserId] then
+				print("🛡️ [SkillServer] " .. targetPlayer.Name .. " BLOCKED Orbital Laser with a Shield!")
+				activeShields[targetPlayer.UserId] = false
+				if skillWarningRemote then
+					skillWarningRemote:FireClient(player, targetPlayer.Name, "Skill_Shield_Break")
+				end
+				return
 			end
 			
-			-- Debounce clear in case they step on it again later?
-			task.delay(1, function() hitDebounce[targetPlayer.UserId] = nil end)
-			return
-		end
-		
-		-- Apply Slip Effect (Option C)
-		print("🌀 [SkillServer] " .. targetPlayer.Name .. " slipped on Ice Trap!")
-		
-		if skillWarningRemote then
-			skillWarningRemote:FireClient(targetPlayer, player.Name, "Skill_IceTrap")
-		end
-		
-		-- Spin out of control using AngularVelocity
-		local spinAttachment = Instance.new("Attachment", targetRoot)
-		local spinMover = Instance.new("AngularVelocity")
-		spinMover.Attachment0 = spinAttachment
-		spinMover.AngularVelocity = Vector3.new(0, 30, 0) -- Spin rapidly around Y axis
-		spinMover.MaxTorque = 10000000
-		spinMover.Parent = targetRoot
-		
-		-- Slip sound
-		local slipSound = Instance.new("Sound")
-		slipSound.SoundId = "rbxassetid://4612261623" -- Funny slip/spin sound placeholder
-		slipSound.Volume = 1
-		slipSound.Parent = targetRoot
-		slipSound:Play()
-		game.Debris:AddItem(slipSound, 2)
-		
-		-- Optional: Freeze their forward momentum by disabling thrust locally?
-		-- We can just let them spin wildly for 2 seconds.
-		
-		task.delay(2, function()
-			if spinMover.Parent then spinMover:Destroy() end
-			if spinAttachment.Parent then spinAttachment:Destroy() end
-			hitDebounce[targetPlayer.UserId] = nil -- Can be hit again if they stay
-		end)
-	end)
-	
-	-- Destroy trap after 5 seconds
-	task.delay(5, function()
-		if trapPart.Parent then
-			local ts = TweenService:Create(trapPart, TweenInfo.new(0.5), {Transparency = 1, Size = Vector3.new(1, 0, 0)})
+
+			print("💥 [SkillServer] " .. targetPlayer.Name .. " got hit by Orbital Laser!")
+			
+			-- 실제 레이저 이펙트
+			local laserPillar = Instance.new("Part")
+			laserPillar.Name = "OrbitalStrike"
+			laserPillar.Shape = Enum.PartType.Cylinder
+			laserPillar.Size = Vector3.new(500, 15, 15) 
+			laserPillar.Color = Color3.fromRGB(100, 255, 255)
+			laserPillar.Material = Enum.Material.Neon
+			laserPillar.Anchored = true
+			laserPillar.CanCollide = false
+			laserPillar.CFrame = root.CFrame * CFrame.new(0, 250, 0) * CFrame.Angles(0, 0, math.pi/2)
+			laserPillar.Parent = Workspace
+			
+			local boomSound = Instance.new("Sound")
+			boomSound.SoundId = "rbxassetid://12222200" -- explosion
+			boomSound.Volume = 2
+			boomSound.Parent = root
+			boomSound:Play()
+			game.Debris:AddItem(boomSound, 3)
+			
+			-- 기절 효과 명령을 클라이언트로 전송
+			if skillWarningRemote then
+				skillWarningRemote:FireClient(targetPlayer, "SYSTEM", "OrbitalStun")
+			end
+			
+			-- 레이저 서서히 사라짐
+			local ts = TweenService:Create(laserPillar, TweenInfo.new(1.0), {Transparency = 1, Size = Vector3.new(500, 0, 0)})
 			ts:Play()
-			ts.Completed:Connect(function()
-				trapPart:Destroy()
-			end)
-		end
-	end)
+			ts.Completed:Connect(function() laserPillar:Destroy() end)
+		end)
+	end
 end
 
 -- Create Blind Fog
@@ -746,8 +714,8 @@ if useSkillRemote then
 			fireIceBomb(player, target)
 		elseif skillId == "Skill_Shield" then
 			fireShield(player)
-		elseif skillId == "Skill_IceTrap" then
-			fireIceTrap(player)
+		elseif skillId == "Skill_OrbitalLaser" then
+			fireOrbitalLaser(player)
 		elseif skillId == "Skill_BlindFog" then
 			fireBlindFog(player)
 		elseif skillId == "Skill_Ghost" then

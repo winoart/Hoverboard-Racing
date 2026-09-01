@@ -22,8 +22,9 @@ local blindEffectRemote = hoverRemotes:WaitForChild("BlindEffect") :: RemoteEven
 local empEffectRemote = hoverRemotes:WaitForChild("EMPEffect") :: RemoteEvent
 local frostEffectRemote = hoverRemotes:WaitForChild("FrostEffect") :: RemoteEvent
 
--- Temporary Product ID for unlocking the 3rd slot
+-- Temporary Product IDs for unlocking slots
 local UNLOCK_SLOT3_PRODUCT_ID = 123456789 
+local UNLOCK_SLOT4_PRODUCT_ID = 987654321 
 
 -- Store config to get image/name
 local SkillStoreConfig = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("SkillStoreConfig"))
@@ -33,34 +34,21 @@ local clientCooldowns = {}
 local SKILL_COOLDOWNS = {
 	Skill_IceBomb = 10,
 	Skill_Shield = 15,
-	Skill_IceTrap = 15,
+	Skill_OrbitalLaser = 20,
 	Skill_BlindFog = 15,
 	Skill_Ghost = 20,
 	Skill_EMP = 30,
 }
 
--- Create UI
-local gui = Instance.new("ScreenGui")
-gui.Name = "SkillActionGui"
-gui.ResetOnSpawn = false
-gui.Parent = playerGui
-
-local container = Instance.new("Frame")
-container.Name = "SlotsContainer"
-container.Size = UDim2.new(0, 80, 0, 260)
-container.Position = UDim2.new(1, -100, 0.5, -130)
-container.BackgroundTransparency = 1
-container.Parent = gui
-
-local listLayout = Instance.new("UIListLayout")
-listLayout.Padding = UDim.new(0, 15)
-listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-listLayout.SortOrder = Enum.SortOrder.LayoutOrder
-listLayout.Parent = container
+-- Bind UI
+local gui = playerGui:WaitForChild("SkillActionGui")
+local container = gui:WaitForChild("SlotsContainer")
 
 local slots = {}
-local hotkeys = { Enum.KeyCode.Q, Enum.KeyCode.E, Enum.KeyCode.R }
-local hotkeyStrs = { "Q", "E", "R" }
+local hotkeys = { Enum.KeyCode.Q, Enum.KeyCode.E, Enum.KeyCode.R, Enum.KeyCode.T }
+local hotkeyStrs = { "Q", "E", "R", "T" }
+
+local glitchOverlay = gui:WaitForChild("EMPGlitchOverlay")
 
 -- [클라이언트 사이드 시각화 (KartRider 방식 표준)]
 -- 투사체 스킬을 쓸 때 핑 지연 없이 내 화면에 즉시 발사되는 연출을 만듭니다.
@@ -269,18 +257,7 @@ local function showWarningToast(message: string)
 	end)
 end
 
-local fogOverlay = Instance.new("ImageLabel")
-fogOverlay.Name = "BlindFogOverlay"
-fogOverlay.Size = UDim2.new(1, 0, 1, 0)
-fogOverlay.Position = UDim2.new(0, 0, 0, 0)
-fogOverlay.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
-fogOverlay.BackgroundTransparency = 1
-fogOverlay.Image = "rbxassetid://733568916" -- Foggy texture
-fogOverlay.ImageTransparency = 1
-fogOverlay.ImageColor3 = Color3.fromRGB(150, 150, 150)
-fogOverlay.ZIndex = 100
-fogOverlay.Visible = false
-fogOverlay.Parent = gui
+local fogOverlay = gui:WaitForChild("BlindFogOverlay")
 
 local function setBlindEffect(active: boolean)
 	if active then
@@ -302,16 +279,6 @@ local function setBlindEffect(active: boolean)
 		end)
 	end
 end
-
--- Glitch UI for EMP
-local glitchOverlay = Instance.new("Frame")
-glitchOverlay.Name = "EMPGlitchOverlay"
-glitchOverlay.Size = UDim2.new(1, 0, 1, 0)
-glitchOverlay.BackgroundColor3 = Color3.fromRGB(0, 255, 255)
-glitchOverlay.BackgroundTransparency = 1
-glitchOverlay.ZIndex = 99
-glitchOverlay.Visible = false
-glitchOverlay.Parent = gui
 
 -- For static noise, a UIGradient or ImageLabel can be used. We'll use a fast flickering frame.
 local function playGlitchEffect()
@@ -336,98 +303,17 @@ local function playGlitchEffect()
 	end)
 end
 
-local function createSlot(index: number)
-	local slotFrame = Instance.new("ImageButton")
-	slotFrame.Name = "Slot" .. index
-	slotFrame.Size = UDim2.new(0, 70, 0, 70)
-	slotFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
-	slotFrame.BackgroundTransparency = 0.2
-	slotFrame.LayoutOrder = index
-	slotFrame.Parent = container
-	
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0.5, 0) -- Circle
-	corner.Parent = slotFrame
-	
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = Color3.fromRGB(150, 150, 150)
-	stroke.Thickness = 2
-	stroke.Parent = slotFrame
-	
-	local icon = Instance.new("ImageLabel")
-	icon.Size = UDim2.new(1, -10, 1, -10)
-	icon.Position = UDim2.new(0.5, 0, 0.5, 0)
-	icon.AnchorPoint = Vector2.new(0.5, 0.5)
-	icon.BackgroundTransparency = 1
-	icon.Image = ""
-	icon.Parent = slotFrame
-	
-	local cornerIcon = Instance.new("UICorner")
-	cornerIcon.CornerRadius = UDim.new(0.5, 0)
-	cornerIcon.Parent = icon
-	
-	local hotkeyLabel = Instance.new("TextLabel")
-	hotkeyLabel.Size = UDim2.new(0, 24, 0, 24)
-	hotkeyLabel.Position = UDim2.new(1, -10, 0, -5)
-	hotkeyLabel.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
-	hotkeyLabel.Font = Enum.Font.GothamBlack
-	hotkeyLabel.Text = hotkeyStrs[index]
-	hotkeyLabel.TextColor3 = Color3.fromRGB(0, 0, 0)
-	hotkeyLabel.TextSize = 14
-	hotkeyLabel.Parent = slotFrame
-	
-	local hkCorner = Instance.new("UICorner")
-	hkCorner.CornerRadius = UDim.new(1, 0)
-	hkCorner.Parent = hotkeyLabel
-	
-	local overlay = Instance.new("Frame")
-	overlay.Size = UDim2.new(1, 0, 1, 0)
-	overlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-	overlay.BackgroundTransparency = 0.5
-	overlay.Visible = true -- Default locked in lobby
-	overlay.Parent = slotFrame
-	
-	local overlayCorner = Instance.new("UICorner")
-	overlayCorner.CornerRadius = UDim.new(0.5, 0)
-	overlayCorner.Parent = overlay
-	
-	-- For slot 3 lock
-	local lockIcon = Instance.new("TextLabel")
-	lockIcon.Size = UDim2.new(1, 0, 1, 0)
-	lockIcon.BackgroundTransparency = 1
-	lockIcon.Font = Enum.Font.GothamBold
-	lockIcon.Text = "🔒\n50 R$"
-	lockIcon.TextColor3 = Color3.fromRGB(255, 100, 100)
-	lockIcon.TextSize = 16
-	lockIcon.Visible = false
-	lockIcon.Parent = slotFrame
-	
-	local nameLabel = Instance.new("TextLabel")
-	nameLabel.Size = UDim2.new(1, 0, 0, 20)
-	nameLabel.Position = UDim2.new(0, 0, 1, 0)
-	nameLabel.BackgroundTransparency = 1
-	nameLabel.Font = Enum.Font.GothamBold
-	nameLabel.Text = ""
-	nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-	nameLabel.TextSize = 12
-	nameLabel.Parent = slotFrame
-	
-	slots[index] = {
-		frame = slotFrame,
-		icon = icon,
-		stroke = stroke,
-		overlay = overlay,
-		lock = lockIcon,
-		nameLabel = nameLabel,
-		skillId = nil
-	}
-	
-
 
 	slotFrame.MouseButton1Click:Connect(function()
 		if index == 3 and maxSkillSlots.Value < 3 then
-			-- Prompt Purchase
 			MarketplaceService:PromptProductPurchase(LocalPlayer, UNLOCK_SLOT3_PRODUCT_ID)
+			return
+		elseif index == 4 and maxSkillSlots.Value < 4 then
+			if maxSkillSlots.Value < 3 then
+				showSkillToast("3번째 슬롯을 먼저 구매해야 합니다!")
+			else
+				MarketplaceService:PromptProductPurchase(LocalPlayer, UNLOCK_SLOT4_PRODUCT_ID)
+			end
 			return
 		end
 		
@@ -456,23 +342,24 @@ local function createSlot(index: number)
 			
 			-- Cooldown UI logic
 			slotFrame.overlay.Visible = true
-			local fillRatio = 1
+			slots[index].cdLabel.Visible = true
 			local conn
 			conn = game:GetService("RunService").RenderStepped:Connect(function()
 				local elapsed = os.clock() - clientCooldowns[skillId]
 				if elapsed >= cooldown then
 					slotFrame.overlay.Visible = false
+					slots[index].cdLabel.Visible = false
 					conn:Disconnect()
 				else
-					-- We could animate overlay size or transparency here
+					slots[index].cdLabel.Text = tostring(math.ceil(cooldown - elapsed))
 				end
 			end)
 		end
 	end)
 end
 
-for i = 1, 3 do
-	createSlot(i)
+for i = 1, 4 do
+	bindSlot(i)
 end
 
 -- Function to get skill info from Config
@@ -490,7 +377,7 @@ local function refreshSlots()
 	local equipped = equippedSkillsFolder:GetChildren()
 	local currentMax = maxSkillSlots.Value
 	
-	for i = 1, 3 do
+	for i = 1, 4 do
 		local slot = slots[i]
 		
 		-- Manage Lock status for Slot 3
@@ -519,13 +406,8 @@ local function refreshSlots()
 				slot.nameLabel.Text = ""
 				slot.stroke.Color = Color3.fromRGB(150, 150, 150)
 			end
-			
-			-- Overlay logic (darken if not racing or if empty)
-			if not isRaceStarted or not slot.skillId then
-				slot.overlay.Visible = true
-			else
-				slot.overlay.Visible = false
-			end
+			-- Unlocked slots should never be dimmed by default in casual style
+			slot.overlay.Visible = false
 		end
 	end
 end

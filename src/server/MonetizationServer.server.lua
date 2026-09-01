@@ -7,6 +7,9 @@ local Players = game:GetService("Players")
 
 local MonetizationConfig = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("MonetizationConfig"))
 
+local UNLOCK_SLOT3_PRODUCT_ID = 123456789 
+local UNLOCK_SLOT4_PRODUCT_ID = 987654321 
+
 -- 결제 승인 콜백 함수
 local function processReceipt(receiptInfo)
 	local player = Players:GetPlayerByUserId(receiptInfo.PlayerId)
@@ -16,6 +19,25 @@ local function processReceipt(receiptInfo)
 	end
 	
 	local purchasedProductId = receiptInfo.ProductId
+	
+	if purchasedProductId == UNLOCK_SLOT3_PRODUCT_ID then
+		local maxSkillSlots = player:FindFirstChild("MaxSkillSlots")
+		if maxSkillSlots and maxSkillSlots.Value < 3 then
+			maxSkillSlots.Value = 3
+			print("🔓 [MonetizationServer] " .. player.Name .. " unlocked Slot 3!")
+			return Enum.ProductPurchaseDecision.PurchaseGranted
+		end
+		return Enum.ProductPurchaseDecision.PurchaseGranted -- Already unlocked
+	elseif purchasedProductId == UNLOCK_SLOT4_PRODUCT_ID then
+		local maxSkillSlots = player:FindFirstChild("MaxSkillSlots")
+		if maxSkillSlots and maxSkillSlots.Value < 4 then
+			maxSkillSlots.Value = 4
+			print("🔓 [MonetizationServer] " .. player.Name .. " unlocked Slot 4!")
+			return Enum.ProductPurchaseDecision.PurchaseGranted
+		end
+		return Enum.ProductPurchaseDecision.PurchaseGranted -- Already unlocked
+	end
+	
 	local purchasedProduct = nil
 	
 	-- 어떤 상품을 샀는지 찾기

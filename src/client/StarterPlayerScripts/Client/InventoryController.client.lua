@@ -171,12 +171,19 @@ local function updateRightColumn()
 	end
 	
 	if isEquipped then
-		actionBtn.BackgroundColor3 = Color3.fromRGB(150, 150, 150)
-		actionBtn.Text = "장착 중"
-		actionBtn.AutoButtonColor = false
+		if selectedItemType == "Board" then
+			actionBtn.BackgroundColor3 = Color3.fromRGB(150, 150, 150)
+			actionBtn.Text = "장착 중"
+			actionBtn.AutoButtonColor = false
+		else
+			actionBtn.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
+			actionBtn.Text = "장착 해제"
+			actionBtn.AutoButtonColor = true
+		end
 	else
 		actionBtn.BackgroundColor3 = Color3.fromRGB(50, 255, 100)
 		actionBtn.Text = "장착하기"
+		actionBtn.AutoButtonColor = true
 	end
 end
 
