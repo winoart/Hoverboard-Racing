@@ -73,6 +73,7 @@ local skillsScroll = leftCol:WaitForChild("SkillsScroll")
 
 -- Right Column (Details)
 local rightCol = bgFrame:WaitForChild("RightColumn")
+
 local rImage = rightCol:WaitForChild("ItemImage")
 local rViewport = rightCol:WaitForChild("ItemViewport")
 
@@ -109,12 +110,34 @@ local function updateRightColumn()
 		return
 	end
 	
+	-- Styling rName (Item Name)
 	rName.Text = selectedItem.name
+	rName.Font = Enum.Font.GothamBlack
+	rName.TextSize = 40
+	rName.TextColor3 = Color3.fromRGB(255, 255, 255)
+	
+	local nameStroke = rName:FindFirstChild("UIStroke") or Instance.new("UIStroke")
+	nameStroke.Name = "UIStroke"
+	nameStroke.Color = Color3.fromRGB(0, 0, 0)
+	nameStroke.Thickness = 6
+	nameStroke.Parent = rName
 	
 	if selectedItemType == "Board" then
 		rImage.Visible = false
 		rViewport.Visible = true
-		rDesc.Text = selectedItem.rarity and ("등급: " .. selectedItem.rarity) or ""
+		
+		-- Styling Rarity (rDesc) as a glowing title
+		local rarityText = selectedItem.rarity or "기본"
+		rDesc.Text = rarityText
+		rDesc.Font = Enum.Font.GothamBlack
+		rDesc.TextSize = 50
+		rDesc.TextColor3 = Color3.fromRGB(255, 215, 0) -- Gold color for rarity
+		
+		local descStroke = rDesc:FindFirstChild("UIStroke") or Instance.new("UIStroke")
+		descStroke.Name = "UIStroke"
+		descStroke.Color = Color3.fromRGB(0, 0, 0)
+		descStroke.Thickness = 8
+		descStroke.Parent = rDesc
 		
 		-- Setup 3D Model
 		for _, child in ipairs(rViewport:GetChildren()) do
@@ -132,16 +155,17 @@ local function updateRightColumn()
 		model.Parent = rViewport
 		local pp = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
 		if pp then
-			rCamera.FieldOfView = 50
+			rCamera.FieldOfView = 70
 			
 			-- Animation (Rotation + Bobbing)
 			local t = 0
 			local conn = RunService.RenderStepped:Connect(function(dt)
 				t += dt
-				local yOffset = math.sin(t * 3) * 0.3 -- Up and down bobbing
-				local rotation = CFrame.Angles(0, t * 1.0, 0) -- Slow rotation
+				local yOffset = math.sin(t * 4) * 0.4 -- More dynamic bobbing
+				local rotation = CFrame.Angles(0, t * 1.5, 0) -- Faster rotation
 				
-				local offset = rotation * Vector3.new(2.5, 2 + yOffset, -3.5)
+				-- Pulled camera back slightly to fit frame size properly
+				local offset = rotation * Vector3.new(3.5, 2.5 + yOffset, -5)
 				rCamera.CFrame = CFrame.new(pp.Position + offset, pp.Position)
 			end)
 			table.insert(renderConnections, conn)
@@ -150,11 +174,39 @@ local function updateRightColumn()
 		rImage.Visible = true
 		rViewport.Visible = false
 		rImage.Image = selectedItem.imageId
+		
 		rDesc.Text = selectedItem.description or ""
+		rDesc.Font = Enum.Font.GothamBold
+		rDesc.TextSize = 24
+		rDesc.TextColor3 = Color3.fromRGB(200, 200, 200)
+		
+		local descStroke = rDesc:FindFirstChild("UIStroke") or Instance.new("UIStroke")
+		descStroke.Name = "UIStroke"
+		descStroke.Color = Color3.fromRGB(0, 0, 0)
+		descStroke.Thickness = 3
+		descStroke.Parent = rDesc
 	end
 	
 	actionBtn.Visible = true
 	actionBtn.AutoButtonColor = true
+	actionBtn.Font = Enum.Font.GothamBlack
+	actionBtn.TextSize = 30
+	actionBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	
+	local actionStroke = actionBtn:FindFirstChild("UIStroke") or Instance.new("UIStroke")
+	actionStroke.Name = "UIStroke"
+	actionStroke.Color = Color3.fromRGB(0, 0, 0)
+	actionStroke.Thickness = 5
+	actionStroke.Parent = actionBtn
+	
+	local actionCorner = actionBtn:FindFirstChild("UICorner") or Instance.new("UICorner")
+	actionCorner.CornerRadius = UDim.new(0, 12)
+	actionCorner.Parent = actionBtn
+	
+	local actionGradient = actionBtn:FindFirstChild("UIGradient") or Instance.new("UIGradient")
+	actionGradient.Name = "UIGradient"
+	actionGradient.Rotation = 90
+	actionGradient.Parent = actionBtn
 	
 	local isEquipped = false
 	
@@ -172,17 +224,26 @@ local function updateRightColumn()
 	
 	if isEquipped then
 		if selectedItemType == "Board" then
-			actionBtn.BackgroundColor3 = Color3.fromRGB(150, 150, 150)
-			actionBtn.Text = "장착 중"
+			actionBtn.Text = "장착됨"
+			actionGradient.Color = ColorSequence.new{
+				ColorSequenceKeypoint.new(0, Color3.fromRGB(150, 150, 150)),
+				ColorSequenceKeypoint.new(1, Color3.fromRGB(100, 100, 100))
+			}
 			actionBtn.AutoButtonColor = false
 		else
-			actionBtn.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
 			actionBtn.Text = "장착 해제"
+			actionGradient.Color = ColorSequence.new{
+				ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 100, 100)),
+				ColorSequenceKeypoint.new(1, Color3.fromRGB(200, 50, 50))
+			}
 			actionBtn.AutoButtonColor = true
 		end
 	else
-		actionBtn.BackgroundColor3 = Color3.fromRGB(50, 255, 100)
 		actionBtn.Text = "장착하기"
+		actionGradient.Color = ColorSequence.new{
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(100, 255, 100)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 200, 50))
+		}
 		actionBtn.AutoButtonColor = true
 	end
 end
@@ -222,13 +283,54 @@ local function createInvCard(item, itemType, parentScroll)
 	cardBtn.Parent = parentScroll
 	cardBtn.Visible = true
 	
+	-- Add Gradient to Card
+	local bgGradient = Instance.new("UIGradient")
+	if itemType == "Board" then
+		-- Cool cyan/blue gradient for boards
+		bgGradient.Color = ColorSequence.new{
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(100, 220, 255)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 100, 255))
+		}
+	else
+		bgGradient.Color = ColorSequence.new{
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(150, 100, 255)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 100, 255))
+		}
+	end
+	bgGradient.Rotation = 45
+	bgGradient.Parent = cardBtn
+	
 	local cardStroke = cardBtn:WaitForChild("UIStroke")
+	cardStroke.Thickness = 5
+	cardStroke.Color = Color3.fromRGB(20, 20, 20)
+	
+	cardBtn.ClipsDescendants = true
 	
 	local img = cardBtn:FindFirstChild("Image")
 	local vpf = cardBtn:FindFirstChild("Viewport")
+	
+	-- Remove inner UIStrokes and set background transparency
+	for _, v in ipairs({img, vpf}) do
+		if v then
+			v.BackgroundTransparency = 1
+			local innerStroke = v:FindFirstChild("UIStroke") or v:FindFirstChildWhichIsA("UIStroke")
+			if innerStroke then
+				innerStroke:Destroy()
+			end
+		end
+	end
+	
 	if itemType == "Board" then
 		img.Visible = false
 		vpf.Visible = true
+		vpf.Size = UDim2.new(1.1, 0, 1.1, 0)
+		vpf.Position = UDim2.new(-0.05, 0, -0.15, 0)
+		vpf.Rotation = 0 -- Removed rotation to fix clipping bug
+		
+		-- Improve ViewportFrame 3D Lighting
+		vpf.Ambient = Color3.fromRGB(150, 150, 150)
+		vpf.LightColor = Color3.fromRGB(255, 255, 255)
+		vpf.LightDirection = Vector3.new(-1, -1, -1)
 		
 		local cam = vpf:FindFirstChild("Camera")
 		if not cam then
@@ -248,13 +350,15 @@ local function createInvCard(item, itemType, parentScroll)
 		model.Parent = vpf
 		local pp = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
 		if pp then
-			cam.FieldOfView = 50
+			cam.FieldOfView = 70
 			local t = 0
 			local conn = RunService.RenderStepped:Connect(function(dt)
 				t += dt
-				local yOffset = math.sin(t * 3) * 0.2
-				local rotation = CFrame.Angles(0, t * 1.0, 0)
-				local offset = rotation * Vector3.new(2.5, 2 + yOffset, -3.5)
+				local yOffset = math.sin(t * 4) * 0.15
+				-- Dynamic diagonal rotation
+				local rotation = CFrame.Angles(math.rad(25), t * 1.5, math.rad(-15))
+				-- Pulled camera back slightly to fit frame size properly
+				local offset = rotation * Vector3.new(3, 1.5 + yOffset, -4.5)
 				cam.CFrame = CFrame.new(pp.Position + offset, pp.Position)
 			end)
 		end
@@ -262,20 +366,43 @@ local function createInvCard(item, itemType, parentScroll)
 		img.Visible = true
 		vpf.Visible = false
 		img.Image = item.imageId
+		img.Size = UDim2.new(1.1, 0, 1.1, 0)
+		img.Position = UDim2.new(-0.05, 0, -0.15, 0)
+		img.Rotation = 0 -- Removed rotation to fix clipping bug
 	end
 	
 	local nameLabel = cardBtn:WaitForChild("ItemName")
-	nameLabel.Text = item.name
+	
+	-- Strip parenthesis like (기본) from the name for cleaner display
+	local cleanedName = string.gsub(item.name, "%s*%([a-zA-Z가-힣%s]+%)", "")
+	nameLabel.Text = cleanedName
+	
 	nameLabel.TextSize = 28
 	nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-	nameLabel.TextStrokeTransparency = 0
+	nameLabel.Font = Enum.Font.GothamBlack
+	nameLabel.TextStrokeTransparency = 1 -- We will use UIStroke instead
+	
+	local nameStroke = nameLabel:FindFirstChild("UIStroke") or Instance.new("UIStroke")
+	nameStroke.Name = "UIStroke"
+	nameStroke.Color = Color3.fromRGB(0, 0, 0)
+	nameStroke.Thickness = 4
+	nameStroke.Parent = nameLabel
 	
 	local statusLabel = cardBtn:WaitForChild("Status")
-	statusLabel.TextSize = 20
-	statusLabel.Font = Enum.Font.GothamBold
-	statusLabel.TextStrokeTransparency = 0
+	statusLabel.Visible = false -- Hide the original text status label
 	
-	table.insert(allCards, {card = cardBtn, stroke = cardStroke, item = item, itemType = itemType, statusLabel = statusLabel})
+	-- Create a green checkmark icon for equipped status
+	local checkIcon = Instance.new("ImageLabel")
+	checkIcon.Name = "EquippedCheck"
+	checkIcon.Size = UDim2.new(0, 64, 0, 64) -- Doubled size as requested
+	checkIcon.Position = UDim2.new(0, 8, 0, 8) -- Positioned safely inside the top left corner
+	checkIcon.BackgroundTransparency = 1
+	checkIcon.Image = "rbxassetid://17368190066"
+	checkIcon.Visible = false
+	checkIcon.ZIndex = 10
+	checkIcon.Parent = cardBtn
+	
+	table.insert(allCards, {card = cardBtn, stroke = cardStroke, item = item, itemType = itemType, checkIcon = checkIcon})
 	
 	cardBtn.MouseButton1Click:Connect(function()
 		selectItem(item, itemType)
@@ -293,11 +420,9 @@ local function refreshCardsVisibility()
 			if data.item.id == "DefaultHoverboard" or (boardOwned and boardOwned:FindFirstChild(data.item.id)) then
 				data.card.Visible = true
 				if boardEq and boardEq.Value == data.item.id then
-					data.statusLabel.Text = "✅ 장착 중"
-					data.statusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+					data.checkIcon.Visible = true
 				else
-					data.statusLabel.Text = "보유 중"
-					data.statusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+					data.checkIcon.Visible = false
 				end
 			else
 				data.card.Visible = false
@@ -306,11 +431,9 @@ local function refreshCardsVisibility()
 			if skillOwned and skillOwned:FindFirstChild(data.item.id) then
 				data.card.Visible = true
 				if skillEq and skillEq:FindFirstChild(data.item.id) then
-					data.statusLabel.Text = "✅ 장착 중"
-					data.statusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+					data.checkIcon.Visible = true
 				else
-					data.statusLabel.Text = "보유 중"
-					data.statusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+					data.checkIcon.Visible = false
 				end
 			else
 				data.card.Visible = false
