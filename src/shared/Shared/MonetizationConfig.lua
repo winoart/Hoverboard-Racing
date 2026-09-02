@@ -41,4 +41,17 @@ MonetizationConfig.GoldProducts = {
 	}
 }
 
+MonetizationConfig.SlotUnlockProducts = {
+	Slot3 = {
+		id = 123456789,
+		price = 300,
+		name = "R 슬롯 잠금 해제"
+	},
+	Slot4 = {
+		id = 987654321,
+		price = 500,
+		name = "T 슬롯 잠금 해제"
+	}
+}
+
 return MonetizationConfig

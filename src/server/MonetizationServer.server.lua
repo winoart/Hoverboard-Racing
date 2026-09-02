@@ -7,8 +7,7 @@ local Players = game:GetService("Players")
 
 local MonetizationConfig = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("MonetizationConfig"))
 
-local UNLOCK_SLOT3_PRODUCT_ID = 123456789 
-local UNLOCK_SLOT4_PRODUCT_ID = 987654321 
+
 
 -- 결제 승인 콜백 함수
 local function processReceipt(receiptInfo)
@@ -20,7 +19,7 @@ local function processReceipt(receiptInfo)
 	
 	local purchasedProductId = receiptInfo.ProductId
 	
-	if purchasedProductId == UNLOCK_SLOT3_PRODUCT_ID then
+	if purchasedProductId == MonetizationConfig.SlotUnlockProducts.Slot3.id then
 		local maxSkillSlots = player:FindFirstChild("MaxSkillSlots")
 		if maxSkillSlots and maxSkillSlots.Value < 3 then
 			maxSkillSlots.Value = 3
@@ -28,7 +27,7 @@ local function processReceipt(receiptInfo)
 			return Enum.ProductPurchaseDecision.PurchaseGranted
 		end
 		return Enum.ProductPurchaseDecision.PurchaseGranted -- Already unlocked
-	elseif purchasedProductId == UNLOCK_SLOT4_PRODUCT_ID then
+	elseif purchasedProductId == MonetizationConfig.SlotUnlockProducts.Slot4.id then
 		local maxSkillSlots = player:FindFirstChild("MaxSkillSlots")
 		if maxSkillSlots and maxSkillSlots.Value < 4 then
 			maxSkillSlots.Value = 4

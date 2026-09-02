@@ -100,6 +100,15 @@ Players.PlayerAdded:Connect(function(player)
 		-- Load Skills
 		maxSkillSlots.Value = data.MaxSkillSlots or 2
 		local sList = data.OwnedSkills or {}
+		
+		-- [TESTING] Give all skills
+		local testSkills = {"Skill_IceBomb", "Skill_Shield", "Skill_OrbitalLaser", "Skill_BlindFog", "Skill_Ghost", "Skill_EMP"}
+		for _, skillId in ipairs(testSkills) do
+			if not table.find(sList, skillId) then
+				table.insert(sList, skillId)
+			end
+		end
+
 		for _, id in ipairs(sList) do
 			local s = Instance.new("StringValue")
 			s.Name = id
@@ -130,6 +139,15 @@ Players.PlayerAdded:Connect(function(player)
 		b.Name = "DefaultHoverboard"
 		b.Parent = ownedBoards
 		maxSkillSlots.Value = 2
+
+		-- [TESTING] Give all skills
+		local testSkills = {"Skill_IceBomb", "Skill_Shield", "Skill_OrbitalLaser", "Skill_BlindFog", "Skill_Ghost", "Skill_EMP"}
+		for _, skillId in ipairs(testSkills) do
+			local s = Instance.new("StringValue")
+			s.Name = skillId
+			s.Parent = ownedSkills
+		end
+
 		print("🆕 [DataServer] New profile for " .. player.Name)
 	end
 	

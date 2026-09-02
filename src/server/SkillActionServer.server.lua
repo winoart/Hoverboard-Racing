@@ -52,6 +52,13 @@ if not empEffectRemote then
 	empEffectRemote.Parent = remotesFolder
 end
 
+local empHackRemote = remotesFolder:FindFirstChild("EMPHackEffect") :: RemoteEvent?
+if not empHackRemote then
+	empHackRemote = Instance.new("RemoteEvent")
+	empHackRemote.Name = "EMPHackEffect"
+	empHackRemote.Parent = remotesFolder
+end
+
 -- Skill Cooldown Tracking (Server side)
 local playerCooldowns: { [number]: { [string]: number } } = {}
 local SKILL_COOLDOWNS = {
@@ -410,7 +417,7 @@ local function fireOrbitalLaser(player: Player)
 		local warningPillar = Instance.new("Part")
 		warningPillar.Name = "OrbitalWarning"
 		warningPillar.Shape = Enum.PartType.Cylinder
-		warningPillar.Size = Vector3.new(500, 4, 4) -- Tall cylinder
+		warningPillar.Size = Vector3.new(500, 1, 1) -- Tall cylinder
 		warningPillar.Color = Color3.fromRGB(255, 50, 50)
 		warningPillar.Material = Enum.Material.Neon
 		warningPillar.Transparency = 0.5
@@ -509,26 +516,37 @@ local function fireBlindFog(player: Player)
 	-- Create Fog Zone Hitbox
 	local fogZone = Instance.new("Part")
 	fogZone.Name = "SkillFogZone"
-	fogZone.Size = Vector3.new(60, 20, 100)
-	fogZone.CFrame = CFrame.new(fogPosition + Vector3.new(0, 10, 0), fogPosition + root.CFrame.LookVector)
+	fogZone.Size = Vector3.new(120, 40, 400) -- 거대한 크기로 확장 (길이 400)
+	local centerPos = fogPosition + Vector3.new(0, 10, 0)
+	fogZone.CFrame = CFrame.new(centerPos, centerPos + root.CFrame.LookVector)
 	fogZone.Transparency = 1
 	fogZone.Anchored = true
 	fogZone.CanCollide = false
 	fogZone.Parent = Workspace
 	
-	-- Visual Particle for the fog
-	local attachment = Instance.new("Attachment", fogZone)
-	local fogParticle = Instance.new("ParticleEmitter")
-	fogParticle.Texture = "rbxassetid://6834047814" -- Smoke texture placeholder
-	fogParticle.Color = ColorSequence.new(Color3.fromRGB(150, 150, 150))
-	fogParticle.Size = NumberSequence.new({NumberSequenceKeypoint.new(0, 20), NumberSequenceKeypoint.new(1, 30)})
-	fogParticle.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.2, 0.4), NumberSequenceKeypoint.new(0.8, 0.4), NumberSequenceKeypoint.new(1, 1)})
-	fogParticle.Lifetime = NumberRange.new(2, 3)
-	fogParticle.Rate = 50
-	fogParticle.Speed = NumberRange.new(5, 10)
-	fogParticle.SpreadAngle = Vector2.new(180, 180)
-	fogParticle.EmissionDirection = Enum.NormalId.Top
-	fogParticle.Parent = attachment
+	-- 🌫️ 볼류메트릭 안개 구현 (물리적으로 시야를 가리는 거대한 구름 형태)
+	for i = 1, 50 do
+		local attach = Instance.new("Attachment")
+		-- 120x40x400 크기의 박스 내부에 랜덤하게 흩뿌림
+		attach.Position = Vector3.new(
+			(math.random() - 0.5) * 120,
+			(math.random() - 0.5) * 40,
+			(math.random() - 0.5) * 400
+		)
+		attach.Parent = fogZone
+		
+		local smoke = Instance.new("Smoke")
+		smoke.Color = Color3.fromRGB(150, 150, 150) -- 원래의 밝은 회색(안개색)으로 복구
+		smoke.Size = 50 -- 연기 덩어리 크기 확대
+		smoke.Opacity = 1.0 -- 투명도 없이 완전 빽빽하게
+		smoke.RiseVelocity = 0 -- 위로 솟구치지 않고 제자리에 머물게 함
+		smoke.Parent = attach
+		
+		-- 10초 뒤 연기 생성 중지
+		task.delay(10, function()
+			smoke.Enabled = false
+		end)
+	end
 	
 	local activePlayersInFog = {}
 	
@@ -545,7 +563,7 @@ local function fireBlindFog(player: Player)
 		if not targetPlayer then return end
 		
 		if targetPlayer.UserId == player.UserId then return end -- Caster is immune
-		if activeGhosts[targetPlayer.UserId] then return end -- Ghosts are immune
+		-- 유령화 상태라도 물리적인 안개 지대(지형)에 들어가면 시야가 가려지도록 면역 제외
 		
 		-- Blind them! (Shield does NOT block this)
 		if not activePlayersInFog[targetPlayer.UserId] then
@@ -573,8 +591,8 @@ local function fireBlindFog(player: Player)
 		end
 	end)
 	
-	-- Destroy after 5 seconds
-	task.delay(5, function()
+	-- Destroy after 10 seconds (기존 5초에서 증가)
+	task.delay(10, function()
 		fogParticle.Enabled = false
 		
 		-- Clear everyone currently in fog
@@ -640,63 +658,65 @@ local function fireEMP(player: Player)
 		empEffectRemote:FireAllClients(player.Name)
 	end
 	
-	-- Process all other players
+	-- Process all other players within 150 studs
+	local char = player.Character
+	local root = char and char.PrimaryPart
+	if not root then return end
+	
 	for _, target in ipairs(Players:GetPlayers()) do
 		if target.UserId ~= player.UserId then
 			local tChar = target.Character
 			local tRoot = tChar and tChar.PrimaryPart
 			if tChar and tRoot then
-				if activeGhosts[target.UserId] then
-					print("👻 [SkillServer] " .. target.Name .. " DODGED EMP as a Ghost!")
-					continue
-				end
-				
-				if activeShields[target.UserId] then
-					print("🛡️ [SkillServer] " .. target.Name .. " BLOCKED EMP with Shield!")
-					activeShields[target.UserId] = false
-					
-					local shieldBreakSound = Instance.new("Sound")
-					shieldBreakSound.SoundId = "rbxassetid://600832910" 
-					shieldBreakSound.Volume = 1
-					shieldBreakSound.Parent = tRoot
-					shieldBreakSound:Play()
-					game.Debris:AddItem(shieldBreakSound, 2)
-					
-					if skillWarningRemote then
-						skillWarningRemote:FireClient(player, target.Name, "Skill_Shield_Break")
+				local distance = (root.Position - tRoot.Position).Magnitude
+				if distance <= 150 then
+					if activeGhosts[target.UserId] then
+						print("👻 [SkillServer] " .. target.Name .. " DODGED EMP as a Ghost!")
+						continue
 					end
-					continue
-				end
-				
-				-- Stun target!
-				print("⚡ [SkillServer] " .. target.Name .. "'s engine SHUTDOWN by EMP!")
-				
-				local hoverboard = tChar:FindFirstChild("Hoverboard")
-				if hoverboard and hoverboard:IsA("Model") and hoverboard.PrimaryPart then
-					hoverboard.PrimaryPart.Anchored = true
-				else
-					tRoot.Anchored = true
-				end
-				
-				-- Zap particle
-				local zap = Instance.new("ParticleEmitter")
-				zap.Texture = "rbxassetid://725099363" -- Lightning/spark texture
-				zap.Color = ColorSequence.new(Color3.fromRGB(0, 255, 255))
-				zap.Rate = 50
-				zap.Speed = NumberRange.new(5, 10)
-				zap.Lifetime = NumberRange.new(0.5, 1)
-				zap.Size = NumberSequence.new(2)
-				zap.Parent = tRoot
-				
-				task.delay(2, function()
-					if hoverboard and hoverboard:IsA("Model") and hoverboard.PrimaryPart then
-						hoverboard.PrimaryPart.Anchored = false
-					elseif tRoot and tRoot.Parent then
-						tRoot.Anchored = false
+					
+					if activeShields[target.UserId] then
+						print("🛡️ [SkillServer] " .. target.Name .. " BLOCKED EMP with Shield!")
+						activeShields[target.UserId] = false
+						
+						local shieldBreakSound = Instance.new("Sound")
+						shieldBreakSound.SoundId = "rbxassetid://600832910" 
+						shieldBreakSound.Volume = 1
+						shieldBreakSound.Parent = tRoot
+						shieldBreakSound:Play()
+						game.Debris:AddItem(shieldBreakSound, 2)
+						
+						if skillWarningRemote then
+							skillWarningRemote:FireClient(player, target.Name, "Skill_Shield_Break")
+						end
+						continue
 					end
-					zap.Enabled = false
-					game.Debris:AddItem(zap, 1)
-				end)
+					
+					-- Hack target!
+					print("⚡ [SkillServer] " .. target.Name .. "'s controls HACKED by EMP!")
+					
+					-- Show Lightning Icon above head
+					local head = tChar:FindFirstChild("Head") or tRoot
+					local bg = Instance.new("BillboardGui")
+					bg.Name = "EMP_Icon"
+					bg.Size = UDim2.new(0, 100, 0, 100)
+					bg.StudsOffset = Vector3.new(0, 3, 0)
+					bg.AlwaysOnTop = true
+					
+					local label = Instance.new("TextLabel")
+					label.Size = UDim2.new(1, 0, 1, 0)
+					label.BackgroundTransparency = 1
+					label.Text = "⚡"
+					label.TextScaled = true
+					label.Parent = bg
+					
+					bg.Parent = head
+					game.Debris:AddItem(bg, 4)
+					
+					if empHackRemote then
+						empHackRemote:FireClient(target)
+					end
+				end
 			end
 		end
 	end

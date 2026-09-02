@@ -21,10 +21,10 @@ local skillWarningRemote = hoverRemotes:WaitForChild("SkillWarning") :: RemoteEv
 local blindEffectRemote = hoverRemotes:WaitForChild("BlindEffect") :: RemoteEvent
 local empEffectRemote = hoverRemotes:WaitForChild("EMPEffect") :: RemoteEvent
 local frostEffectRemote = hoverRemotes:WaitForChild("FrostEffect") :: RemoteEvent
+local empHackRemote = hoverRemotes:WaitForChild("EMPHackEffect") :: RemoteEvent
 
 -- Temporary Product IDs for unlocking slots
-local UNLOCK_SLOT3_PRODUCT_ID = 123456789 
-local UNLOCK_SLOT4_PRODUCT_ID = 987654321 
+local MonetizationConfig = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("MonetizationConfig"))
 
 -- Store config to get image/name
 local SkillStoreConfig = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("SkillStoreConfig"))
@@ -42,13 +42,24 @@ local SKILL_COOLDOWNS = {
 
 -- Bind UI
 local gui = playerGui:WaitForChild("SkillActionGui")
-local container = gui:WaitForChild("SlotsContainer")
+-- container 변수에 의존하지 않도록 주석 처리 또는 무시
+-- local container = gui:WaitForChild("SlotsContainer")
 
 local slots = {}
 local hotkeys = { Enum.KeyCode.Q, Enum.KeyCode.E, Enum.KeyCode.R, Enum.KeyCode.T }
 local hotkeyStrs = { "Q", "E", "R", "T" }
 
-local glitchOverlay = gui:WaitForChild("EMPGlitchOverlay")
+local glitchOverlay = gui:FindFirstChild("EMPGlitchOverlay")
+if not glitchOverlay then
+	glitchOverlay = Instance.new("Frame")
+	glitchOverlay.Name = "EMPGlitchOverlay"
+	glitchOverlay.Size = UDim2.new(1, 0, 1, 0)
+	glitchOverlay.BackgroundColor3 = Color3.fromRGB(0, 255, 255)
+	glitchOverlay.BackgroundTransparency = 1
+	glitchOverlay.ZIndex = 99
+	glitchOverlay.Visible = false
+	glitchOverlay.Parent = gui
+end
 
 -- [클라이언트 사이드 시각화 (KartRider 방식 표준)]
 -- 투사체 스킬을 쓸 때 핑 지연 없이 내 화면에 즉시 발사되는 연출을 만듭니다.
@@ -257,27 +268,22 @@ local function showWarningToast(message: string)
 	end)
 end
 
-local fogOverlay = gui:WaitForChild("BlindFogOverlay")
+local fogOverlay = gui:FindFirstChild("BlindFogOverlay")
+if not fogOverlay then
+	fogOverlay = Instance.new("ImageLabel")
+	fogOverlay.Name = "BlindFogOverlay"
+	fogOverlay.Size = UDim2.new(1, 0, 1, 0)
+	fogOverlay.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
+	fogOverlay.BackgroundTransparency = 1
+	fogOverlay.ImageTransparency = 1
+	fogOverlay.ZIndex = 98
+	fogOverlay.Visible = false
+	fogOverlay.Parent = gui
+end
 
 local function setBlindEffect(active: boolean)
-	if active then
-		fogOverlay.Visible = true
-		TweenService:Create(fogOverlay, TweenInfo.new(0.5), {
-			BackgroundTransparency = 0.2,
-			ImageTransparency = 0.5
-		}):Play()
-	else
-		local t = TweenService:Create(fogOverlay, TweenInfo.new(1), {
-			BackgroundTransparency = 1,
-			ImageTransparency = 1
-		})
-		t:Play()
-		t.Completed:Connect(function()
-			if fogOverlay.BackgroundTransparency >= 0.99 then
-				fogOverlay.Visible = false
-			end
-		end)
-	end
+	-- 물리적인 3D 안개(Smoke)가 시야를 가려주므로, 기존의 인위적인 2D 회색 오버레이 UI는 비활성화합니다.
+	-- (추후 필요시 복구를 위해 함수 구조는 유지)
 end
 
 -- For static noise, a UIGradient or ImageLabel can be used. We'll use a fast flickering frame.
@@ -303,21 +309,160 @@ local function playGlitchEffect()
 	end)
 end
 
+local function bindSlot(index)
+	local slotFrame = gui:FindFirstChild("Slot" .. index, true) :: ImageButton?
+	if not slotFrame then
+		warn("❌ [SkillActionController] Could not find 'Slot" .. index .. "' inside SkillActionGui. Skipping.")
+		return
+	end
+	
+	-- Dynamically create Icon if missing
+	local icon = slotFrame:FindFirstChild("Icon") :: ImageLabel?
+	if not icon then
+		icon = Instance.new("ImageLabel")
+		icon.Name = "Icon"
+		icon.Size = UDim2.new(1, -12, 1, -12)
+		icon.Position = UDim2.new(0.5, 0, 0.5, 0)
+		icon.AnchorPoint = Vector2.new(0.5, 0.5)
+		icon.BackgroundTransparency = 1
+		icon.ZIndex = 2
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(0, 6)
+		corner.Parent = icon
+		icon.Parent = slotFrame
+	end
+	
+	-- Dynamically create NameLabel if missing (applying Design Guide styles)
+	local nameLabel = slotFrame:FindFirstChild("NameLabel") :: TextLabel?
+	if not nameLabel then
+		nameLabel = Instance.new("TextLabel")
+		nameLabel.Name = "NameLabel"
+		nameLabel.Size = UDim2.new(1.4, 0, 0, 22)
+		nameLabel.Position = UDim2.new(-0.2, 0, 1, -11)
+		nameLabel.BackgroundTransparency = 1
+		nameLabel.Font = Enum.Font.GothamBlack
+		nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+		nameLabel.TextStrokeTransparency = 1
+		nameLabel.TextScaled = false
+		nameLabel.TextSize = 22
+		nameLabel.ZIndex = 4
+		
+		local uiStroke = Instance.new("UIStroke")
+		uiStroke.Color = Color3.fromRGB(0, 0, 0)
+		uiStroke.Thickness = 4
+		uiStroke.Parent = nameLabel
+		
+		nameLabel.Parent = slotFrame
+	end
+	
+	local lock = slotFrame:FindFirstChild("LockIcon") :: Frame?
+	if not lock then
+		lock = Instance.new("Frame")
+		lock.Name = "LockIcon"
+		lock.Size = UDim2.new(1, 0, 1, 0)
+		lock.BackgroundTransparency = 1
+		lock.Visible = false
+		lock.ZIndex = 6
+		
+		local lockImg = Instance.new("ImageLabel")
+		lockImg.Name = "LockImage"
+		lockImg.Size = UDim2.new(0.5, 0, 0.5, 0)
+		lockImg.Position = UDim2.new(0.5, 0, 0.4, 0)
+		lockImg.AnchorPoint = Vector2.new(0.5, 0.5)
+		lockImg.BackgroundTransparency = 1
+		lockImg.Image = "rbxassetid://17368080973"
+		lockImg.ZIndex = 7
+		lockImg.Parent = lock
+		
+		local priceText = Instance.new("TextLabel")
+		priceText.Name = "PriceLabel"
+		priceText.Size = UDim2.new(1, 0, 0.3, 0)
+		priceText.Position = UDim2.new(0, 0, 0.7, 0)
+		priceText.BackgroundTransparency = 1
+		priceText.Font = Enum.Font.GothamBlack
+		priceText.TextColor3 = Color3.fromRGB(255, 215, 0) -- Gold/Robux color
+		priceText.TextStrokeTransparency = 0
+		priceText.TextSize = 14
+		priceText.ZIndex = 7
+		priceText.Parent = lock
+		
+		lock.Parent = slotFrame
+	end
+	
+	local overlay = slotFrame:FindFirstChild("Overlay") :: Frame?
+	if not overlay then
+		overlay = Instance.new("Frame")
+		overlay.Name = "Overlay"
+		overlay.Size = UDim2.new(1, 0, 1, 0)
+		overlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+		overlay.BackgroundTransparency = 0.5
+		overlay.Visible = false
+		local oc = Instance.new("UICorner")
+		oc.CornerRadius = UDim.new(0, 12)
+		oc.Parent = overlay
+		overlay.Parent = slotFrame
+	end
+	
+	local stroke = slotFrame:FindFirstChild("UIStroke") :: UIStroke?
+	if not stroke then
+		stroke = Instance.new("UIStroke")
+		stroke.Name = "UIStroke"
+		stroke.Color = Color3.fromRGB(30, 30, 30)
+		stroke.Thickness = 4
+		stroke.Parent = slotFrame
+	end
+	
+	local cdLabel = slotFrame:FindFirstChild("CdLabel") :: TextLabel?
+	if not cdLabel then
+		cdLabel = Instance.new("TextLabel")
+		cdLabel.Name = "CdLabel"
+		cdLabel.Size = UDim2.new(1, 0, 1, 0)
+		cdLabel.BackgroundTransparency = 1
+		cdLabel.Font = Enum.Font.FredokaOne
+		cdLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+		cdLabel.TextSize = 42
+		cdLabel.Visible = false
+		cdLabel.ZIndex = 5
+		
+		local cdStroke = Instance.new("UIStroke")
+		cdStroke.Color = Color3.fromRGB(0, 0, 0)
+		cdStroke.Thickness = 4
+		cdStroke.Parent = cdLabel
+		
+		cdLabel.Parent = slotFrame
+	end
+	
+	local hotkeyLabel = slotFrame:FindFirstChild("HotkeyLabel") :: TextLabel?
+	if hotkeyLabel then
+		hotkeyLabel.ZIndex = 10
+	end
+	
+	slots[index] = {
+		frame = slotFrame,
+		icon = icon,
+		nameLabel = nameLabel,
+		lock = lock,
+		overlay = overlay,
+		stroke = stroke,
+		cdLabel = cdLabel,
+		skillId = nil
+	}
+
 
 	slotFrame.MouseButton1Click:Connect(function()
 		if index == 3 and maxSkillSlots.Value < 3 then
-			MarketplaceService:PromptProductPurchase(LocalPlayer, UNLOCK_SLOT3_PRODUCT_ID)
+			MarketplaceService:PromptProductPurchase(LocalPlayer, MonetizationConfig.SlotUnlockProducts.Slot3.id)
 			return
 		elseif index == 4 and maxSkillSlots.Value < 4 then
 			if maxSkillSlots.Value < 3 then
 				showSkillToast("3번째 슬롯을 먼저 구매해야 합니다!")
 			else
-				MarketplaceService:PromptProductPurchase(LocalPlayer, UNLOCK_SLOT4_PRODUCT_ID)
+				MarketplaceService:PromptProductPurchase(LocalPlayer, MonetizationConfig.SlotUnlockProducts.Slot4.id)
 			end
 			return
 		end
 		
-		if slots[index].skillId and isRaceStarted then
+		if slots[index] and slots[index].skillId then -- Removed isRaceStarted check for testing
 			local skillId = slots[index].skillId
 			
 			local lastUsed = clientCooldowns[skillId]
@@ -379,8 +524,9 @@ local function refreshSlots()
 	
 	for i = 1, 4 do
 		local slot = slots[i]
+		if not slot then continue end
 		
-		-- Manage Lock status for Slot 3
+		-- Manage Lock status for Slot 3 and 4
 		if i > currentMax then
 			slot.lock.Visible = true
 			slot.icon.Image = ""
@@ -388,6 +534,25 @@ local function refreshSlots()
 			slot.skillId = nil
 			slot.stroke.Color = Color3.fromRGB(80, 80, 80)
 			slot.overlay.Visible = true
+			
+			local priceText = slot.lock:FindFirstChild("PriceLabel")
+			if priceText then
+				if i == 3 then
+					priceText.Text = "R$ " .. MonetizationConfig.SlotUnlockProducts.Slot3.price
+					priceText.TextColor3 = Color3.fromRGB(255, 215, 0)
+					slot.overlay.BackgroundTransparency = 0.5
+				elseif i == 4 then
+					if currentMax < 3 then
+						priceText.Text = "R 슬롯 해제 필요"
+						priceText.TextColor3 = Color3.fromRGB(255, 100, 100)
+						slot.overlay.BackgroundTransparency = 0.8
+					else
+						priceText.Text = "R$ " .. MonetizationConfig.SlotUnlockProducts.Slot4.price
+						priceText.TextColor3 = Color3.fromRGB(255, 215, 0)
+						slot.overlay.BackgroundTransparency = 0.5
+					end
+				end
+			end
 		else
 			slot.lock.Visible = false
 			
@@ -397,7 +562,8 @@ local function refreshSlots()
 				local info = getSkillInfo(skillVal.Name)
 				if info then
 					slot.icon.Image = info.imageId
-					slot.nameLabel.Text = info.name
+					local cleanedName = string.gsub(info.name, "%s*%([a-zA-Z%s]+%)", "")
+					slot.nameLabel.Text = cleanedName
 					slot.stroke.Color = Color3.fromRGB(255, 215, 0)
 				end
 			else
@@ -460,39 +626,25 @@ blindEffectRemote.OnClientEvent:Connect(function(active: boolean)
 end)
 
 empEffectRemote.OnClientEvent:Connect(function(casterName: string)
-	print("⚡ EMP detected from " .. casterName)
-	-- Global Aurora Effect
-	local lighting = game:GetService("Lighting")
-	local origColor = lighting.ColorShift_Top
-	local origAmbient = lighting.Ambient
-	
-	local auroraColor = Color3.fromRGB(0, 255, 255) -- Cyan Aurora
-	TweenService:Create(lighting, TweenInfo.new(0.5, Enum.EasingStyle.Sine), {
-		ColorShift_Top = auroraColor,
-		Ambient = auroraColor
-	}):Play()
-	
-	-- Glitch effect for everyone (except the caster)
-	if Players.LocalPlayer.Name ~= casterName then
-		playGlitchEffect()
-		showWarningToast("⚡ " .. casterName .. "님이 EMP를 터뜨렸습니다!")
-	else
+	if Players.LocalPlayer.Name == casterName then
 		showWarningToast("⚡ EMP 가동 완료!")
+		local zapSound = Instance.new("Sound")
+		zapSound.SoundId = "rbxassetid://138084050" -- Glitch/zap
+		zapSound.Volume = 0.5
+		zapSound.Parent = workspace
+		zapSound:Play()
+		game.Debris:AddItem(zapSound, 3)
+	else
+		-- Note: Hacked players now receive a separate EMPHackEffect remote.
+		-- We can optionally show a toast to everyone else, or just do nothing.
+		-- showWarningToast("⚡ " .. casterName .. "님이 EMP를 사용했습니다!")
 	end
-	
-	-- Revert sky after 2.5s
-	task.delay(2.5, function()
-		TweenService:Create(lighting, TweenInfo.new(2), {
-			ColorShift_Top = origColor,
-			Ambient = origAmbient
-		}):Play()
-	end)
 end)
 
 -- Key inputs
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then return end
-	if not isRaceStarted then return end
+	-- if not isRaceStarted then return end -- Removed for testing
 	
 	for i, key in ipairs(hotkeys) do
 		if input.KeyCode == key then
@@ -520,13 +672,17 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 				
 				-- Cooldown UI logic
 				slots[i].overlay.Visible = true
+				slots[i].cdLabel.Visible = true
 				local conn
 				conn = game:GetService("RunService").RenderStepped:Connect(function()
 					if not clientCooldowns[skillId] then conn:Disconnect(); return end
 					local elapsed = os.clock() - clientCooldowns[skillId]
 					if elapsed >= cooldown then
 						slots[i].overlay.Visible = false
+						slots[i].cdLabel.Visible = false
 						conn:Disconnect()
+					else
+						slots[i].cdLabel.Text = tostring(math.ceil(cooldown - elapsed))
 					end
 				end)
 			end
@@ -536,3 +692,38 @@ end)
 
 -- Initial refresh
 refreshSlots()
+
+-- EMP 해킹 효과 수신
+_G.isEMPHacked = false
+empHackRemote.OnClientEvent:Connect(function()
+	_G.isEMPHacked = true
+	
+	-- 해킹 알림 UI 및 파티클 이펙트
+	local hackText = Instance.new("TextLabel")
+	hackText.Text = "🚨 CONTROLS HACKED! 🚨"
+	hackText.Size = UDim2.new(1, 0, 0.2, 0)
+	hackText.Position = UDim2.new(0, 0, 0.2, 0)
+	hackText.BackgroundTransparency = 1
+	hackText.TextColor3 = Color3.fromRGB(255, 0, 0)
+	hackText.TextStrokeTransparency = 0
+	hackText.TextScaled = true
+	hackText.Font = Enum.Font.FredokaOne
+	hackText.Parent = gui
+	
+	-- 카메라 스파크 이펙트 (간단 구현)
+	if glitchOverlay then
+		glitchOverlay.Visible = true
+		task.spawn(function()
+			for i = 1, 20 do
+				glitchOverlay.BackgroundTransparency = math.random() * 0.5 + 0.5
+				task.wait(0.2)
+			end
+			glitchOverlay.Visible = false
+		end)
+	end
+	
+	task.delay(4, function()
+		_G.isEMPHacked = false
+		hackText:Destroy()
+	end)
+end)

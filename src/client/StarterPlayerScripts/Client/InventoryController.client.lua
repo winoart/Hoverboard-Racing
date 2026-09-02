@@ -266,8 +266,14 @@ local function createInvCard(item, itemType, parentScroll)
 	
 	local nameLabel = cardBtn:WaitForChild("ItemName")
 	nameLabel.Text = item.name
+	nameLabel.TextSize = 28
+	nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+	nameLabel.TextStrokeTransparency = 0
 	
 	local statusLabel = cardBtn:WaitForChild("Status")
+	statusLabel.TextSize = 20
+	statusLabel.Font = Enum.Font.GothamBold
+	statusLabel.TextStrokeTransparency = 0
 	
 	table.insert(allCards, {card = cardBtn, stroke = cardStroke, item = item, itemType = itemType, statusLabel = statusLabel})
 	
@@ -291,7 +297,7 @@ local function refreshCardsVisibility()
 					data.statusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
 				else
 					data.statusLabel.Text = "보유 중"
-					data.statusLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+					data.statusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 				end
 			else
 				data.card.Visible = false
@@ -304,7 +310,7 @@ local function refreshCardsVisibility()
 					data.statusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
 				else
 					data.statusLabel.Text = "보유 중"
-					data.statusLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+					data.statusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 				end
 			else
 				data.card.Visible = false
@@ -366,7 +372,19 @@ phaseRemote.OnClientEvent:Connect(function(phase, timeLeft)
 	if phase == "INTERMISSION" or phase == "MAP_VOTING" then
 		hudGui.Enabled = true
 	else
-		hudGui.Enabled = false
-		invGui.Enabled = false
+		-- 레이스 중(RACE_MATCH 등)이라도, 늦게 접속해 대기실에 있는 유저는 호버보드가 없습니다.
+		-- 호버보드가 없다면 대기실에 있는 것이므로 인벤토리를 띄워줍니다.
+		local character = LocalPlayer.Character
+		local isRacing = false
+		if character and character:FindFirstChild("EquippedHoverboard") then
+			isRacing = true
+		end
+		
+		if isRacing then
+			hudGui.Enabled = false
+			invGui.Enabled = false
+		else
+			hudGui.Enabled = true
+		end
 	end
 end)

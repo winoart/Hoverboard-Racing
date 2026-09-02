@@ -9,6 +9,7 @@ function module.Build()
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "SkillActionGui"
 	gui.ResetOnSpawn = false
+	gui.ZIndexBehavior = Enum.ZIndexBehavior.Global
 	
 	local container = Instance.new("Frame")
 	container.Name = "SlotsContainer"
@@ -82,6 +83,7 @@ function module.Build()
 		hotkeyLabel.Text = hotkeyStrs[index]
 		hotkeyLabel.TextColor3 = Color3.fromRGB(30, 30, 30) -- 검은색 글씨
 		hotkeyLabel.TextSize = 14
+		hotkeyLabel.ZIndex = 10
 		hotkeyLabel.Parent = slotFrame
 		
 		local hkStroke = Instance.new("UIStroke")

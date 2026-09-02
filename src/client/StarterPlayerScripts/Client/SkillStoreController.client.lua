@@ -118,7 +118,7 @@ for idx, item in ipairs(SkillStoreConfig.Skills) do
 	nameLabel.Font = Enum.Font.GothamBold
 	nameLabel.Text = item.name
 	nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-	nameLabel.TextSize = 18
+	nameLabel.TextSize = 28
 	nameLabel.Parent = card
 	
 	-- Item Image

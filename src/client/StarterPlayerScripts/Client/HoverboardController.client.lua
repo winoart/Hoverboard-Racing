@@ -55,6 +55,7 @@ local totalLaps = 2
 -- Stun State (for Orbital Laser)
 local isStunned = false
 local stunTimer = 0.0
+local stunLiftOffset = 0.0
 
 local skillWarningRemote = ReplicatedStorage:WaitForChild("HoverboardRemotes"):WaitForChild("SkillWarning") :: RemoteEvent
 skillWarningRemote.OnClientEvent:Connect(function(casterName: string, skillId: string)
@@ -606,22 +607,36 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 			isBoostKey = false
 			isBoosting = false
 			currentWalkSpeed = math.max(0, currentWalkSpeed - (200 * deltaTime)) -- 급격한 감속
+			
+			-- 🛰️ 빙글빙글 돌며 공중에 뜨는 기절 연출
+			currentHeadingYaw += math.rad(360) * deltaTime -- 1초에 1바퀴로 회전 속도 하향
+			stunLiftOffset = math.min(18, stunLiftOffset + (60 * deltaTime)) -- 위로 18스터드까지 빠르게 상승
+		else
+			stunLiftOffset = math.max(0, stunLiftOffset - (40 * deltaTime)) -- 스턴 종료 시 부드럽게 착지
+			
+			-- Steering Controls
+			local isA = UserInputService:IsKeyDown(Enum.KeyCode.A) or UserInputService:IsKeyDown(Enum.KeyCode.Left)
+			local isD = UserInputService:IsKeyDown(Enum.KeyCode.D) or UserInputService:IsKeyDown(Enum.KeyCode.Right)
+
+			local targetSteerRate = 0.0
+			
+			-- EMP 해킹 시 조작 방향 반전
+			if _G.isEMPHacked then
+				local temp = isA
+				isA = isD
+				isD = temp
+			end
+			
+			if isA then
+				targetSteerRate = isBoosting and math.rad(115) or math.rad(85)
+			elseif isD then
+				targetSteerRate = isBoosting and -math.rad(115) or -math.rad(85)
+			end
+
+			local dampFactor = (targetSteerRate == 0) and 25.0 or 15.0
+			currentSteerRate += (targetSteerRate - currentSteerRate) * math.clamp(deltaTime * dampFactor, 0, 1)
+			currentHeadingYaw += currentSteerRate * deltaTime
 		end
-
-		-- Steering Controls
-		local isA = UserInputService:IsKeyDown(Enum.KeyCode.A) or UserInputService:IsKeyDown(Enum.KeyCode.Left)
-		local isD = UserInputService:IsKeyDown(Enum.KeyCode.D) or UserInputService:IsKeyDown(Enum.KeyCode.Right)
-
-		local targetSteerRate = 0.0
-		if isA then
-			targetSteerRate = isBoosting and math.rad(115) or math.rad(85)
-		elseif isD then
-			targetSteerRate = isBoosting and -math.rad(115) or -math.rad(85)
-		end
-
-		local dampFactor = (targetSteerRate == 0) and 25.0 or 15.0
-		currentSteerRate += (targetSteerRate - currentSteerRate) * math.clamp(deltaTime * dampFactor, 0, 1)
-		currentHeadingYaw += currentSteerRate * deltaTime
 
 		local gyro = hrp:FindFirstChild("SteeringGyro") :: BodyGyro?
 		if not gyro then
@@ -682,10 +697,10 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 		end
 	end
 
-	-- 1. Sine wave bobbing (Re-enabled!)
+	-- 1. Sine wave bobbing (Re-enabled!) + Stun Lift FX
 	local clockTime = os.clock()
 	local bobOffset = math.sin(clockTime * HoverboardConfig.BOB_FREQUENCY) * HoverboardConfig.BOB_AMPLITUDE
-	humanoid.HipHeight = HoverboardConfig.HOVER_HEIGHT + bobOffset
+	humanoid.HipHeight = HoverboardConfig.HOVER_HEIGHT + bobOffset + stunLiftOffset
 
 	-- 2. Banking physics
 	local localVel = hrp.CFrame:VectorToObjectSpace(horizontalVelocity)
@@ -738,6 +753,15 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 		-- 카메라와 캐릭터의 위치가 어긋나면서 발생하는 시각적 떨림(Lerp Jitter) 해결
 		-- 위치는 정확히 고정하고, 바라보는 방향(wDir)만 부드럽게 보간(Lerp)합니다.
 		local targetWDir = hrp.CFrame.RightVector
+		
+		-- 스턴 상태일 때는 캐릭터가 회전하더라도 시점이 같이 돌아가지 않도록 고정
+		if isStunned then
+			if not _G.stunCamDir then _G.stunCamDir = _G.smoothCamDir or targetWDir end
+			targetWDir = _G.stunCamDir
+		else
+			_G.stunCamDir = nil
+		end
+		
 		if not _G.smoothCamDir then _G.smoothCamDir = targetWDir end
 		_G.smoothCamDir = _G.smoothCamDir:Lerp(targetWDir, math.clamp(deltaTime * 10, 0, 1)).Unit
 		
