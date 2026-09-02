@@ -644,8 +644,10 @@ end)
 -- Key inputs
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then return end
-	-- if not isRaceStarted then return end -- Removed for testing
-	
+	if not isRaceStarted then
+		-- print("🚫 대기실에서는 스킬을 사용할 수 없습니다!")
+		return
+	end
 	for i, key in ipairs(hotkeys) do
 		if input.KeyCode == key then
 			if slots[i] and slots[i].skillId and maxSkillSlots.Value >= i then

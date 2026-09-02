@@ -129,23 +129,24 @@ local function refreshDisplays()
 		-- Top Header Banner
 		if headerStatusLabel and headerTimerLabel then
 			if currentPhase == "INTERMISSION" then
-				headerStatusLabel.Text = "🛋️ NEXT RACE IN..."
-				headerStatusLabel.TextColor3 = Color3.fromRGB(255, 190, 80)
-				headerTimerLabel.Text = string.format("%ds", math.max(0, phaseTimeLeft))
+				headerStatusLabel.Text = "휴식시간"
+				headerStatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+				headerTimerLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+				headerTimerLabel.Text = string.format("%d", math.max(0, phaseTimeLeft))
 			elseif currentPhase == "MAP_VOTING" then
-				headerStatusLabel.Text = "🗳️ MAP VOTING"
+				headerStatusLabel.Text = "맵 투표"
 				headerStatusLabel.TextColor3 = Color3.fromRGB(255, 220, 80)
 				headerTimerLabel.Text = string.format("%ds", math.max(0, phaseTimeLeft))
 			elseif currentPhase == "MAP_BUILDING" then
-				headerStatusLabel.Text = "🏗️ LOADING MAP..."
+				headerStatusLabel.Text = "맵 로딩 중..."
 				headerStatusLabel.TextColor3 = Color3.fromRGB(80, 220, 255)
 				headerTimerLabel.Text = string.format("%ds", math.max(0, phaseTimeLeft))
 			elseif currentPhase == "RACE_MATCH" then
 				if isPlayerInRace then
-					headerStatusLabel.Text = "🏁 RACE IN PROGRESS"
+					headerStatusLabel.Text = "라운드 종료까지"
 					headerStatusLabel.TextColor3 = Color3.fromRGB(0, 240, 255)
 				else
-					headerStatusLabel.Text = "🛋️ IN LOUNGE (WAITING RACE)"
+					headerStatusLabel.Text = "라운드 종료까지 (대기실)"
 					headerStatusLabel.TextColor3 = Color3.fromRGB(255, 190, 80)
 				end
 
@@ -160,7 +161,7 @@ local function refreshDisplays()
 			if currentPhase == "MAP_VOTING" and not isVotingModalDismissed then
 				votingModalFrame.Visible = true
 				if modalFooterTimerLabel then
-					modalFooterTimerLabel.Text = string.format("⏱️ Time Remaining: %ds", math.max(0, phaseTimeLeft))
+					modalFooterTimerLabel.Text = string.format("맵 투표 %ds", math.max(0, phaseTimeLeft))
 				end
 			else
 				votingModalFrame.Visible = false
@@ -175,7 +176,7 @@ local function refreshDisplays()
 					loadingTitleLabel.Text = "🏆 SELECTED MAP: " .. currentChosenMap
 				end
 				if loadingSubLabel then
-					loadingSubLabel.Text = string.format("Building Map & Preparing Starting Grid... (%ds)", math.max(0, phaseTimeLeft))
+					loadingSubLabel.Text = string.format("맵 불러오는 중 (%ds)", math.max(0, phaseTimeLeft))
 				end
 
 				if loadingFillBar and loadingPercentLabel then
@@ -206,7 +207,7 @@ local function createGameLoopUI()
 	headerBannerFrame.Size = UDim2.new(0, 380, 0, 42)
 	headerBannerFrame.Position = UDim2.new(0.5, -190, 0.02, 0)
 	headerBannerFrame.BackgroundColor3 = Color3.fromRGB(12, 16, 26)
-	headerBannerFrame.BackgroundTransparency = 0.1
+	headerBannerFrame.BackgroundTransparency = 1
 	headerBannerFrame.BorderSizePixel = 0
 	headerBannerFrame.ZIndex = 30
 	headerBannerFrame.Parent = mainGuiScreen
@@ -218,43 +219,43 @@ local function createGameLoopUI()
 	local bannerStroke = Instance.new("UIStroke")
 	bannerStroke.Color = Color3.fromRGB(0, 230, 255)
 	bannerStroke.Thickness = 2.0
-	bannerStroke.Transparency = 0.1
+	bannerStroke.Transparency = 1
 	bannerStroke.Parent = headerBannerFrame
 
 	headerStatusLabel = Instance.new("TextLabel")
 	headerStatusLabel.Name = "StatusText"
-	headerStatusLabel.Size = UDim2.new(0.68, 0, 1, 0)
-	headerStatusLabel.Position = UDim2.new(0.04, 0, 0, 0)
+	headerStatusLabel.Size = UDim2.new(0.5, -10, 1, 0)
+	headerStatusLabel.Position = UDim2.new(0, 0, 0, 0)
 	headerStatusLabel.BackgroundTransparency = 1
 	headerStatusLabel.Font = Enum.Font.GothamBlack
-	headerStatusLabel.Text = "🗳️ MAP VOTING"
-	headerStatusLabel.TextColor3 = Color3.fromRGB(255, 230, 120)
-	headerStatusLabel.TextSize = 13
-	headerStatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+	headerStatusLabel.Text = "휴식시간"
+	headerStatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+	headerStatusLabel.TextSize = 40
+	headerStatusLabel.TextXAlignment = Enum.TextXAlignment.Right
 	headerStatusLabel.ZIndex = 31
 	headerStatusLabel.Parent = headerBannerFrame
 
 	local statusStroke = Instance.new("UIStroke")
 	statusStroke.Color = Color3.fromRGB(0, 0, 0)
-	statusStroke.Thickness = 1.5
+	statusStroke.Thickness = 6
 	statusStroke.Parent = headerStatusLabel
 
 	headerTimerLabel = Instance.new("TextLabel")
 	headerTimerLabel.Name = "TimerText"
-	headerTimerLabel.Size = UDim2.new(0.28, 0, 1, 0)
-	headerTimerLabel.Position = UDim2.new(0.68, 0, 0, 0)
+	headerTimerLabel.Size = UDim2.new(0.5, -10, 1, 0)
+	headerTimerLabel.Position = UDim2.new(0.5, 10, 0, 0)
 	headerTimerLabel.BackgroundTransparency = 1
 	headerTimerLabel.Font = Enum.Font.GothamBlack
-	headerTimerLabel.Text = "15s"
-	headerTimerLabel.TextColor3 = Color3.fromRGB(0, 240, 255)
-	headerTimerLabel.TextSize = 16
-	headerTimerLabel.TextXAlignment = Enum.TextXAlignment.Right
+	headerTimerLabel.Text = "15"
+	headerTimerLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+	headerTimerLabel.TextSize = 40
+	headerTimerLabel.TextXAlignment = Enum.TextXAlignment.Left
 	headerTimerLabel.ZIndex = 31
 	headerTimerLabel.Parent = headerBannerFrame
 
 	local timerStroke = Instance.new("UIStroke")
 	timerStroke.Color = Color3.fromRGB(0, 0, 0)
-	timerStroke.Thickness = 1.5
+	timerStroke.Thickness = 6
 	timerStroke.Parent = headerTimerLabel
 
 	-- [2] 3-CARD MAP VOTING MODAL UI (15s)
@@ -317,7 +318,7 @@ local function createGameLoopUI()
 	modalFooterTimerLabel.Position = UDim2.new(0, 0, 0.89, 0)
 	modalFooterTimerLabel.BackgroundTransparency = 1
 	modalFooterTimerLabel.Font = Enum.Font.GothamBold
-	modalFooterTimerLabel.Text = "⏱️ Time Remaining: 15s"
+	modalFooterTimerLabel.Text = "맵 투표 15s"
 	modalFooterTimerLabel.TextColor3 = Color3.fromRGB(0, 230, 255)
 	modalFooterTimerLabel.TextSize = 13
 	modalFooterTimerLabel.ZIndex = 36
@@ -494,7 +495,7 @@ local function createGameLoopUI()
 	loadingSubLabel.Position = UDim2.new(0, 10, 0, 68)
 	loadingSubLabel.BackgroundTransparency = 1
 	loadingSubLabel.Font = Enum.Font.GothamMedium
-	loadingSubLabel.Text = "Building Map & Preparing Starting Grid..."
+	loadingSubLabel.Text = "맵 불러오는 중 (5s)"
 	loadingSubLabel.TextColor3 = Color3.fromRGB(180, 220, 255)
 	loadingSubLabel.TextSize = 13
 	loadingSubLabel.ZIndex = 51

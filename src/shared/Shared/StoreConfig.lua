@@ -42,7 +42,7 @@ StoreConfig.Items = {
 		weight = 150, -- 15%
 	},
 	{
-		id = "CloudHoverboard",
+		id = "CloudBoard",
 		name = "근두운",
 		imageId = "rbxassetid://10078028148",
 		rarity = "Rare",

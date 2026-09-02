@@ -387,6 +387,7 @@ task.spawn(function()
 			end
 
 			task.wait(1)
+			phaseTimeLeft -= 1
 		end
 
 		local suddenDeathStarted = false

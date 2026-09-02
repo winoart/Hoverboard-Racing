@@ -26,6 +26,11 @@ local goldIcon = goldFrame:WaitForChild("GoldIcon")
 local goldTextLabel = goldFrame:WaitForChild("GoldTextLabel")
 local addGoldButton = goldFrame:WaitForChild("AddGoldButton")
 
+local goldTextStroke = Instance.new("UIStroke")
+goldTextStroke.Color = Color3.fromRGB(0, 0, 0)
+goldTextStroke.Thickness = 3
+goldTextStroke.Parent = goldTextLabel
+
 local suffixes = {"", "K", "M", "B", "T", "Qa", "Qi"}
 
 local function FormatGold(n)

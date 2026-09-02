@@ -79,7 +79,7 @@ function module.Build()
 		hotkeyLabel.Size = UDim2.new(0, 24, 0, 24)
 		hotkeyLabel.Position = UDim2.new(1, -10, 0, -10)
 		hotkeyLabel.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- 하얀색 배경
-		hotkeyLabel.Font = Enum.Font.GothamBlack
+		hotkeyLabel.Font = Enum.Font.FredokaOne
 		hotkeyLabel.Text = hotkeyStrs[index]
 		hotkeyLabel.TextColor3 = Color3.fromRGB(30, 30, 30) -- 검은색 글씨
 		hotkeyLabel.TextSize = 14
@@ -88,7 +88,7 @@ function module.Build()
 		
 		local hkStroke = Instance.new("UIStroke")
 		hkStroke.Color = Color3.fromRGB(30, 30, 30)
-		hkStroke.Thickness = 3
+		hkStroke.Thickness = 1
 		hkStroke.Parent = hotkeyLabel
 		
 		local hkCorner = Instance.new("UICorner")
@@ -111,7 +111,7 @@ function module.Build()
 		lockIcon.Name = "LockIcon"
 		lockIcon.Size = UDim2.new(1, 0, 1, 0)
 		lockIcon.BackgroundTransparency = 1
-		lockIcon.Font = Enum.Font.GothamBold
+		lockIcon.Font = Enum.Font.FredokaOne
 		lockIcon.TextColor3 = Color3.fromRGB(255, 100, 100)
 		lockIcon.TextSize = 16
 		lockIcon.Visible = false
@@ -128,7 +128,7 @@ function module.Build()
 		nameLabel.Size = UDim2.new(1, -10, 1, -10)
 		nameLabel.Position = UDim2.new(0, 5, 0, 5)
 		nameLabel.BackgroundTransparency = 1
-		nameLabel.Font = Enum.Font.GothamBold
+		nameLabel.Font = Enum.Font.FredokaOne
 		nameLabel.Text = ""
 		nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 		nameLabel.TextStrokeTransparency = 0.3
@@ -142,7 +142,7 @@ function module.Build()
 		cdLabel.Name = "CdLabel"
 		cdLabel.Size = UDim2.new(1, 0, 1, 0)
 		cdLabel.BackgroundTransparency = 1
-		cdLabel.Font = Enum.Font.GothamBlack
+		cdLabel.Font = Enum.Font.FredokaOne
 		cdLabel.Text = ""
 		cdLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 		cdLabel.TextStrokeTransparency = 0

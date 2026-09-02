@@ -44,7 +44,7 @@ SkillStoreConfig.Skills = {
 		id = "Skill_EMP",
 		name = "EMP",
 		description = "주변 상대방의 호버보드를 해킹하여 조작키를 반대로 만듭니다.",
-		imageId = "rbxassetid://10000000006", -- Placeholder
+		imageId = "rbxassetid://99214302538101",
 		goldPrice = 10000
 	}
 }
