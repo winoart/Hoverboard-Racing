@@ -395,9 +395,9 @@ local function bindSlot(index)
 	if not icon then
 		icon = Instance.new("ImageLabel")
 		icon.Name = "Icon"
-		icon.Size = UDim2.new(1, -12, 1, -12)
-		icon.Position = UDim2.new(0.5, 0, 0.5, 0)
-		icon.AnchorPoint = Vector2.new(0.5, 0.5)
+		icon.Size = UDim2.new(1, -20, 1, -20)
+		icon.Position = UDim2.new(0, 10, 0, 5)
+		icon.AnchorPoint = Vector2.new(0, 0)
 		icon.BackgroundTransparency = 1
 		icon.ZIndex = 2
 		local corner = Instance.new("UICorner")
@@ -405,14 +405,14 @@ local function bindSlot(index)
 		corner.Parent = icon
 		icon.Parent = slotFrame
 	end
-	
-	-- Dynamically create NameLabel if missing (applying Design Guide styles)
+
+	-- Studio의 NameLabel 세팅을 그대로 사용, 없으면 동적 생성
 	local nameLabel = slotFrame:FindFirstChild("NameLabel") :: TextLabel?
 	if not nameLabel then
 		nameLabel = Instance.new("TextLabel")
 		nameLabel.Name = "NameLabel"
-		nameLabel.Size = UDim2.new(1.4, 0, 0, 22)
-		nameLabel.Position = UDim2.new(-0.2, 0, 1, -11)
+		nameLabel.Size = UDim2.new(1.4, 0, 0, 30)
+		nameLabel.Position = UDim2.new(-0.2, 0, 1, -15)
 		nameLabel.BackgroundTransparency = 1
 		nameLabel.Font = Enum.Font.GothamBlack
 		nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -420,14 +420,16 @@ local function bindSlot(index)
 		nameLabel.TextScaled = false
 		nameLabel.TextSize = 22
 		nameLabel.ZIndex = 4
-		
-		local uiStroke = Instance.new("UIStroke")
-		uiStroke.Color = Color3.fromRGB(0, 0, 0)
-		uiStroke.Thickness = 4
-		uiStroke.Parent = nameLabel
-		
 		nameLabel.Parent = slotFrame
 	end
+	-- 항상 외곽선 두께 3 적용 (없으면 생성, 있으면 덮어쓰기)
+	local nameLabelStroke = nameLabel:FindFirstChildOfClass("UIStroke")
+	if not nameLabelStroke then
+		nameLabelStroke = Instance.new("UIStroke")
+		nameLabelStroke.Color = Color3.fromRGB(0, 0, 0)
+		nameLabelStroke.Parent = nameLabel
+	end
+	nameLabelStroke.Thickness = 3
 	
 	local lock = slotFrame:FindFirstChild("LockIcon") :: Frame?
 	if not lock then

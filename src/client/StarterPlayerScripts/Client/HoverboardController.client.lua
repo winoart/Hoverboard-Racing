@@ -610,8 +610,8 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 			currentWalkSpeed = math.max(0, currentWalkSpeed - (200 * deltaTime)) -- 급격한 감속
 			
 			-- 🛰️ 빙글빙글 돌며 공중에 뜨는 기절 연출
-			currentHeadingYaw += math.rad(360) * deltaTime -- 1초에 1바퀴로 회전 속도 하향
-			stunLiftOffset = math.min(18, stunLiftOffset + (60 * deltaTime)) -- 위로 18스터드까지 빠르게 상승
+			currentHeadingYaw += math.rad(720) * deltaTime -- 1초에 2바퀴 회전
+			stunLiftOffset = math.min(6, stunLiftOffset + (30 * deltaTime)) -- 위로 6스터드까지 상승
 		else
 			stunLiftOffset = math.max(0, stunLiftOffset - (40 * deltaTime)) -- 스턴 종료 시 부드럽게 착지
 			

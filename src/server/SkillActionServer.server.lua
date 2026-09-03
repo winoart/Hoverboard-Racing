@@ -442,7 +442,18 @@ local function fireOrbitalLaser(player: Player)
 		-- 2. 2초 뒤 실제 타격
 		task.delay(2, function()
 			if warningPillar.Parent then warningPillar:Destroy() end
-			if not targetPlayer.Parent or not char.Parent then return end
+			if not targetPlayer.Parent or not char.Parent then
+				print(string.format("[ORBITAL_DEBUG] %s: 타격 취소 - targetPlayer.Parent=%s char.Parent=%s",
+					targetPlayer.Name, tostring(targetPlayer.Parent), tostring(char and char.Parent)))
+				return
+			end
+			
+			-- 타격 직전 대상 상태 출력
+			local hum = char:FindFirstChildOfClass("Humanoid")
+			print(string.format("[ORBITAL_DEBUG] 타격 직전 %s | Health=%.1f | State=%s",
+				targetPlayer.Name,
+				hum and hum.Health or -1,
+				hum and tostring(hum:GetState()) or "nil"))
 			
 			-- 쉴드 방어 체크
 			if activeShields[targetPlayer.UserId] then
@@ -453,7 +464,6 @@ local function fireOrbitalLaser(player: Player)
 				end
 				return
 			end
-			
 
 			print("💥 [SkillServer] " .. targetPlayer.Name .. " got hit by Orbital Laser!")
 			
@@ -480,6 +490,16 @@ local function fireOrbitalLaser(player: Player)
 			if skillWarningRemote then
 				skillWarningRemote:FireClient(targetPlayer, "SYSTEM", "OrbitalStun")
 			end
+			
+			-- 타격 후 0.5초 뒤 상태 재확인
+			task.delay(0.5, function()
+				local newChar = targetPlayer.Character
+				local newHum = newChar and newChar:FindFirstChildOfClass("Humanoid")
+				print(string.format("[ORBITAL_DEBUG] 타격 후 0.5s %s | char변경=%s | Health=%.1f",
+					targetPlayer.Name,
+					tostring(newChar ~= char),
+					newHum and newHum.Health or -1))
+			end)
 			
 			-- 레이저 서서히 사라짐
 			local ts = TweenService:Create(laserPillar, TweenInfo.new(1.0), {Transparency = 1, Size = Vector3.new(500, 0, 0)})

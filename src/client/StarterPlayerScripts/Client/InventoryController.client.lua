@@ -278,10 +278,11 @@ end
 
 local cardTemplate = invGui:FindFirstChild("CardTemplate")
 
-local function createInvCard(item, itemType, parentScroll)
+local function createInvCard(item, itemType, parentScroll, layoutOrder)
 	if not cardTemplate then return end
 	local cardBtn = cardTemplate:Clone()
 	cardBtn.Name = "Card_" .. item.id
+	cardBtn.LayoutOrder = layoutOrder or 0
 	cardBtn.Parent = parentScroll
 	cardBtn.Visible = true
 	
@@ -355,37 +356,96 @@ local function refreshCardsVisibility()
 	if selectedItem then updateRightColumn() end
 end
 
-local function initializeInventoryCards()
-	if boardsScroll then
-		for _, item in ipairs(StoreConfig.Items) do
-			createInvCard(item, "Board", boardsScroll)
-		end
+local function getItemById(config, id)
+	for _, item in ipairs(config) do
+		if item.id == id then return item end
 	end
-	
-	if skillsScroll then
-		for _, item in ipairs(SkillStoreConfig.Skills) do
-			createInvCard(item, "Skill", skillsScroll)
-		end
-	end
+	return nil
 end
 
-initializeInventoryCards()
+local function initializeInventoryCards()
+	local ownBoard = LocalPlayer:WaitForChild("OwnedHoverboards")
+	local ownSkill = LocalPlayer:WaitForChild("OwnedSkills")
+
+	-- UIGridLayout SortOrder를 LayoutOrder로 강제 설정
+	if boardsScroll then
+		local grid = boardsScroll:FindFirstChildOfClass("UIGridLayout")
+		if grid then grid.SortOrder = Enum.SortOrder.LayoutOrder end
+	end
+	if skillsScroll then
+		local grid = skillsScroll:FindFirstChildOfClass("UIGridLayout")
+		if grid then grid.SortOrder = Enum.SortOrder.LayoutOrder end
+	end
+
+	if boardsScroll then
+		-- 1. 블루토닉(DefaultHoverboard) 무조건 맨 앞 (LayoutOrder = 0)
+		local defaultBoard = getItemById(StoreConfig.Items, "DefaultHoverboard")
+		if defaultBoard then
+			createInvCard(defaultBoard, "Board", boardsScroll, 0)
+		end
+		-- 2. 획득한 호버보드를 OwnedHoverboards 폴더 순서(획득 순)대로
+		local boardOrder = 1
+		for _, child in ipairs(ownBoard:GetChildren()) do
+			if child.Name ~= "DefaultHoverboard" then
+				local item = getItemById(StoreConfig.Items, child.Name)
+				if item then
+					createInvCard(item, "Board", boardsScroll, boardOrder)
+					boardOrder += 1
+				end
+			end
+		end
+		-- 새로 획득 시 카드 동적 추가
+		local nextBoardOrder = boardOrder
+		ownBoard.ChildAdded:Connect(function(child)
+			if child.Name ~= "DefaultHoverboard" then
+				local item = getItemById(StoreConfig.Items, child.Name)
+				if item then
+					createInvCard(item, "Board", boardsScroll, nextBoardOrder)
+					nextBoardOrder += 1
+					refreshCardsVisibility()
+				end
+			end
+		end)
+	end
+
+	if skillsScroll then
+		-- 스킬은 OwnedSkills 폴더 순서(획득 순)대로
+		local skillOrder = 0
+		for _, child in ipairs(ownSkill:GetChildren()) do
+			local item = getItemById(SkillStoreConfig.Skills, child.Name)
+			if item then
+				createInvCard(item, "Skill", skillsScroll, skillOrder)
+				skillOrder += 1
+			end
+		end
+		-- 새로 획득 시 카드 동적 추가
+		local nextSkillOrder = skillOrder
+		ownSkill.ChildAdded:Connect(function(child)
+			local item = getItemById(SkillStoreConfig.Skills, child.Name)
+			if item then
+				createInvCard(item, "Skill", skillsScroll, nextSkillOrder)
+				nextSkillOrder += 1
+				refreshCardsVisibility()
+			end
+		end)
+	end
+
+	refreshCardsVisibility()
+end
+
+task.spawn(initializeInventoryCards)
 
 -- Bind updates
 task.spawn(function()
 	local eqBoard = LocalPlayer:WaitForChild("EquippedHoverboardId")
 	eqBoard.Changed:Connect(refreshCardsVisibility)
-	local ownBoard = LocalPlayer:WaitForChild("OwnedHoverboards")
-	ownBoard.ChildAdded:Connect(refreshCardsVisibility)
-	ownBoard.ChildRemoved:Connect(refreshCardsVisibility)
-	
+
 	local eqSkill = LocalPlayer:WaitForChild("EquippedSkills")
 	eqSkill.ChildAdded:Connect(refreshCardsVisibility)
 	eqSkill.ChildRemoved:Connect(refreshCardsVisibility)
 	local ownSkill = LocalPlayer:WaitForChild("OwnedSkills")
-	ownSkill.ChildAdded:Connect(refreshCardsVisibility)
 	ownSkill.ChildRemoved:Connect(refreshCardsVisibility)
-	
+
 	refreshCardsVisibility()
 end)
 

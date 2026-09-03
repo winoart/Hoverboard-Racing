@@ -194,8 +194,8 @@ addStroke(cardTemplate, 5)
 
 local vpf = Instance.new("ViewportFrame", cardTemplate)
 vpf.Name = "Viewport"
-vpf.Size = UDim2.new(1, -20, 0, 90)
-vpf.Position = UDim2.new(0, 10, 0, 10)
+vpf.Size = UDim2.new(1, -20, 0, 120)
+vpf.Position = UDim2.new(0, 10, 0, 15)
 vpf.BackgroundColor3 = Color3.fromRGB(255, 230, 100)
 vpf.BackgroundTransparency = 0
 vpf.Visible = false
@@ -204,8 +204,8 @@ addStroke(vpf, 3)
 
 local img = Instance.new("ImageLabel", cardTemplate)
 img.Name = "Image"
-img.Size = UDim2.new(1, -20, 0, 90)
-img.Position = UDim2.new(0, 10, 0, 10)
+img.Size = UDim2.new(1, -20, 0, 120)
+img.Position = UDim2.new(0, 10, 0, 15)
 img.BackgroundColor3 = Color3.fromRGB(255, 200, 100)
 img.ScaleType = Enum.ScaleType.Fit
 img.Visible = false
@@ -215,18 +215,18 @@ addStroke(img, 3)
 local nameLabel = Instance.new("TextLabel", cardTemplate)
 nameLabel.Name = "ItemName"
 nameLabel.Size = UDim2.new(1, 0, 0, 30)
-nameLabel.Position = UDim2.new(0, 0, 0, 110)
+nameLabel.Position = UDim2.new(0, 0, 1, -20)
 nameLabel.BackgroundTransparency = 1
 nameLabel.Font = Enum.Font.FredokaOne
 nameLabel.Text = "Name"
 nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-nameLabel.TextSize = 16
+nameLabel.TextSize = 22
 addStroke(nameLabel, 3)
 
 local statusLabel = Instance.new("TextLabel", cardTemplate)
 statusLabel.Name = "Status"
 statusLabel.Size = UDim2.new(1, 0, 0, 20)
-statusLabel.Position = UDim2.new(0, 0, 0, 145)
+statusLabel.Position = UDim2.new(0, 0, 0, 5)
 statusLabel.BackgroundTransparency = 1
 statusLabel.Font = Enum.Font.FredokaOne
 statusLabel.Text = "Status"
