@@ -101,6 +101,13 @@ Players.PlayerAdded:Connect(function(player)
 		maxSkillSlots.Value = data.MaxSkillSlots or 2
 		local sList = data.OwnedSkills or {}
 		
+		-- [TESTING] Give all hoverboards for testing
+		if not ownedBoards:FindFirstChild("CloudBoard") then
+			local b = Instance.new("StringValue")
+			b.Name = "CloudBoard"
+			b.Parent = ownedBoards
+		end
+		
 		-- [TESTING] Give all skills
 		local testSkills = {"Skill_IceBomb", "Skill_Shield", "Skill_OrbitalLaser", "Skill_BlindFog", "Skill_Ghost", "Skill_EMP"}
 		for _, skillId in ipairs(testSkills) do
@@ -138,6 +145,12 @@ Players.PlayerAdded:Connect(function(player)
 		local b = Instance.new("StringValue")
 		b.Name = "DefaultHoverboard"
 		b.Parent = ownedBoards
+		
+		-- [TESTING] Give all hoverboards for testing
+		local b2 = Instance.new("StringValue")
+		b2.Name = "CloudBoard"
+		b2.Parent = ownedBoards
+		
 		maxSkillSlots.Value = 2
 
 		-- [TESTING] Give all skills

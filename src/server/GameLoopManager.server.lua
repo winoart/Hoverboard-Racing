@@ -174,14 +174,32 @@ local function teleportAllToTrackAndMount()
 			local hrp = player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
 
 			if rootPart and hrp then
-				rootPart.CFrame = hrp.CFrame * CFrame.new(0, -3.25, 0)
+				-- 마법 빗자루(MagicBroom)의 경우 앞뒤가 바뀌어 있으므로 180도 회전 오프셋을 적용합니다.
+				local rotationOffset = CFrame.new()
+				if boardName == "MagicBroom" then
+					rotationOffset = CFrame.Angles(0, math.rad(180), 0)
+				end
+
+				-- 모델 전체를 캐릭터 발 밑으로 이동(PivotTo)시킵니다. (회전 오프셋 포함)
+				boardClone:PivotTo(hrp.CFrame * CFrame.new(0, -3.25, 0) * rotationOffset)
+
+				-- 그 다음 모든 부품을 중심 파트(PrimaryPart)에 단단히 용접합니다.
+				for _, part in ipairs(boardClone:GetDescendants()) do
+					if part:IsA("BasePart") and part ~= rootPart then
+						local wc = Instance.new("WeldConstraint")
+						wc.Part0 = rootPart
+						wc.Part1 = part
+						wc.Parent = rootPart
+					end
+				end
+				
 				boardClone.Parent = player.Character
 
 				local weld = Instance.new("Weld")
 				weld.Name = "HoverWeld"
 				weld.Part0 = hrp
 				weld.Part1 = rootPart
-				weld.C0 = CFrame.new(0, -3.25, 0)
+				weld.C0 = CFrame.new(0, -3.25, 0) * rotationOffset
 				weld.Parent = rootPart
 
 				stateRemote:FireClient(player, true, boardClone)

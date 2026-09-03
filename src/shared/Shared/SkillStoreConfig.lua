@@ -8,7 +8,7 @@ SkillStoreConfig.Skills = {
 	{
 		id = "Skill_IceBomb",
 		name = "얼음 폭탄",
-		description = "내 주변 유저를 잠시 얼려서 속도를 늦춥니다.",
+		description = "내 바로 앞 순위의 유저 한 명을 잠시 얼려서 속도를 늦춥니다.",
 		imageId = "rbxassetid://81959011754721",
 		goldPrice = 2000
 	},

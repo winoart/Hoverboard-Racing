@@ -13,6 +13,13 @@ local playerGui = LocalPlayer:WaitForChild("PlayerGui")
 local equippedSkillsFolder = LocalPlayer:WaitForChild("EquippedSkills")
 local maxSkillSlots = LocalPlayer:WaitForChild("MaxSkillSlots")
 
+local remotesFolder = ReplicatedStorage:WaitForChild("HoverboardRemotes")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local SkillStoreConfig = require(Shared:WaitForChild("SkillStoreConfig") :: ModuleScript)
+local MonetizationConfig = require(Shared:WaitForChild("MonetizationConfig") :: ModuleScript)
+local SkillMessages = require(Shared:WaitForChild("SkillMessages") :: ModuleScript)
+
 local hoverRemotes = ReplicatedStorage:WaitForChild("HoverboardRemotes")
 local phaseRemote = hoverRemotes:WaitForChild("GamePhaseChanged") :: RemoteEvent
 local countdownRemote = hoverRemotes:WaitForChild("StartCountdownSignal") :: RemoteEvent
@@ -60,6 +67,73 @@ if not glitchOverlay then
 	glitchOverlay.Visible = false
 	glitchOverlay.Parent = gui
 end
+
+local hoverboardDisplay = gui:FindFirstChild("HoverboardDisplay")
+if not hoverboardDisplay then
+	hoverboardDisplay = Instance.new("Frame")
+	hoverboardDisplay.Name = "HoverboardDisplay"
+	hoverboardDisplay.Size = UDim2.new(0, 175, 0, 150)
+	hoverboardDisplay.Position = UDim2.new(1, -190, 0.5, -230) -- SlotsContainer 보다 좀 더 위로
+	hoverboardDisplay.BackgroundTransparency = 1 -- 배경 투명화
+	hoverboardDisplay.Parent = gui
+
+	local hbIcon = Instance.new("ImageLabel")
+	hbIcon.Name = "Icon"
+	hbIcon.Size = UDim2.new(0, 100, 0, 100) -- 40에서 100으로 2.5배 확대
+	hbIcon.Position = UDim2.new(0.5, 0, 0, 0)
+	hbIcon.AnchorPoint = Vector2.new(0.5, 0) -- 가로 중앙 정렬
+	hbIcon.BackgroundTransparency = 1
+	hbIcon.Image = ""
+	hbIcon.Parent = hoverboardDisplay
+	
+	local hbName = Instance.new("TextLabel")
+	hbName.Name = "NameLabel"
+	hbName.Size = UDim2.new(1, 0, 0, 30)
+	hbName.Position = UDim2.new(0.5, 0, 0, 80) -- 아이콘과 텍스트 사이 간격 줄임 (105 -> 80)
+	hbName.AnchorPoint = Vector2.new(0.5, 0)
+	hbName.BackgroundTransparency = 1
+	hbName.Font = Enum.Font.FredokaOne
+	hbName.Text = "호버보드"
+	hbName.TextColor3 = Color3.fromRGB(255, 255, 255)
+	hbName.TextSize = 22 -- 폰트 사이즈 22
+	hbName.TextXAlignment = Enum.TextXAlignment.Center
+	hbName.Parent = hoverboardDisplay
+	
+	local textStroke = Instance.new("UIStroke")
+	textStroke.Color = Color3.fromRGB(30, 30, 30)
+	textStroke.Thickness = 3 -- 외곽선 3
+	textStroke.Parent = hbName
+end
+
+local hbIcon = hoverboardDisplay:WaitForChild("Icon") :: ImageLabel
+local hbName = hoverboardDisplay:WaitForChild("NameLabel") :: TextLabel
+local equippedBoardId = LocalPlayer:WaitForChild("EquippedHoverboardId") :: StringValue
+
+local StoreConfig = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("StoreConfig"))
+
+local function updateHoverboardDisplay()
+	local boardId = equippedBoardId.Value
+	if boardId == "" then boardId = "DefaultHoverboard" end
+	
+	local foundInfo = nil
+	for _, info in ipairs(StoreConfig.Items) do
+		if info.id == boardId then
+			foundInfo = info
+			break
+		end
+	end
+	
+	if foundInfo then
+		hbName.Text = foundInfo.name
+		hbIcon.Image = foundInfo.imageId
+	else
+		hbName.Text = "호버보드"
+		hbIcon.Image = ""
+	end
+end
+
+updateHoverboardDisplay()
+equippedBoardId.Changed:Connect(updateHoverboardDisplay)
 
 -- [클라이언트 사이드 시각화 (KartRider 방식 표준)]
 -- 투사체 스킬을 쓸 때 핑 지연 없이 내 화면에 즉시 발사되는 연출을 만듭니다.
@@ -198,15 +272,15 @@ local function spawnLocalProjectileVisual(skillId: string)
 end
 
 local function showSkillToast(skillName: string)
+	local config = SkillMessages.Design.MySkillToast
 	local toast = Instance.new("TextLabel")
-	toast.Size = UDim2.new(0, 400, 0, 60)
-	toast.Position = UDim2.new(0.5, -200, 0.7, 0)
-	toast.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
-	toast.BackgroundTransparency = 0.2
-	toast.Font = Enum.Font.GothamBlack
-	toast.Text = "🔥 [" .. skillName .. "] 발동!"
-	toast.TextColor3 = Color3.fromRGB(255, 200, 50)
-	toast.TextSize = 24
+	toast.Size = UDim2.new(0, 800, 0, 100)
+	toast.Position = UDim2.new(0.5, -400, config.PosY, 0)
+	toast.BackgroundTransparency = 1
+	toast.Font = config.Font
+	toast.Text = SkillMessages:Format("MySkillActivated", {skillName = skillName})
+	toast.TextColor3 = config.TextColor
+	toast.TextSize = config.TextSize
 	toast.Parent = gui
 	
 	local corner = Instance.new("UICorner")
@@ -214,12 +288,12 @@ local function showSkillToast(skillName: string)
 	corner.Parent = toast
 	
 	local stroke = Instance.new("UIStroke")
-	stroke.Color = Color3.fromRGB(255, 150, 0)
-	stroke.Thickness = 2
+	stroke.Color = config.StrokeColor
+	stroke.Thickness = config.StrokeThickness
 	stroke.Parent = toast
 	
 	-- Animate up and fade out
-	TweenService:Create(toast, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Position = UDim2.new(0.5, -200, 0.65, 0) }):Play()
+	TweenService:Create(toast, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Position = UDim2.new(0.5, -400, config.PosY - 0.05, 0) }):Play()
 	task.delay(1.5, function()
 		local t = TweenService:Create(toast, TweenInfo.new(0.5), { TextTransparency = 1, BackgroundTransparency = 1 })
 		TweenService:Create(stroke, TweenInfo.new(0.5), { Transparency = 1 }):Play()
@@ -231,15 +305,15 @@ local function showSkillToast(skillName: string)
 end
 
 local function showWarningToast(message: string)
+	local config = SkillMessages.Design.WarningToast
 	local toast = Instance.new("TextLabel")
-	toast.Size = UDim2.new(0, 500, 0, 70)
-	toast.Position = UDim2.new(0.5, -250, 0.3, 0)
-	toast.BackgroundColor3 = Color3.fromRGB(50, 20, 20)
-	toast.BackgroundTransparency = 0.2
-	toast.Font = Enum.Font.GothamBlack
-	toast.Text = "⚠️ " .. message
-	toast.TextColor3 = Color3.fromRGB(255, 100, 100)
-	toast.TextSize = 24
+	toast.Size = UDim2.new(0, 1000, 0, 120)
+	toast.Position = UDim2.new(0.5, -500, config.PosY, 0)
+	toast.BackgroundTransparency = 1
+	toast.Font = config.Font
+	toast.Text = message
+	toast.TextColor3 = config.TextColor
+	toast.TextSize = config.TextSize
 	toast.Parent = gui
 	
 	local corner = Instance.new("UICorner")
@@ -247,16 +321,16 @@ local function showWarningToast(message: string)
 	corner.Parent = toast
 	
 	local stroke = Instance.new("UIStroke")
-	stroke.Color = Color3.fromRGB(255, 50, 50)
-	stroke.Thickness = 3
+	stroke.Color = config.StrokeColor
+	stroke.Thickness = config.StrokeThickness
 	stroke.Parent = toast
 	
-	-- Flashing effect
-	local flashTween = TweenService:Create(toast, TweenInfo.new(0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { BackgroundColor3 = Color3.fromRGB(100, 20, 20) })
+	-- Flashing effect on text instead of background
+	local flashTween = TweenService:Create(toast, TweenInfo.new(0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { TextColor3 = Color3.fromRGB(255, 255, 255) })
 	flashTween:Play()
 	
 	-- Animate up and fade out
-	TweenService:Create(toast, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Position = UDim2.new(0.5, -250, 0.25, 0) }):Play()
+	TweenService:Create(toast, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Position = UDim2.new(0.5, -500, config.PosY - 0.05, 0) }):Play()
 	task.delay(2.5, function()
 		flashTween:Cancel()
 		local t = TweenService:Create(toast, TweenInfo.new(0.5), { TextTransparency = 1, BackgroundTransparency = 1 })
@@ -455,7 +529,7 @@ local function bindSlot(index)
 			return
 		elseif index == 4 and maxSkillSlots.Value < 4 then
 			if maxSkillSlots.Value < 3 then
-				showSkillToast("3번째 슬롯을 먼저 구매해야 합니다!")
+				showSkillToast(SkillMessages.Messages.NeedSlot3First)
 			else
 				MarketplaceService:PromptProductPurchase(LocalPlayer, MonetizationConfig.SlotUnlockProducts.Slot4.id)
 			end
@@ -468,7 +542,7 @@ local function bindSlot(index)
 			local lastUsed = clientCooldowns[skillId]
 			local cooldown = SKILL_COOLDOWNS[skillId] or 10
 			if lastUsed and (os.clock() - lastUsed) < cooldown then
-				print("⏳ 아직 쿨타임 중입니다!")
+				print(SkillMessages.Messages.CooldownActive)
 				return
 			end
 			
@@ -601,7 +675,7 @@ end)
 skillWarningRemote.OnClientEvent:Connect(function(casterName: string, skillId: string)
 	if skillId == "Skill_Shield_Break" then
 		if casterName == "SYSTEM" then
-			showWarningToast("🛡️ 방어막이 파괴되었습니다!")
+			showWarningToast(SkillMessages.Messages.ShieldBroken)
 			
 			-- 화면 피격 피드백 (빨간 번쩍임)
 			local cc = Instance.new("ColorCorrectionEffect")
@@ -611,14 +685,14 @@ skillWarningRemote.OnClientEvent:Connect(function(casterName: string, skillId: s
 			tween:Play()
 			tween.Completed:Connect(function() cc:Destroy() end)
 		else
-			showWarningToast("💥 " .. casterName .. "님의 방어막을 무력화했습니다!")
+			showWarningToast(SkillMessages:Format("ShieldDisabledEnemy", {casterName = casterName}))
 		end
 		return
 	end
 	
 	local sInfo = getSkillInfo(skillId)
 	local sName = sInfo and sInfo.name or skillId
-	showWarningToast("⚠️ " .. casterName .. "님이 당신에게 " .. sName .. "을(를) 사용했습니다!")
+	showWarningToast(SkillMessages:Format("EnemyUsedSkillOnYou", {casterName = casterName, skillName = sName}))
 end)
 
 blindEffectRemote.OnClientEvent:Connect(function(active: boolean)
@@ -627,7 +701,7 @@ end)
 
 empEffectRemote.OnClientEvent:Connect(function(casterName: string)
 	if Players.LocalPlayer.Name == casterName then
-		showWarningToast("⚡ EMP 가동 완료!")
+		showWarningToast(SkillMessages.Messages.EMPReady)
 		local zapSound = Instance.new("Sound")
 		zapSound.SoundId = "rbxassetid://138084050" -- Glitch/zap
 		zapSound.Volume = 0.5
@@ -637,7 +711,7 @@ empEffectRemote.OnClientEvent:Connect(function(casterName: string)
 	else
 		-- Note: Hacked players now receive a separate EMPHackEffect remote.
 		-- We can optionally show a toast to everyone else, or just do nothing.
-		-- showWarningToast("⚡ " .. casterName .. "님이 EMP를 사용했습니다!")
+		-- showWarningToast(SkillMessages:Format("EnemyUsedEMP", {casterName = casterName}))
 	end
 end)
 
@@ -655,7 +729,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 				local lastUsed = clientCooldowns[skillId]
 				local cooldown = SKILL_COOLDOWNS[skillId] or 10
 				if lastUsed and (os.clock() - lastUsed) < cooldown then
-					print("⏳ 쿨타임 중입니다!")
+					print(SkillMessages.Messages.CooldownActive)
 					continue
 				end
 				
@@ -701,15 +775,16 @@ empHackRemote.OnClientEvent:Connect(function()
 	_G.isEMPHacked = true
 	
 	-- 해킹 알림 UI 및 파티클 이펙트
+	local config = SkillMessages.Design.EMPHackToast
 	local hackText = Instance.new("TextLabel")
-	hackText.Text = "🚨 CONTROLS HACKED! 🚨"
+	hackText.Text = SkillMessages.Messages.EMPHackText
 	hackText.Size = UDim2.new(1, 0, 0.2, 0)
-	hackText.Position = UDim2.new(0, 0, 0.2, 0)
+	hackText.Position = UDim2.new(0, 0, config.PosY, 0)
 	hackText.BackgroundTransparency = 1
-	hackText.TextColor3 = Color3.fromRGB(255, 0, 0)
+	hackText.TextColor3 = config.TextColor
 	hackText.TextStrokeTransparency = 0
 	hackText.TextScaled = true
-	hackText.Font = Enum.Font.FredokaOne
+	hackText.Font = config.Font
 	hackText.Parent = gui
 	
 	-- 카메라 스파크 이펙트 (간단 구현)

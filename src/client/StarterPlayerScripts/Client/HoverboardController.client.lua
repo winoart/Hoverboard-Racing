@@ -26,6 +26,7 @@ end)
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local HoverboardConfig = require(Shared:WaitForChild("HoverboardConfig") :: ModuleScript)
+local SkillMessages = require(Shared:WaitForChild("SkillMessages") :: ModuleScript)
 
 local remotesFolder = ReplicatedStorage:WaitForChild("HoverboardRemotes")
 local mountRemote = remotesFolder:WaitForChild("MountRequest") :: RemoteEvent
@@ -886,12 +887,45 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 	_G.lastVel = vel
 end)
 
+local function showBoosterToast()
+	print("🚨 BOOSTER TOAST CALLED! 🚨")
+	if not guiScreen then return end
+	local config = SkillMessages.Design.MySkillToast
+	local toast = Instance.new("TextLabel")
+	toast.Size = UDim2.new(0, 800, 0, 100)
+	toast.Position = UDim2.new(0.5, -400, config.PosY, 0)
+	toast.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+	toast.BackgroundTransparency = 0.5 -- DEBUG: 반투명 빨간색 배경
+	toast.Font = config.Font
+	toast.Text = SkillMessages.Messages.BoosterActivated or "🔥 부스터 ON!"
+	toast.TextColor3 = config.TextColor
+	toast.TextSize = config.TextSize
+	toast.ZIndex = 100
+	toast.Parent = guiScreen
+	
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = config.StrokeColor
+	stroke.Thickness = config.StrokeThickness
+	stroke.Parent = toast
+	
+	TweenService:Create(toast, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Position = UDim2.new(0.5, -200, config.PosY - 0.05, 0) }):Play()
+	task.delay(1.5, function()
+		local t = TweenService:Create(toast, TweenInfo.new(0.5), { TextTransparency = 1 })
+		TweenService:Create(stroke, TweenInfo.new(0.5), { Transparency = 1 }):Play()
+		t:Play()
+		t.Completed:Connect(function()
+			toast:Destroy()
+		end)
+	end)
+end
+
 -- Trigger One-Tap Continuous Booster on Spacebar press
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed or not isMounted then return end
 	if input.KeyCode == HoverboardConfig.BOOSTER_KEY or input.KeyCode == Enum.KeyCode.Space then
 		if not isBoosting and boosterGauge >= HoverboardConfig.BOOSTER_MIN_TO_USE then
 			isBoosting = true
+			showBoosterToast()
 		end
 	end
 end)

@@ -23,6 +23,48 @@ function module.Build()
 	gridLayout.CellSize = UDim2.new(0, 80, 0, 80)
 	gridLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	gridLayout.Parent = container
+
+	local hbContainer = Instance.new("Frame")
+	hbContainer.Name = "HoverboardDisplay"
+	hbContainer.Size = UDim2.new(0, 175, 0, 60)
+	hbContainer.Position = UDim2.new(1, -190, 0.5, -155) -- SlotsContainer 바로 위
+	hbContainer.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+	hbContainer.BackgroundTransparency = 0.2
+	hbContainer.Parent = gui
+
+	local hbCorner = Instance.new("UICorner")
+	hbCorner.CornerRadius = UDim.new(0, 12)
+	hbCorner.Parent = hbContainer
+
+	local hbStroke = Instance.new("UIStroke")
+	hbStroke.Color = Color3.fromRGB(30, 30, 30)
+	hbStroke.Thickness = 4
+	hbStroke.Parent = hbContainer
+
+	local hbIcon = Instance.new("ImageLabel")
+	hbIcon.Name = "Icon"
+	hbIcon.Size = UDim2.new(0, 40, 0, 40)
+	hbIcon.Position = UDim2.new(0, 10, 0.5, -20)
+	hbIcon.BackgroundTransparency = 1
+	hbIcon.Image = ""
+	hbIcon.Parent = hbContainer
+	
+	local hbIconCorner = Instance.new("UICorner")
+	hbIconCorner.CornerRadius = UDim.new(0, 6)
+	hbIconCorner.Parent = hbIcon
+
+	local hbName = Instance.new("TextLabel")
+	hbName.Name = "NameLabel"
+	hbName.Size = UDim2.new(1, -65, 1, 0)
+	hbName.Position = UDim2.new(0, 60, 0, 0)
+	hbName.BackgroundTransparency = 1
+	hbName.Font = Enum.Font.FredokaOne
+	hbName.Text = "호버보드"
+	hbName.TextColor3 = Color3.fromRGB(255, 255, 255)
+	hbName.TextSize = 14
+	hbName.TextWrapped = true
+	hbName.TextXAlignment = Enum.TextXAlignment.Left
+	hbName.Parent = hbContainer
 	
 	local hotkeyStrs = { "Q", "E", "R", "T" }
 	local slotColors = {
