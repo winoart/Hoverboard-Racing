@@ -872,17 +872,7 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 	local vel = hrp.AssemblyLinearVelocity
 	local deltaVel = vel - _G.lastVel
 	
-	-- 만약 1프레임(약 0.016초) 만에 속도가 비정상적으로 튀면(가속도 스파이크) 콘솔에 즉시 출력!
-	if deltaVel.Magnitude > 10.0 and currentWalkSpeed > 5 then
-		print(string.format(
-			"🚨 [JITTER DETECTED!] DeltaVel: %.1f | Pos(X:%.1f, Z:%.1f) | Vel(X:%.1f, Z:%.1f) | Spd:%.1f (Tgt:%.1f) | HipHeight:%.2f",
-			deltaVel.Magnitude,
-			pos.X, pos.Z,
-			vel.X, vel.Z,
-			currentSpeed, currentWalkSpeed,
-			humanoid.HipHeight
-		))
-	end
+	-- Jitter logging removed
 	
 	_G.lastVel = vel
 end)

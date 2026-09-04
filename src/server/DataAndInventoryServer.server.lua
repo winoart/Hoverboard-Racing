@@ -7,6 +7,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local DataStoreService = game:GetService("DataStoreService")
 
 local PlayerDataStore = DataStoreService:GetDataStore("HoverboardData_v1")
+local WinsOrderedStore = DataStoreService:GetOrderedDataStore("HoverboardWins_Ordered_v1")
 
 -- Ensure remote folders exist
 local hoverRemotes = ReplicatedStorage:FindFirstChild("HoverboardRemotes")
@@ -41,6 +42,10 @@ Players.PlayerAdded:Connect(function(player)
 	local gold = Instance.new("IntValue")
 	gold.Name = "Gold"
 	gold.Parent = leaderstats
+	
+	local wins = Instance.new("IntValue")
+	wins.Name = "Wins"
+	wins.Parent = leaderstats
 	
 	local ownedBoards = Instance.new("Folder")
 	ownedBoards.Name = "OwnedHoverboards"
@@ -82,6 +87,7 @@ Players.PlayerAdded:Connect(function(player)
 
 	if success and data then
 		gold.Value = data.Gold or 1000
+		wins.Value = data.Wins or 0
 		lastAttendanceDate.Value = data.LastAttendanceDate or ""
 		attendanceStreak.Value = data.AttendanceStreak or 0
 		
@@ -136,8 +142,9 @@ Players.PlayerAdded:Connect(function(player)
 		
 		print("💾 [DataServer] Data loaded for " .. player.Name)
 	else
-		-- Default new player data
-		gold.Value = 1000 + 50000 -- [TESTING] Give 50000 extra
+		-- Initialize defaults
+		gold.Value = 1000
+		wins.Value = 0
 		lastAttendanceDate.Value = ""
 		attendanceStreak.Value = 0
 		
@@ -201,6 +208,7 @@ Players.PlayerRemoving:Connect(function(player)
 
 		local dataToSave = {
 			Gold = gold.Value,
+			Wins = player.leaderstats.Wins.Value,
 			OwnedHoverboards = bList,
 			EquippedHoverboardId = equippedBoardId.Value,
 			OwnedSkills = sList,
@@ -218,6 +226,27 @@ Players.PlayerRemoving:Connect(function(player)
 			warn("🚨 [DataServer] Failed to save for " .. player.Name .. ": " .. tostring(err))
 		else
 			print("💾 [DataServer] Data saved for " .. player.Name)
+		end
+	end
+end)
+
+-- Function to handle Win update (Called by other scripts via BindableEvent)
+local winUpdateEvent = Instance.new("BindableEvent")
+winUpdateEvent.Name = "UpdateWinsEvent"
+winUpdateEvent.Parent = ReplicatedStorage
+
+winUpdateEvent.Event:Connect(function(player: Player)
+	local leaderstats = player:FindFirstChild("leaderstats")
+	if leaderstats then
+		local wins = leaderstats:FindFirstChild("Wins")
+		if wins then
+			wins.Value += 1
+			print("🏆 [DataServer] " .. player.Name .. "'s Wins increased to " .. wins.Value)
+			
+			-- Update OrderedDataStore for Leaderboard
+			pcall(function()
+				WinsOrderedStore:SetAsync(tostring(player.UserId), wins.Value)
+			end)
 		end
 	end
 end)

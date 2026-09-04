@@ -235,7 +235,7 @@ end)
 Players.PlayerAdded:Connect(function(player: Player)
 	player.CharacterAdded:Connect(function(character)
 		-- 레이스 중에는 대기실로 보내지 않음 (스킬 피격 등으로 리스폰 시 트랙 유지)
-		print(string.format("[PHASE_DEBUG] CharacterAdded fired for %s | currentPhase=%s", player.Name, currentPhase))
+		-- Debug logging removed
 		-- Humanoid 사망 원인 추적
 		local hum = character:WaitForChild("Humanoid", 5)
 		if hum then
@@ -244,7 +244,7 @@ Players.PlayerAdded:Connect(function(player: Player)
 			end)
 		end
 		if currentPhase == "RACE_MATCH" then
-			print("[PHASE_DEBUG] -> RACE_MATCH 중이므로 대기실 이동 스킵")
+			-- Debug logging removed
 			return
 		end
 		task.wait(0.3)

@@ -773,12 +773,16 @@ refreshSlots()
 
 -- EMP 해킹 효과 수신
 _G.isEMPHacked = false
+local currentEMPHackId = 0
 empHackRemote.OnClientEvent:Connect(function()
 	_G.isEMPHacked = true
+	currentEMPHackId = currentEMPHackId + 1
+	local thisHackId = currentEMPHackId
 	
 	-- 해킹 알림 UI 및 파티클 이펙트
 	local config = SkillMessages.Design.EMPHackToast
 	local hackText = Instance.new("TextLabel")
+	hackText.Name = "EMPHackText"
 	hackText.Text = SkillMessages.Messages.EMPHackText
 	hackText.Size = UDim2.new(1, 0, 0.2, 0)
 	hackText.Position = UDim2.new(0, 0, config.PosY, 0)
@@ -787,6 +791,14 @@ empHackRemote.OnClientEvent:Connect(function()
 	hackText.TextStrokeTransparency = 0
 	hackText.TextScaled = true
 	hackText.Font = config.Font
+	
+	-- 기존 hackText 삭제 방지 (gui 안에 여러 개 쌓이는 것 방지)
+	for _, child in ipairs(gui:GetChildren()) do
+		if child.Name == "EMPHackText" then
+			child:Destroy()
+		end
+	end
+	
 	hackText.Parent = gui
 	
 	-- 카메라 스파크 이펙트 (간단 구현)
@@ -794,15 +806,22 @@ empHackRemote.OnClientEvent:Connect(function()
 		glitchOverlay.Visible = true
 		task.spawn(function()
 			for i = 1, 20 do
+				if currentEMPHackId ~= thisHackId then break end -- 새로운 EMP가 오면 중단
 				glitchOverlay.BackgroundTransparency = math.random() * 0.5 + 0.5
 				task.wait(0.2)
 			end
-			glitchOverlay.Visible = false
+			if currentEMPHackId == thisHackId then
+				glitchOverlay.Visible = false
+			end
 		end)
 	end
 	
 	task.delay(4, function()
-		_G.isEMPHacked = false
-		hackText:Destroy()
+		if currentEMPHackId == thisHackId then
+			_G.isEMPHacked = false
+			if hackText and hackText.Parent then
+				hackText:Destroy()
+			end
+		end
 	end)
 end)

@@ -166,10 +166,13 @@ local function createInvisibleWalls(centerCFrame: CFrame, size: Vector3, spawnCF
 	catchFloor.Parent = wallFolder
 
 	catchFloor.Touched:Connect(function(hit)
+		if hit.Name ~= "HumanoidRootPart" then return end
 		local character = hit.Parent
 		if character and character:FindFirstChild("Humanoid") then
 			local hrp = character:FindFirstChild("HumanoidRootPart")
 			if hrp then
+				hrp.AssemblyLinearVelocity = Vector3.zero
+				hrp.AssemblyAngularVelocity = Vector3.zero
 				hrp.CFrame = spawnCFrame * CFrame.new(0, 5, 0)
 			end
 		end
@@ -221,3 +224,4 @@ else
 	createInvisibleWalls(CFrame.new(0, 85, 0), Vector3.new(60, 2, 60), CFrame.new(0, 85, 0))
 	print("✅ 기본 대기실 낙하 방지용 투명 벽 생성 완료!")
 end
+

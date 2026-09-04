@@ -425,6 +425,9 @@ local function fireOrbitalLaser(player: Player)
 		warningPillar.CanCollide = false
 		warningPillar.Massless = true
 		
+		-- [Bug Fix] Weld 하기 전에 파트의 실제 위치를 먼저 캐릭터 위로 옮겨두어야 물리 엔진이 캐릭터를 (0,0,0)으로 강제 이동시키지 않습니다.
+		warningPillar.CFrame = root.CFrame * CFrame.new(0, 250, 0) * CFrame.Angles(0, 0, math.pi/2)
+		
 		local weld = Instance.new("Weld")
 		weld.Part0 = root
 		weld.Part1 = warningPillar
@@ -433,7 +436,7 @@ local function fireOrbitalLaser(player: Player)
 		warningPillar.Parent = char
 		
 		local warningSound = Instance.new("Sound")
-		warningSound.SoundId = "rbxassetid://1596766779" -- lock on / warning sound
+		warningSound.SoundId = "rbxassetid://258057783" -- lock on / warning sound
 		warningSound.Volume = 1
 		warningSound.Parent = root
 		warningSound:Play()
@@ -443,17 +446,8 @@ local function fireOrbitalLaser(player: Player)
 		task.delay(2, function()
 			if warningPillar.Parent then warningPillar:Destroy() end
 			if not targetPlayer.Parent or not char.Parent then
-				print(string.format("[ORBITAL_DEBUG] %s: 타격 취소 - targetPlayer.Parent=%s char.Parent=%s",
-					targetPlayer.Name, tostring(targetPlayer.Parent), tostring(char and char.Parent)))
 				return
 			end
-			
-			-- 타격 직전 대상 상태 출력
-			local hum = char:FindFirstChildOfClass("Humanoid")
-			print(string.format("[ORBITAL_DEBUG] 타격 직전 %s | Health=%.1f | State=%s",
-				targetPlayer.Name,
-				hum and hum.Health or -1,
-				hum and tostring(hum:GetState()) or "nil"))
 			
 			-- 쉴드 방어 체크
 			if activeShields[targetPlayer.UserId] then
@@ -490,16 +484,6 @@ local function fireOrbitalLaser(player: Player)
 			if skillWarningRemote then
 				skillWarningRemote:FireClient(targetPlayer, "SYSTEM", "OrbitalStun")
 			end
-			
-			-- 타격 후 0.5초 뒤 상태 재확인
-			task.delay(0.5, function()
-				local newChar = targetPlayer.Character
-				local newHum = newChar and newChar:FindFirstChildOfClass("Humanoid")
-				print(string.format("[ORBITAL_DEBUG] 타격 후 0.5s %s | char변경=%s | Health=%.1f",
-					targetPlayer.Name,
-					tostring(newChar ~= char),
-					newHum and newHum.Health or -1))
-			end)
 			
 			-- 레이저 서서히 사라짐
 			local ts = TweenService:Create(laserPillar, TweenInfo.new(1.0), {Transparency = 1, Size = Vector3.new(500, 0, 0)})
@@ -689,7 +673,7 @@ local function fireEMP(player: Player)
 			local tRoot = tChar and tChar.PrimaryPart
 			if tChar and tRoot then
 				local distance = (root.Position - tRoot.Position).Magnitude
-				if distance <= 150 then
+				if distance <= 10000 then -- 범위를 10000으로 늘려 거리 문제인지 확인
 					if activeGhosts[target.UserId] then
 						print("👻 [SkillServer] " .. target.Name .. " DODGED EMP as a Ghost!")
 						continue
@@ -713,7 +697,6 @@ local function fireEMP(player: Player)
 					end
 					
 					-- Hack target!
-					print("⚡ [SkillServer] " .. target.Name .. "'s controls HACKED by EMP!")
 					
 					-- Show Lightning Icon above head
 					local head = tChar:FindFirstChild("Head") or tRoot

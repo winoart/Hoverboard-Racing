@@ -133,23 +133,23 @@ function LapManager.startTracking(mapName: string, startTime: number)
 	for index, cpPartsList in pairs(checkpoints) do
 		for _, cpPart in ipairs(cpPartsList) do
 			local conn = cpPart.Touched:Connect(function(hit)
-				print("🚨 [LapManager Debug] Checkpoint " .. index .. " touched by: " .. hit.Name .. " (Parent: " .. (hit.Parent and hit.Parent.Name or "nil") .. ")")
+				-- Debug logging removed
 				local player = Players:GetPlayerFromCharacter(hit.Parent)
 				if not player and hit.Parent then
 					player = Players:GetPlayerFromCharacter(hit.Parent.Parent)
 				end
 				if not player then 
-					print("🚨 [LapManager Debug] Checkpoint " .. index .. " ignored: No player found for touch.")
+					-- Debug logging removed
 					return 
 				end
 	
 				local data = playerLaps[player.UserId]
 				if not data or data.finished then 
-					print("🚨 [LapManager Debug] Checkpoint " .. index .. " ignored: No data or player already finished.")
+					-- Debug logging removed
 					return 
 				end
 	
-				print("🏁 [LapManager Debug] " .. player.Name .. " hit Checkpoint " .. index .. "! (Expected: " .. data.nextCheckpoint .. ")")
+				-- Debug logging removed
 				
 				-- Check if they hit the correct next checkpoint
 				if index == data.nextCheckpoint then
@@ -167,15 +167,23 @@ function LapManager.startTracking(mapName: string, startTime: number)
 							raceFinishedRemote:FireClient(player, data.finishTime, data.currentLap, totalLapsForMap, data.finalRank)
 							print("🏆 " .. player.Name .. " finished the race in " .. string.format("%.2f", data.finishTime) .. "s! Rank: " .. data.finalRank)
 							
-							-- Award Gold
+							-- Award Gold and Wins
 							local leaderstats = player:FindFirstChild("leaderstats")
 							if leaderstats then
 								local gold = leaderstats:FindFirstChild("Gold")
 								if gold then
 									local reward = 100
-									if data.finalRank == 1 then reward = 1000
-									elseif data.finalRank == 2 then reward = 600
-									elseif data.finalRank == 3 then reward = 300
+									if data.finalRank == 1 then 
+										reward = 1000
+										local ReplicatedStorage = game:GetService("ReplicatedStorage")
+										local winEvent = ReplicatedStorage:FindFirstChild("UpdateWinsEvent")
+										if winEvent then
+											winEvent:Fire(player)
+										end
+									elseif data.finalRank == 2 then 
+										reward = 600
+									elseif data.finalRank == 3 then 
+										reward = 300
 									end
 									gold.Value += reward
 									print("💰 Awarded " .. reward .. " Gold to " .. player.Name)
