@@ -250,11 +250,29 @@ if actionBtn then
 		
 		if selectedItemType == "Board" then
 			if checkOwnsBoard(info.id) then
-				equipBoardRemote:InvokeServer(info.id)
+				local success, msg = equipBoardRemote:InvokeServer(info.id)
+				if not success and msg then
+					pcall(function()
+						game:GetService("StarterGui"):SetCore("SendNotification", {
+							Title = "알림",
+							Text = msg,
+							Duration = 3
+						})
+					end)
+				end
 			end
 		else
 			if checkOwnsSkill(info.id) then
-				equipSkillRemote:InvokeServer(info.id)
+				local success, msg = equipSkillRemote:InvokeServer(info.id)
+				if not success and msg then
+					pcall(function()
+						game:GetService("StarterGui"):SetCore("SendNotification", {
+							Title = "안내",
+							Text = msg,
+							Duration = 3
+						})
+					end)
+				end
 			end
 		end
 		updateRightColumn()

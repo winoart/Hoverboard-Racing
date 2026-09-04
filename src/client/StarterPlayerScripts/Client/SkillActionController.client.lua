@@ -406,6 +406,13 @@ local function bindSlot(index)
 		icon.Parent = slotFrame
 	end
 
+	-- Find and clear any default labels left by the UI designer
+	for _, child in ipairs(slotFrame:GetChildren()) do
+		if child:IsA("TextLabel") and (child.Text == "Label" or child.Name == "Label" or child.Name == "TextLabel") then
+			child:Destroy()
+		end
+	end
+
 	-- Studio의 NameLabel 세팅을 그대로 사용, 없으면 동적 생성
 	local nameLabel = slotFrame:FindFirstChild("NameLabel") :: TextLabel?
 	if not nameLabel then
@@ -641,6 +648,11 @@ local function refreshSlots()
 					local cleanedName = string.gsub(info.name, "%s*%([a-zA-Z%s]+%)", "")
 					slot.nameLabel.Text = cleanedName
 					slot.stroke.Color = Color3.fromRGB(255, 215, 0)
+				else
+					slot.skillId = nil
+					slot.icon.Image = ""
+					slot.nameLabel.Text = ""
+					slot.stroke.Color = Color3.fromRGB(150, 150, 150)
 				end
 			else
 				slot.skillId = nil
@@ -658,6 +670,9 @@ end
 equippedSkillsFolder.ChildAdded:Connect(refreshSlots)
 equippedSkillsFolder.ChildRemoved:Connect(refreshSlots)
 maxSkillSlots.Changed:Connect(refreshSlots)
+
+-- Initial UI Setup
+refreshSlots()
 
 -- Listen for Game Phase
 phaseRemote.OnClientEvent:Connect(function(phase, timeLeft)

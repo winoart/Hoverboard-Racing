@@ -8,6 +8,7 @@ local DataStoreService = game:GetService("DataStoreService")
 
 local PlayerDataStore = DataStoreService:GetDataStore("HoverboardData_v1")
 local WinsOrderedStore = DataStoreService:GetOrderedDataStore("HoverboardWins_Ordered_v1")
+local GoldOrderedStore = DataStoreService:GetOrderedDataStore("HoverboardGold_Ordered_v1")
 
 -- Ensure remote folders exist
 local hoverRemotes = ReplicatedStorage:FindFirstChild("HoverboardRemotes")
@@ -105,6 +106,10 @@ Players.PlayerAdded:Connect(function(player)
 		
 		-- Load Skills
 		maxSkillSlots.Value = data.MaxSkillSlots or 2
+		if maxSkillSlots.Value < 2 then
+			maxSkillSlots.Value = 2
+		end
+		
 		local sList = data.OwnedSkills or {}
 		
 		-- [TESTING] Give all hoverboards for testing
@@ -133,11 +138,26 @@ Players.PlayerAdded:Connect(function(player)
 		if data.EquippedSkillId and data.EquippedSkillId ~= "" and #eqSkills == 0 then
 			table.insert(eqSkills, data.EquippedSkillId)
 		end
+		
+		local SkillStoreConfig = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("SkillStoreConfig"))
+		
 		for _, id in ipairs(eqSkills) do
-			local s = Instance.new("StringValue")
-			s.Name = id
-			s.Value = id
-			s.Parent = equippedSkills
+			local isValid = false
+			for _, skillInfo in ipairs(SkillStoreConfig.Skills) do
+				if skillInfo.id == id then
+					isValid = true
+					break
+				end
+			end
+			
+			if isValid then
+				local s = Instance.new("StringValue")
+				s.Name = id
+				s.Value = id
+				s.Parent = equippedSkills
+			else
+				warn("🚨 [DataServer] Filtered out invalid equipped skill ID: " .. tostring(id))
+			end
 		end
 		
 		print("💾 [DataServer] Data loaded for " .. player.Name)
@@ -189,6 +209,12 @@ Players.PlayerRemoving:Connect(function(player)
 	
 	local lastDate = player:FindFirstChild("LastAttendanceDate") :: StringValue
 	local streak = player:FindFirstChild("AttendanceStreak") :: IntValue
+	local dataLoaded = player:FindFirstChild("DataLoaded") :: BoolValue
+
+	if not dataLoaded or not dataLoaded.Value then
+		warn("🚨 [DataServer] Data for " .. player.Name .. " was not fully loaded. Aborting save to prevent data loss.")
+		return
+	end
 
 	if gold and ownedBoardsFolder and equippedBoardId and ownedSkillsFolder and equippedSkillsFolder and maxSkillSlots then
 		local bList = {}
@@ -227,6 +253,11 @@ Players.PlayerRemoving:Connect(function(player)
 		else
 			print("💾 [DataServer] Data saved for " .. player.Name)
 		end
+		
+		-- Update Gold OrderedDataStore
+		pcall(function()
+			GoldOrderedStore:SetAsync(tostring(player.UserId), gold.Value)
+		end)
 	end
 end)
 
@@ -244,9 +275,12 @@ winUpdateEvent.Event:Connect(function(player: Player)
 			print("🏆 [DataServer] " .. player.Name .. "'s Wins increased to " .. wins.Value)
 			
 			-- Update OrderedDataStore for Leaderboard
-			pcall(function()
+			local s, err = pcall(function()
 				WinsOrderedStore:SetAsync(tostring(player.UserId), wins.Value)
 			end)
+			if not s then
+				warn("🚨 [DataServer] Failed to update OrderedDataStore for " .. player.Name .. ": " .. tostring(err))
+			end
 		end
 	end
 end)

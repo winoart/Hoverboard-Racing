@@ -1,12 +1,12 @@
 --!strict
--- LeaderboardServer.server.luau
+-- MoneyLeaderboardServer.server.luau
 -- Fetches top 10 players from OrderedDataStore and updates the SurfaceGui in the Lounge
 
 local Players = game:GetService("Players")
 local DataStoreService = game:GetService("DataStoreService")
 local Workspace = game:GetService("Workspace")
 
-local WinsOrderedStore = DataStoreService:GetOrderedDataStore("HoverboardWins_Ordered_v1")
+local GoldOrderedStore = DataStoreService:GetOrderedDataStore("HoverboardGold_Ordered_v1")
 
 local UPDATE_INTERVAL = 15
 
@@ -116,7 +116,7 @@ end
 -- generateHeader 함수는 삭제되었습니다. (GenerateThickCartoonLeaderboard가 UI를 전담합니다)
 
 local function updateLeaderboard()
-	local board = Workspace:FindFirstChild("HoverboardLeaderboard", true) or Workspace:FindFirstChild("GlovalLeaderBoard", true) or Workspace:FindFirstChild("GlobalLeaderboardBoard", true)
+	local board = Workspace:FindFirstChild("MoneyLeaderboard", true) or Workspace:FindFirstChild("MoneyBoard", true)
 	if not board then return end
 	
 	local surfaceGui = board:FindFirstChild("RaceBoard", true) or board:FindFirstChild("LeaderboardSurfaceGui", true) or board:FindFirstChildWhichIsA("SurfaceGui", true)
@@ -130,11 +130,11 @@ local function updateLeaderboard()
 	
 	-- Fetch Data
 	local success, pages = pcall(function()
-		return WinsOrderedStore:GetSortedAsync(false, 10)
+		return GoldOrderedStore:GetSortedAsync(false, 10)
 	end)
 	
 	if not success then
-		warn("🚨 [LeaderboardServer] Failed to fetch OrderedDataStore! (Make sure Studio API Access is enabled)")
+		warn("🚨 [MoneyLeaderboardServer] Failed to fetch OrderedDataStore! (Make sure Studio API Access is enabled)")
 		return
 	end
 	
@@ -211,10 +211,10 @@ local function updateLeaderboard()
 				nameLabel.Text = displayName
 			end
 			
-			-- Update Wins
-			local winsLabel = bg:FindFirstChild("Wins") or row:FindFirstChild("Wins")
-			if winsLabel and winsLabel:IsA("TextLabel") then
-				winsLabel.Text = tostring(wins)
+			-- Update Money
+			local moneyLabel = bg:FindFirstChild("Money") or row:FindFirstChild("Money")
+			if moneyLabel and moneyLabel:IsA("TextLabel") then
+				moneyLabel.Text = tostring(wins)
 			end
 			
 			-- Update Profile Pic
@@ -236,7 +236,7 @@ local function updateLeaderboard()
 		row.Parent = container
 	end
 	
-	print("✅ [LeaderboardServer] 글로벌 리더보드 갱신 완료!")
+	print("✅ [MoneyLeaderboardServer] 글로벌 머니 리더보드 갱신 완료!")
 end
 
 task.spawn(function()
