@@ -93,14 +93,18 @@ function module.Build()
 		slotFrame.Parent = container
 		
 		local corner = Instance.new("UICorner")
-		corner.CornerRadius = UDim.new(0, 12) -- 조금 더 둥글게 (캐주얼)
+		corner.CornerRadius = UDim.new(0, 16) -- 디자인 가이드에 맞게 수정
 		corner.Parent = slotFrame
+		
+		local aspect = Instance.new("UIAspectRatioConstraint")
+		aspect.AspectRatio = 1
+		aspect.Parent = slotFrame
 		
 		local stroke = Instance.new("UIStroke")
 		stroke.Name = "UIStroke"
-		stroke.Color = Color3.fromRGB(30, 30, 30) -- 진한 검은색 테두리
+		stroke.Color = Color3.fromRGB(0, 0, 0) -- 진한 검은색 테두리
 		stroke.Transparency = 0
-		stroke.Thickness = 4 -- 두꺼운 테두리 (캐주얼)
+		stroke.Thickness = 3 -- 디자인 가이드
 		stroke.Parent = slotFrame
 		
 		local icon = Instance.new("ImageLabel")
@@ -118,23 +122,18 @@ function module.Build()
 		
 		local hotkeyLabel = Instance.new("TextLabel")
 		hotkeyLabel.Name = "HotkeyLabel"
-		hotkeyLabel.Size = UDim2.new(0, 24, 0, 24)
+		hotkeyLabel.Size = UDim2.new(0, 26, 0, 26)
 		hotkeyLabel.Position = UDim2.new(1, -10, 0, -10)
-		hotkeyLabel.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- 하얀색 배경
-		hotkeyLabel.Font = Enum.Font.FredokaOne
+		hotkeyLabel.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+		hotkeyLabel.FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json", Enum.FontWeight.Bold)
 		hotkeyLabel.Text = hotkeyStrs[index]
-		hotkeyLabel.TextColor3 = Color3.fromRGB(30, 30, 30) -- 검은색 글씨
-		hotkeyLabel.TextSize = 14
+		hotkeyLabel.TextColor3 = Color3.fromRGB(0, 0, 0)
+		hotkeyLabel.TextSize = 19
 		hotkeyLabel.ZIndex = 10
 		hotkeyLabel.Parent = slotFrame
 		
-		local hkStroke = Instance.new("UIStroke")
-		hkStroke.Color = Color3.fromRGB(30, 30, 30)
-		hkStroke.Thickness = 1
-		hkStroke.Parent = hotkeyLabel
-		
 		local hkCorner = Instance.new("UICorner")
-		hkCorner.CornerRadius = UDim.new(0, 6) -- slightly rounded tag
+		hkCorner.CornerRadius = UDim.new(1, 0) -- 원형
 		hkCorner.Parent = hotkeyLabel
 		
 		local overlay = Instance.new("Frame")
@@ -167,18 +166,25 @@ function module.Build()
 		
 		local nameLabel = Instance.new("TextLabel")
 		nameLabel.Name = "NameLabel"
-		nameLabel.Size = UDim2.new(1, -10, 1, -10)
-		nameLabel.Position = UDim2.new(0, 5, 0, 5)
+		nameLabel.Size = UDim2.new(2, 0, 0, 30)
+		nameLabel.Position = UDim2.new(0.5, 0, 1, 0)
+		nameLabel.AnchorPoint = Vector2.new(0.5, 0.5)
 		nameLabel.BackgroundTransparency = 1
-		nameLabel.Font = Enum.Font.FredokaOne
+		nameLabel.FontFace = Font.new("rbxasset://fonts/families/Montserrat.json", Enum.FontWeight.Bold)
 		nameLabel.Text = ""
 		nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-		nameLabel.TextStrokeTransparency = 0.3
-		nameLabel.TextSize = 10
-		nameLabel.TextWrapped = true
-		nameLabel.TextYAlignment = Enum.TextYAlignment.Bottom
-		nameLabel.ZIndex = 3
+		nameLabel.TextStrokeTransparency = 1
+		nameLabel.TextSize = 22
+		nameLabel.TextWrapped = false
+		nameLabel.TextXAlignment = Enum.TextXAlignment.Center
+		nameLabel.TextYAlignment = Enum.TextYAlignment.Center
+		nameLabel.ZIndex = 4
 		nameLabel.Parent = slotFrame
+		
+		local nlStroke = Instance.new("UIStroke")
+		nlStroke.Color = Color3.fromRGB(0, 0, 0)
+		nlStroke.Thickness = 3
+		nlStroke.Parent = nameLabel
 		
 		local cdLabel = Instance.new("TextLabel")
 		cdLabel.Name = "CdLabel"

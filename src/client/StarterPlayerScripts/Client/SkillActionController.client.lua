@@ -418,17 +418,23 @@ local function bindSlot(index)
 	if not nameLabel then
 		nameLabel = Instance.new("TextLabel")
 		nameLabel.Name = "NameLabel"
-		nameLabel.Size = UDim2.new(1.4, 0, 0, 30)
-		nameLabel.Position = UDim2.new(-0.2, 0, 1, -15)
-		nameLabel.BackgroundTransparency = 1
-		nameLabel.Font = Enum.Font.GothamBlack
-		nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-		nameLabel.TextStrokeTransparency = 1
-		nameLabel.TextScaled = false
-		nameLabel.TextSize = 22
-		nameLabel.ZIndex = 4
 		nameLabel.Parent = slotFrame
 	end
+	
+	-- 기존 Label이든 새 Label이든 가이드에 맞게 무조건 덮어쓰기
+	nameLabel.Size = UDim2.new(2, 0, 0, 30) -- 글자가 두 줄로 쪼개지지 않도록 충분히 넓게
+	nameLabel.Position = UDim2.new(0.5, 0, 1, 0) -- 버튼 정중앙 하단
+	nameLabel.AnchorPoint = Vector2.new(0.5, 0.5) -- 정확히 경계선에 걸치게 앵커 포인트 조정
+	nameLabel.BackgroundTransparency = 1
+	nameLabel.FontFace = Font.new("rbxasset://fonts/families/Montserrat.json", Enum.FontWeight.Bold)
+	nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+	nameLabel.TextStrokeTransparency = 1
+	nameLabel.TextWrapped = false -- 두 줄 바꿈 방지
+	nameLabel.TextScaled = false
+	nameLabel.TextSize = 22
+	nameLabel.TextXAlignment = Enum.TextXAlignment.Center
+	nameLabel.TextYAlignment = Enum.TextYAlignment.Center
+	nameLabel.ZIndex = 4
 	-- 항상 외곽선 두께 3 적용 (없으면 생성, 있으면 덮어쓰기)
 	local nameLabelStroke = nameLabel:FindFirstChildOfClass("UIStroke")
 	if not nameLabelStroke then
@@ -437,6 +443,7 @@ local function bindSlot(index)
 		nameLabelStroke.Parent = nameLabel
 	end
 	nameLabelStroke.Thickness = 3
+	nameLabelStroke.Color = Color3.fromRGB(0, 0, 0)
 	
 	local lock = slotFrame:FindFirstChild("LockIcon") :: Frame?
 	if not lock then
@@ -476,23 +483,35 @@ local function bindSlot(index)
 	if not overlay then
 		overlay = Instance.new("Frame")
 		overlay.Name = "Overlay"
-		overlay.Size = UDim2.new(1, 0, 1, 0)
-		overlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-		overlay.BackgroundTransparency = 0.5
-		overlay.Visible = false
-		local oc = Instance.new("UICorner")
-		oc.CornerRadius = UDim.new(0, 12)
-		oc.Parent = overlay
 		overlay.Parent = slotFrame
 	end
+	overlay.Size = UDim2.new(1, 0, 1, 0)
+	overlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+	overlay.BackgroundTransparency = 0.5
+	overlay.Visible = false
+	
+	local oc = overlay:FindFirstChildOfClass("UICorner") or Instance.new("UICorner")
+	oc.CornerRadius = UDim.new(0, 16) -- 디자인 가이드 (CornerRadius 16)
+	oc.Parent = overlay
+	
+	local slotCorner = slotFrame:FindFirstChildOfClass("UICorner") or Instance.new("UICorner")
+	slotCorner.CornerRadius = UDim.new(0, 16)
+	slotCorner.Parent = slotFrame
+	
+	local aspect = slotFrame:FindFirstChildOfClass("UIAspectRatioConstraint") or Instance.new("UIAspectRatioConstraint")
+	aspect.AspectRatio = 1
+	aspect.Parent = slotFrame
 	
 	local stroke = slotFrame:FindFirstChild("UIStroke") :: UIStroke?
 	if not stroke then
 		stroke = Instance.new("UIStroke")
 		stroke.Name = "UIStroke"
-		stroke.Color = Color3.fromRGB(30, 30, 30)
-		stroke.Thickness = 4
+		stroke.Color = Color3.fromRGB(0, 0, 0)
+		stroke.Thickness = 3
 		stroke.Parent = slotFrame
+	else
+		stroke.Color = Color3.fromRGB(0, 0, 0)
+		stroke.Thickness = 3
 	end
 	
 	local cdLabel = slotFrame:FindFirstChild("CdLabel") :: TextLabel?
@@ -517,7 +536,19 @@ local function bindSlot(index)
 	
 	local hotkeyLabel = slotFrame:FindFirstChild("HotkeyLabel") :: TextLabel?
 	if hotkeyLabel then
+		hotkeyLabel.Size = UDim2.new(0, 26, 0, 26)
+		hotkeyLabel.Position = UDim2.new(1, -10, 0, -10)
 		hotkeyLabel.ZIndex = 10
+		hotkeyLabel.FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json", Enum.FontWeight.Bold)
+		hotkeyLabel.TextSize = 19
+		hotkeyLabel.TextColor3 = Color3.fromRGB(0, 0, 0)
+		local hkStroke = hotkeyLabel:FindFirstChildOfClass("UIStroke")
+		if hkStroke then
+			hkStroke:Destroy()
+		end
+		local hkCorner = hotkeyLabel:FindFirstChildOfClass("UICorner") or Instance.new("UICorner")
+		hkCorner.CornerRadius = UDim.new(1, 0) -- 원형
+		hkCorner.Parent = hotkeyLabel
 	end
 	
 	slots[index] = {
@@ -615,7 +646,7 @@ local function refreshSlots()
 			slot.icon.Image = ""
 			slot.nameLabel.Text = ""
 			slot.skillId = nil
-			slot.stroke.Color = Color3.fromRGB(80, 80, 80)
+			slot.stroke.Color = Color3.fromRGB(0, 0, 0)
 			slot.overlay.Visible = true
 			
 			local priceText = slot.lock:FindFirstChild("PriceLabel")
@@ -647,18 +678,18 @@ local function refreshSlots()
 					slot.icon.Image = info.imageId
 					local cleanedName = string.gsub(info.name, "%s*%([a-zA-Z%s]+%)", "")
 					slot.nameLabel.Text = cleanedName
-					slot.stroke.Color = Color3.fromRGB(255, 215, 0)
+					slot.stroke.Color = Color3.fromRGB(0, 0, 0)
 				else
 					slot.skillId = nil
 					slot.icon.Image = ""
 					slot.nameLabel.Text = ""
-					slot.stroke.Color = Color3.fromRGB(150, 150, 150)
+					slot.stroke.Color = Color3.fromRGB(0, 0, 0)
 				end
 			else
 				slot.skillId = nil
 				slot.icon.Image = ""
 				slot.nameLabel.Text = ""
-				slot.stroke.Color = Color3.fromRGB(150, 150, 150)
+				slot.stroke.Color = Color3.fromRGB(0, 0, 0)
 			end
 			-- Unlocked slots should never be dimmed by default in casual style
 			slot.overlay.Visible = false

@@ -55,8 +55,10 @@ local function createCard(item, index)
 	
 	local rColor = StoreConfig.RarityColors[item.rarity] or Color3.fromRGB(200, 200, 200)
 	
+	card.BackgroundColor3 = rColor -- 배경색을 등급 색상으로 채움
+	
 	local cardStroke = Instance.new("UIStroke")
-	cardStroke.Color = rColor
+	cardStroke.Color = Color3.fromRGB(255, 255, 255) -- 테두리는 구분을 위해 흰색으로 변경
 	cardStroke.Thickness = 2
 	cardStroke.Parent = card
 	
@@ -66,7 +68,13 @@ local function createCard(item, index)
 	rLabel.BackgroundTransparency = 1
 	rLabel.Font = Enum.Font.GothamBold
 	rLabel.Text = item.rarity
-	rLabel.TextColor3 = rColor
+	rLabel.TextColor3 = Color3.fromRGB(255, 255, 255) -- 배경이 색상이라 글씨는 흰색으로
+	
+	local rLabelStroke = Instance.new("UIStroke")
+	rLabelStroke.Color = Color3.fromRGB(0, 0, 0)
+	rLabelStroke.Thickness = 1.5
+	rLabelStroke.Parent = rLabel
+	
 	rLabel.TextSize = 14
 	rLabel.Parent = card
 
@@ -92,6 +100,12 @@ local function createCard(item, index)
 	nLabel.Text = item.name
 	nLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 	nLabel.TextSize = 16
+	
+	local nLabelStroke = Instance.new("UIStroke")
+	nLabelStroke.Color = Color3.fromRGB(0, 0, 0)
+	nLabelStroke.Thickness = 1.5
+	nLabelStroke.Parent = nLabel
+	
 	nLabel.Parent = card
 end
 

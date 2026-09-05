@@ -10,7 +10,19 @@ local GoldOrderedStore = DataStoreService:GetOrderedDataStore("HoverboardGold_Or
 
 local UPDATE_INTERVAL = 15
 
-local function createRow(rank: number, username: string, wins: number, userId: number)
+local function formatAbbreviation(number: number): string
+	if number >= 1000000000 then
+		return string.format("%.1fB", number / 1000000000):gsub("%.0B", "B")
+	elseif number >= 1000000 then
+		return string.format("%.1fM", number / 1000000):gsub("%.0M", "M")
+	elseif number >= 1000 then
+		return string.format("%.1fK", number / 1000):gsub("%.0K", "K")
+	else
+		return tostring(number)
+	end
+end
+
+local function createRow(rank: number, username: string, gold: number, userId: number)
 	local row = Instance.new("Frame")
 	row.Size = UDim2.new(1, -40, 0, 70)
 	row.BorderSizePixel = 0
@@ -98,17 +110,17 @@ local function createRow(rank: number, username: string, wins: number, userId: n
 	nameLabel.TextXAlignment = Enum.TextXAlignment.Center
 	nameLabel.Parent = row
 	
-	-- Wins Label
-	local winsLabel = Instance.new("TextLabel")
-	winsLabel.Size = UDim2.new(0, 150, 1, 0)
-	winsLabel.Position = UDim2.new(1, -200, 0, 0)
-	winsLabel.BackgroundTransparency = 1
-	winsLabel.Text = tostring(wins)
-	winsLabel.Font = Enum.Font.GothamBlack
-	winsLabel.TextSize = 35
-	winsLabel.TextColor3 = Color3.fromRGB(30, 30, 30)
-	winsLabel.TextXAlignment = Enum.TextXAlignment.Center
-	winsLabel.Parent = row
+	-- Money Label
+	local moneyLabel = Instance.new("TextLabel")
+	moneyLabel.Size = UDim2.new(0, 150, 1, 0)
+	moneyLabel.Position = UDim2.new(1, -200, 0, 0)
+	moneyLabel.BackgroundTransparency = 1
+	moneyLabel.Text = formatAbbreviation(gold)
+	moneyLabel.Font = Enum.Font.GothamBlack
+	moneyLabel.TextSize = 35
+	moneyLabel.TextColor3 = Color3.fromRGB(30, 30, 30)
+	moneyLabel.TextXAlignment = Enum.TextXAlignment.Center
+	moneyLabel.Parent = row
 	
 	return row
 end
@@ -160,7 +172,7 @@ local function updateLeaderboard()
 	
 	for rank, data in ipairs(currentPage) do
 		local userId = tonumber(data.key) or 0
-		local wins = data.value
+		local gold = data.value
 		
 		-- Try to get username
 		local username = "Unknown"
@@ -178,11 +190,42 @@ local function updateLeaderboard()
 			-- Update Rank
 			local rankLabel = row:FindFirstChild("Rank")
 			if rankLabel and rankLabel:IsA("TextLabel") then
-				if rank == 1 then rankLabel.Text = "🏆 1"
-				elseif rank == 2 then rankLabel.Text = "🥈 2"
-				elseif rank == 3 then rankLabel.Text = "🥉 3"
-				else rankLabel.Text = tostring(rank)
+				-- RichText 해제 및 기존 텍스트 설정
+				rankLabel.RichText = false
+				rankLabel.Text = tostring(rank)
+				
+				if rank <= 3 then
+					local medal = rankLabel:FindFirstChild("MedalIcon")
+					if not medal then
+						medal = Instance.new("ImageLabel")
+						medal.Name = "MedalIcon"
+						medal.Size = UDim2.new(0, 100, 0, 100) -- 크기 2배(100x100)로 확대
+						medal.Position = UDim2.new(0, -35, 0.5, -50) -- 정중앙에 맞게 오프셋 재조정
+						medal.BackgroundTransparency = 1
+						medal.Parent = rankLabel
+					end
+					
+					if rank == 1 then medal.Image = "rbxassetid://102696561952500"
+					elseif rank == 2 then medal.Image = "rbxassetid://137047702047745"
+					elseif rank == 3 then medal.Image = "rbxassetid://72852436278944"
+					end
+					
+					rankLabel.TextXAlignment = Enum.TextXAlignment.Right
+				else
+					rankLabel.TextXAlignment = Enum.TextXAlignment.Center
+					local medal = rankLabel:FindFirstChild("MedalIcon")
+					if medal then medal:Destroy() end
 				end
+				
+				-- 텍스트를 흰색으로, 테두리를 검정색으로 설정하여 가시성 극대화
+				rankLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+				local rankStroke = rankLabel:FindFirstChild("UIStroke")
+				if not rankStroke then
+					rankStroke = Instance.new("UIStroke")
+					rankStroke.Parent = rankLabel
+				end
+				rankStroke.Color = Color3.fromRGB(0, 0, 0)
+				rankStroke.Thickness = 4
 			end
 			
 			-- Coloring based on rank (Cartoon Simulator Style)
@@ -212,9 +255,9 @@ local function updateLeaderboard()
 			end
 			
 			-- Update Money
-			local moneyLabel = bg:FindFirstChild("Money") or row:FindFirstChild("Money")
+			local moneyLabel = bg:FindFirstChild("Money") or row:FindFirstChild("Money") or bg:FindFirstChild("Wins") or row:FindFirstChild("Wins")
 			if moneyLabel and moneyLabel:IsA("TextLabel") then
-				moneyLabel.Text = tostring(wins)
+				moneyLabel.Text = formatAbbreviation(gold)
 			end
 			
 			-- Update Profile Pic
@@ -229,7 +272,7 @@ local function updateLeaderboard()
 			end
 		else
 			-- Fallback to script generated row
-			row = createRow(rank, username, wins, userId)
+			row = createRow(rank, username, gold, userId)
 		end
 		
 		row.LayoutOrder = rank + 1

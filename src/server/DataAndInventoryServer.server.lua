@@ -285,6 +285,24 @@ winUpdateEvent.Event:Connect(function(player: Player)
 	end
 end)
 
+-- Background loop to save Gold periodically for real-time Money Leaderboard updates
+task.spawn(function()
+	while true do
+		task.wait(30) -- Update OrderedDataStore every 30 seconds
+		for _, player in ipairs(Players:GetPlayers()) do
+			local leaderstats = player:FindFirstChild("leaderstats")
+			if leaderstats then
+				local gold = leaderstats:FindFirstChild("Gold")
+				if gold then
+					pcall(function()
+						GoldOrderedStore:SetAsync(tostring(player.UserId), gold.Value)
+					end)
+				end
+			end
+		end
+	end
+end)
+
 -- 3. Handle Equip Logic
 equipBoardRemote.OnServerInvoke = function(player: Player, itemId: string)
 	local ownedFolder = player:FindFirstChild("OwnedHoverboards")

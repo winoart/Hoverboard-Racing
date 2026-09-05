@@ -26,24 +26,24 @@ StoreConfig.Items = {
 		name = "블루토닉 (기본)",
 		imageId = "rbxassetid://98211009044526",
 		rarity = "Normal",
-		weight = 0, -- 기본 보드는 뽑기에서 등장하지 않음
+		weight = 500, -- 기본 보드도 뽑기에서 등장하게 수정
 		desc = "초보자를 위한 가장 기본적인 호버보드입니다. 안정적인 주행감을 자랑합니다.",
 	},
 	{
-		id = "NormalBoard1",
-		name = "스탠다드 호버",
-		imageId = "rbxassetid://10078028148",
+		id = "ClassicRookie",
+		name = "클래식 루키",
+		imageId = "rbxassetid://10078028148", -- 아이콘은 임시
 		rarity = "Normal",
 		weight = 500, -- 50%
-		desc = "표준적인 성능을 갖춘 호버보드입니다. 가성비가 뛰어납니다.",
+		desc = "공기 저항을 최소화한 날렵하고 스포티한 유선형 호버보드입니다.",
 	},
 	{
-		id = "RareBoard1",
-		name = "루비 슬라이더",
-		imageId = "rbxassetid://10078028148",
-		rarity = "Rare",
-		weight = 150, -- 15%
-		desc = "붉은 보석처럼 빛나는 세련된 디자인의 호버보드입니다.",
+		id = "NeonPulse",
+		name = "네온 펄스",
+		imageId = "rbxassetid://10078028148", -- 아이콘은 임시
+		rarity = "Normal",
+		weight = 500, -- 50%
+		desc = "미래지향적인 사이버펑크 스타일의 메탈릭 호버보드입니다.",
 	},
 	{
 		id = "CloudBoard",
@@ -54,28 +54,20 @@ StoreConfig.Items = {
 		desc = "푹신한 구름 모양을 한 신비로운 보드입니다. 부드럽게 날아갑니다.",
 	},
 	{
-		id = "SuperRareBoard1",
-		name = "네온 스트라이크",
-		imageId = "rbxassetid://10078028148",
-		rarity = "Super Rare",
-		weight = 150, -- 15%
-		desc = "어둠 속에서도 빛을 내며 빠르게 질주하는 고성능 보드입니다.",
-	},
-	{
 		id = "MagicBroom",
-		name = "님부스2000",
+		name = "님부스2025",
 		imageId = "rbxassetid://91414670760591",
 		rarity = "Epic",
 		weight = 40, -- 4%
 		desc = "마법사들이 애용하던 전설적인 빗자루 형태의 호버보드입니다.",
 	},
 	{
-		id = "LegendaryBoard1",
-		name = "드래곤 윙",
-		imageId = "rbxassetid://10078028148",
-		rarity = "Legendary",
-		weight = 10, -- 1%
-		desc = "용의 날개를 뜯어 만든 듯한 압도적인 포스를 뿜어내는 최강의 보드입니다.",
+		id = "IndustrialHoverboard",
+		name = "메카 타이탄",
+		imageId = "rbxassetid://10078028148", -- 아이콘은 임시
+		rarity = "Normal",
+		weight = 500, -- 50%
+		desc = "묵직한 장갑판과 거대한 제트 엔진이 달린 중장비 스타일의 호버보드입니다.",
 	},
 }
 
