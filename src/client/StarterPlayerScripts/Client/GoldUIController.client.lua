@@ -117,6 +117,37 @@ addGoldButton.MouseButton1Click:Connect(function()
 	shopModal.Visible = not shopModal.Visible
 end)
 
+-- Find and link RobuxShop button
+task.spawn(function()
+	local function linkRobuxShop(btn)
+		btn.MouseButton1Click:Connect(function()
+			shopModal.Visible = not shopModal.Visible
+		end)
+	end
+
+	local robuxShopBtn = nil
+	for _, gui in ipairs(playerGui:GetChildren()) do
+		if gui:IsA("ScreenGui") then
+			local btn = gui:FindFirstChild("RobuxShop", true) or gui:FindFirstChild("RobuxShopBtn", true)
+			if btn and btn:IsA("GuiButton") then
+				robuxShopBtn = btn
+				break
+			end
+		end
+	end
+	
+	if robuxShopBtn then
+		linkRobuxShop(robuxShopBtn)
+	end
+	
+	-- In case it is added later
+	playerGui.DescendantAdded:Connect(function(desc)
+		if desc:IsA("GuiButton") and (desc.Name == "RobuxShop" or desc.Name == "RobuxShopBtn") then
+			linkRobuxShop(desc)
+		end
+	end)
+end)
+
 local productContainer = Instance.new("ScrollingFrame")
 productContainer.Size = UDim2.new(1, -40, 1, -80)
 productContainer.Position = UDim2.new(0, 20, 0, 60)

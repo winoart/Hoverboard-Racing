@@ -27,6 +27,7 @@ StoreConfig.Items = {
 		imageId = "rbxassetid://98211009044526",
 		rarity = "Normal",
 		weight = 500, -- 기본 보드도 뽑기에서 등장하게 수정
+		price = 0, -- 기본 보드 무료
 		desc = "초보자를 위한 가장 기본적인 호버보드입니다. 안정적인 주행감을 자랑합니다.",
 	},
 	{
@@ -35,6 +36,7 @@ StoreConfig.Items = {
 		imageId = "rbxassetid://10078028148", -- 아이콘은 임시
 		rarity = "Normal",
 		weight = 500, -- 50%
+		price = 500,
 		desc = "공기 저항을 최소화한 날렵하고 스포티한 유선형 호버보드입니다.",
 	},
 	{
@@ -43,6 +45,7 @@ StoreConfig.Items = {
 		imageId = "rbxassetid://10078028148", -- 아이콘은 임시
 		rarity = "Normal",
 		weight = 500, -- 50%
+		price = 1000,
 		desc = "미래지향적인 사이버펑크 스타일의 메탈릭 호버보드입니다.",
 	},
 	{
@@ -51,6 +54,7 @@ StoreConfig.Items = {
 		imageId = "rbxassetid://116012241551714",
 		rarity = "Rare",
 		weight = 150, -- 15%
+		price = 3000,
 		desc = "푹신한 구름 모양을 한 신비로운 보드입니다. 부드럽게 날아갑니다.",
 	},
 	{
@@ -59,6 +63,7 @@ StoreConfig.Items = {
 		imageId = "rbxassetid://91414670760591",
 		rarity = "Epic",
 		weight = 40, -- 4%
+		price = 5000,
 		desc = "마법사들이 애용하던 전설적인 빗자루 형태의 호버보드입니다.",
 	},
 	{
@@ -67,6 +72,7 @@ StoreConfig.Items = {
 		imageId = "rbxassetid://10078028148", -- 아이콘은 임시
 		rarity = "Normal",
 		weight = 500, -- 50%
+		price = 1500,
 		desc = "묵직한 장갑판과 거대한 제트 엔진이 달린 중장비 스타일의 호버보드입니다.",
 	},
 }

@@ -23,6 +23,20 @@ if not spinRouletteRemote then
 	spinRouletteRemote.Parent = remotesFolder
 end
 
+local openHoverboardShopRemote = remotesFolder:FindFirstChild("OpenHoverboardShop") :: RemoteEvent
+if not openHoverboardShopRemote then
+	openHoverboardShopRemote = Instance.new("RemoteEvent")
+	openHoverboardShopRemote.Name = "OpenHoverboardShop"
+	openHoverboardShopRemote.Parent = remotesFolder
+end
+
+local buyHoverboardRemote = remotesFolder:FindFirstChild("BuyHoverboard") :: RemoteFunction
+if not buyHoverboardRemote then
+	buyHoverboardRemote = Instance.new("RemoteFunction")
+	buyHoverboardRemote.Name = "BuyHoverboard"
+	buyHoverboardRemote.Parent = remotesFolder
+end
+
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local StoreConfig = require(Shared:WaitForChild("StoreConfig") :: ModuleScript)
 
@@ -87,14 +101,59 @@ local function setupStorePart(storeObj: Instance)
 	print("🛒 [StoreServer] BoardStore ProximityPrompt successfully attached to:", storeObj.Name, "via StoreEffectBox")
 end
 
+local function setupKioskPart(kioskObj: Instance)
+	if kioskObj:FindFirstChildOfClass("ProximityPrompt", true) then return end
+	
+	local cf, sz
+	if kioskObj:IsA("Model") then
+		cf, sz = kioskObj:GetBoundingBox()
+	elseif kioskObj:IsA("BasePart") then
+		cf, sz = kioskObj.CFrame, kioskObj.Size
+	else
+		return
+	end
+	
+	local effectPart = Instance.new("Part")
+	effectPart.Name = "KioskEffectBox"
+	effectPart.Size = sz
+	effectPart.CFrame = cf
+	effectPart.Transparency = 1
+	effectPart.CanCollide = false
+	effectPart.Anchored = true
+	effectPart.CanQuery = true
+	effectPart.Parent = kioskObj
+	
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.ActionText = "상점 열기"
+	prompt.ObjectText = "호버보드 구매"
+	prompt.KeyboardKeyCode = Enum.KeyCode.E
+	prompt.MaxActivationDistance = 10
+	prompt.RequiresLineOfSight = false
+	prompt.Parent = effectPart
+	
+	prompt.Triggered:Connect(function(player)
+		openHoverboardShopRemote:FireClient(player)
+	end)
+	
+	print("🛒 [StoreServer] HoverboardKiosk ProximityPrompt successfully attached to:", kioskObj.Name)
+end
+
 local function checkAndSetup(obj: Instance)
 	local function isTargetName(name)
 		return name:lower():gsub("%s+", "") == "model1"
 	end
 	
+	local function isKioskName(name)
+		return name:lower():gsub("%s+", "") == "hoverboardkiosk"
+	end
+	
 	if isTargetName(obj.Name) then
 		if obj:IsA("BasePart") or obj:IsA("Model") then
 			setupStorePart(obj)
+		end
+	elseif isKioskName(obj.Name) then
+		if obj:IsA("BasePart") or obj:IsA("Model") then
+			setupKioskPart(obj)
 		end
 	end
 end
@@ -166,4 +225,47 @@ spinRouletteRemote.OnServerInvoke = function(player: Player)
 	end
 	
 	return true, wonItem, isDuplicate
+end
+
+-- 3. Handle Direct Board Purchase with Gold
+buyHoverboardRemote.OnServerInvoke = function(player: Player, boardId: string)
+	local leaderstats = player:FindFirstChild("leaderstats")
+	local gold = leaderstats and leaderstats:FindFirstChild("Gold") :: IntValue
+	local ownedFolder = player:FindFirstChild("OwnedHoverboards")
+	
+	if not gold or not ownedFolder then
+		return false, "데이터 오류"
+	end
+	
+	local targetItem = nil
+	for _, item in ipairs(StoreConfig.Items) do
+		if item.id == boardId then
+			targetItem = item
+			break
+		end
+	end
+	
+	if not targetItem then
+		return false, "존재하지 않는 호버보드입니다."
+	end
+	
+	if ownedFolder:FindFirstChild(targetItem.id) then
+		return false, "이미 보유중인 호버보드입니다."
+	end
+	
+	local price = targetItem.price or 0
+	if gold.Value < price then
+		return false, "골드가 부족합니다."
+	end
+	
+	-- Deduct Gold
+	gold.Value -= price
+	
+	-- Add to inventory
+	local owned = Instance.new("StringValue")
+	owned.Name = targetItem.id
+	owned.Parent = ownedFolder
+	print("🛒 [StoreServer] " .. player.Name .. " bought " .. targetItem.name .. " for " .. price .. "G")
+	
+	return true, targetItem.name .. " 구매 완료!"
 end
