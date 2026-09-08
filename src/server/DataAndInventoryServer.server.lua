@@ -76,6 +76,14 @@ Players.PlayerAdded:Connect(function(player)
 	attendanceStreak.Name = "AttendanceStreak"
 	attendanceStreak.Parent = player
 	
+	local distance = Instance.new("IntValue")
+	distance.Name = "Distance"
+	distance.Parent = leaderstats
+	
+	local rebirths = Instance.new("IntValue")
+	rebirths.Name = "Rebirths"
+	rebirths.Parent = leaderstats
+	
 	local dataLoaded = Instance.new("BoolValue")
 	dataLoaded.Name = "DataLoaded"
 	dataLoaded.Value = false
@@ -89,6 +97,8 @@ Players.PlayerAdded:Connect(function(player)
 	if success and data then
 		gold.Value = data.Gold or 1000
 		wins.Value = data.Wins or 0
+		distance.Value = data.Distance or 0
+		rebirths.Value = data.Rebirths or 0
 		lastAttendanceDate.Value = data.LastAttendanceDate or ""
 		attendanceStreak.Value = data.AttendanceStreak or 0
 		
@@ -165,6 +175,8 @@ Players.PlayerAdded:Connect(function(player)
 		-- Initialize defaults
 		gold.Value = 1000
 		wins.Value = 0
+		distance.Value = 0
+		rebirths.Value = 0
 		lastAttendanceDate.Value = ""
 		attendanceStreak.Value = 0
 		
@@ -199,6 +211,8 @@ end)
 Players.PlayerRemoving:Connect(function(player)
 	local leaderstats = player:FindFirstChild("leaderstats")
 	local gold = leaderstats and leaderstats:FindFirstChild("Gold") :: IntValue
+	local distance = leaderstats and leaderstats:FindFirstChild("Distance") :: IntValue
+	local rebirths = leaderstats and leaderstats:FindFirstChild("Rebirths") :: IntValue
 	
 	local ownedBoardsFolder = player:FindFirstChild("OwnedHoverboards")
 	local equippedBoardId = player:FindFirstChild("EquippedHoverboardId") :: StringValue
@@ -235,6 +249,8 @@ Players.PlayerRemoving:Connect(function(player)
 		local dataToSave = {
 			Gold = gold.Value,
 			Wins = player.leaderstats.Wins.Value,
+			Distance = distance and distance.Value or 0,
+			Rebirths = rebirths and rebirths.Value or 0,
 			OwnedHoverboards = bList,
 			EquippedHoverboardId = equippedBoardId.Value,
 			OwnedSkills = sList,
@@ -436,6 +452,58 @@ claimAttendanceRemote.OnServerInvoke = function(player: Player)
 	local reward = streakVal.Value * 100
 	goldVal.Value += reward
 	
+	
 	return true, streakVal.Value, reward
+end
+
+-- 5. Distance and Rebirth Logic
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local RebirthConfig = require(Shared:WaitForChild("RebirthConfig"))
+
+local addDistanceRemote = Instance.new("RemoteEvent")
+addDistanceRemote.Name = "AddDistance"
+addDistanceRemote.Parent = hoverRemotes
+
+local requestRebirthRemote = Instance.new("RemoteFunction")
+requestRebirthRemote.Name = "RequestRebirth"
+requestRebirthRemote.Parent = hoverRemotes
+
+addDistanceRemote.OnServerEvent:Connect(function(player: Player, dist: number)
+	if type(dist) ~= "number" or dist <= 0 or dist > 1000 then return end
+	local leaderstats = player:FindFirstChild("leaderstats")
+	if leaderstats then
+		local distanceVal = leaderstats:FindFirstChild("Distance")
+		if distanceVal then
+			distanceVal.Value += math.floor(dist)
+		end
+	end
+end)
+
+requestRebirthRemote.OnServerInvoke = function(player: Player)
+	local leaderstats = player:FindFirstChild("leaderstats")
+	if not leaderstats then return false, "데이터 오류" end
+	
+	local distanceVal = leaderstats:FindFirstChild("Distance") :: IntValue
+	local rebirthsVal = leaderstats:FindFirstChild("Rebirths") :: IntValue
+	if not distanceVal or not rebirthsVal then return false, "데이터 오류" end
+	
+	local currentRebirthLevel = rebirthsVal.Value
+	local nextRebirthData = RebirthConfig.GetNextRebirthData(currentRebirthLevel)
+	
+	if not nextRebirthData then
+		return false, "이미 최대 환생 레벨입니다!"
+	end
+	
+	local reqDist = nextRebirthData.RequiredDistance
+	if distanceVal.Value >= reqDist then
+		distanceVal.Value = 0 -- 거리를 차감하거나 초기화 (여기선 초기화로 적용)
+		rebirthsVal.Value += 1
+		
+		-- 알림 표시 (전체 또는 개인)
+		print(string.format("🎉 [DataServer] %s 님이 환생 %d 레벨 달성!", player.Name, rebirthsVal.Value))
+		return true, rebirthsVal.Value
+	end
+	
+	return false, "거리가 부족합니다."
 end
 

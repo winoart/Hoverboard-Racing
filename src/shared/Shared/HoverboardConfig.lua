@@ -4,16 +4,16 @@
 
 local HoverboardConfig = {
 	-- Speed & Movement Settings
-	RIDE_WALKSPEED = 100,            -- Normal cruise speed on hoverboard (100)
+	RIDE_WALKSPEED = 110,            -- Normal cruise speed on hoverboard (110)
 	BOOSTER_WALKSPEED = 150,         -- Nitro Booster speed boost! (150)
 	RIDE_JUMPPOWER = 65,             -- Jump power
 	
 	-- Booster System Settings
 	BOOSTER_MAX_GAUGE = 100,         -- Max booster gauge percentage (100%)
-	BOOSTER_CHARGE_RATE = 25,        -- Gauge charge speed per sec while driving
+	BOOSTER_CHARGE_RATE = 12.5,      -- Gauge charge speed per sec while driving
 	BOOSTER_DRAIN_RATE = 35,         -- Gauge drain speed per sec while boosting
 	BOOSTER_MIN_TO_USE = 10,         -- Minimum gauge required to ignite boost
-	BOOSTER_FOV = 95,                -- Camera FOV warp during boost
+	BOOSTER_FOV = 110,               -- Camera FOV warp during boost
 	BOOSTER_KEY = Enum.KeyCode.Space,
 	
 	-- Hovering & Floating Physics

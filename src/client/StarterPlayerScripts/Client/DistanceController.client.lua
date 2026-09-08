@@ -1,0 +1,187 @@
+--!strict
+-- DistanceController.client.luau
+-- 거리를 측정하고 서버에 동기화하며 화면에 표시
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+local Workspace = game:GetService("Workspace")
+
+local LocalPlayer = Players.LocalPlayer
+local remotesFolder = ReplicatedStorage:WaitForChild("HoverboardRemotes")
+local addDistanceRemote = remotesFolder:WaitForChild("AddDistance") :: RemoteEvent
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local RebirthConfig = require(Shared:WaitForChild("RebirthConfig"))
+
+local accumulatedDistance = 0
+local lastSyncTime = os.clock()
+local SYNC_INTERVAL = 1.0 -- 1초마다 서버에 전송
+
+local lastLightningDistance = 0
+local LIGHTNING_SPAWN_INTERVAL = 100 -- 100미터마다 번개 생성
+
+-- 포맷팅 함수
+local function formatDistance(meters: number): string
+	if meters >= 1000 then
+		local km = meters / 1000
+		return string.format("%.1fkm", km)
+	else
+		return string.format("%dm", math.floor(meters))
+	end
+end
+
+-- 미터기 UI 찾기 (재시도 로직)
+local function getMeterLabel(): TextLabel?
+	local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+	if playerGui then
+		local targetLabel = nil
+		
+		-- 1. 먼저 MeterTextLabel 이라는 이름으로 찾아봅니다.
+		for _, gui in ipairs(playerGui:GetChildren()) do
+			if gui:IsA("ScreenGui") then
+				local label = gui:FindFirstChild("MeterTextLabel", true)
+				if label and label:IsA("TextLabel") then
+					targetLabel = label
+					break
+				end
+			end
+		end
+		
+		-- 2. 만약 이름을 다르게 지으셨다면, 텍스트가 "12345"인 텍스트 라벨을 무조건 찾습니다!
+		if not targetLabel then
+			for _, gui in ipairs(playerGui:GetChildren()) do
+				if gui:IsA("ScreenGui") then
+					for _, desc in ipairs(gui:GetDescendants()) do
+						if desc:IsA("TextLabel") and desc.Text == "12345" then
+							targetLabel = desc
+							break
+						end
+					end
+				end
+				if targetLabel then break end
+			end
+		end
+		
+		if targetLabel then
+			-- 외곽선 자동 추가 (없을 경우)
+			local stroke = targetLabel:FindFirstChildOfClass("UIStroke")
+			if not stroke then
+				stroke = Instance.new("UIStroke")
+				stroke.Color = Color3.new(0, 0, 0)
+				stroke.Thickness = 3
+				stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
+				stroke.Parent = targetLabel
+			else
+				stroke.Color = Color3.new(0, 0, 0)
+				stroke.Thickness = 3
+				stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
+			end
+			return targetLabel
+		end
+	end
+	return nil
+end
+
+local function spawnLightningEffect(meterLabel: TextLabel, hrp: BasePart)
+	local camera = Workspace.CurrentCamera
+	if not camera then return end
+	
+	local screenPos, onScreen = camera:WorldToScreenPoint(hrp.Position)
+	if not onScreen then return end
+	
+	local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+	if not playerGui then return end
+	
+	local fxScreen = playerGui:FindFirstChild("LightningFXGui")
+	if not fxScreen then
+		fxScreen = Instance.new("ScreenGui")
+		fxScreen.Name = "LightningFXGui"
+		fxScreen.Parent = playerGui
+	end
+	
+	local icon = Instance.new("TextLabel")
+	icon.Size = UDim2.new(0, 60, 0, 60)
+	icon.Position = UDim2.new(0, screenPos.X, 0, screenPos.Y)
+	icon.AnchorPoint = Vector2.new(0.5, 0.5)
+	icon.BackgroundTransparency = 1
+	icon.Font = Enum.Font.GothamBlack
+	icon.Text = "⚡"
+	icon.TextSize = 60
+	icon.TextColor3 = Color3.fromRGB(255, 255, 0)
+	icon.ZIndex = 100
+	
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = Color3.new(0, 0, 0)
+	stroke.Thickness = 3
+	stroke.Parent = icon
+	
+	icon.Parent = fxScreen
+	
+	-- 타겟 위치 (미터 텍스트 라벨의 중앙)
+	local targetPos = UDim2.new(0, meterLabel.AbsolutePosition.X + (meterLabel.AbsoluteSize.X / 2), 0, meterLabel.AbsolutePosition.Y + (meterLabel.AbsoluteSize.Y / 2))
+	
+	-- 투명해지지 않고 확실하게 꽂히도록 수정, 속도는 약간 더 빠르게
+	local tweenInfo = TweenInfo.new(0.4, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
+	local tween = TweenService:Create(icon, tweenInfo, {
+		Position = targetPos,
+		TextSize = 40 -- 도착할 때 살짝 작아지면서 흡수되는 느낌
+	})
+	
+	tween:Play()
+	tween.Completed:Connect(function()
+		icon:Destroy()
+	end)
+end
+
+RunService.RenderStepped:Connect(function(dt)
+	local character = LocalPlayer.Character
+	if not character then return end
+	
+	-- 1. UI는 호버보드 탑승 여부와 상관없이 항상 업데이트 합니다. (외곽선 추가 및 현재 거리 표시)
+	local meterLabel = getMeterLabel()
+	local currentDistance = 0
+	local leaderstats = LocalPlayer:FindFirstChild("leaderstats")
+	if leaderstats then
+		local distanceVal = leaderstats:FindFirstChild("Distance") :: IntValue
+		currentDistance = (distanceVal and distanceVal.Value or 0) + accumulatedDistance
+		if meterLabel then
+			meterLabel.Text = formatDistance(currentDistance)
+			
+			-- 번개 이펙트 생성 (100미터 마다)
+			if currentDistance - lastLightningDistance >= LIGHTNING_SPAWN_INTERVAL then
+				lastLightningDistance = currentDistance
+				-- 캐릭터 HRP가 있을 때만 이펙트 발생
+				local hrp = character:FindFirstChild("HumanoidRootPart") :: BasePart
+				if hrp then
+					spawnLightningEffect(meterLabel, hrp)
+				end
+			end
+		end
+	end
+	
+	-- 2. 호버보드 미탑승 시 이동 거리는 측정하지 않음
+	local hrp = character:FindFirstChild("HumanoidRootPart") :: BasePart
+	local equippedBoard = character:FindFirstChild("EquippedHoverboard")
+	
+	if not hrp or not equippedBoard then return end
+	
+	-- 속도를 기반으로 이동 거리 계산 (m/s 기준으로 환산, 예를들어 1스터드 = 0.28m)
+	-- 게임적 허용으로 1스터드 = 1m 로 취급하거나, 속도에 비례해 거리를 올립니다.
+	local speed = Vector3.new(hrp.AssemblyLinearVelocity.X, 0, hrp.AssemblyLinearVelocity.Z).Magnitude
+	local distanceMoved = speed * dt
+	
+	if distanceMoved > 0 then
+		accumulatedDistance += distanceMoved
+	end
+	
+	-- 1초마다 서버 동기화
+	if os.clock() - lastSyncTime >= SYNC_INTERVAL then
+		if accumulatedDistance >= 1 then
+			addDistanceRemote:FireServer(accumulatedDistance)
+			accumulatedDistance = 0
+		end
+		lastSyncTime = os.clock()
+	end
+end)

@@ -27,6 +27,7 @@ end)
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local HoverboardConfig = require(Shared:WaitForChild("HoverboardConfig") :: ModuleScript)
 local SkillMessages = require(Shared:WaitForChild("SkillMessages") :: ModuleScript)
+local RebirthConfig = require(Shared:WaitForChild("RebirthConfig") :: ModuleScript)
 
 local remotesFolder = ReplicatedStorage:WaitForChild("HoverboardRemotes")
 local mountRemote = remotesFolder:WaitForChild("MountRequest") :: RemoteEvent
@@ -96,6 +97,7 @@ local arcFillGradient: UIGradient? = nil
 
 -- Bottom-Center Booster References
 local boosterFillBar: Frame? = nil
+local rebirthEffectLabel: TextLabel? = nil
 local boosterTextLabel: TextLabel? = nil
 local speedLinesFrame: Frame? = nil
 local boosterGaugeStroke: UIStroke? = nil
@@ -109,22 +111,6 @@ local function createHUDUI()
 	guiScreen.ResetOnSpawn = false
 	guiScreen.DisplayOrder = 10
 	guiScreen.Parent = playerGui
-
-	-- 1. FullScreen Radial Speed Lines Frame for Wind FX
-	speedLinesFrame = Instance.new("Frame")
-	speedLinesFrame.Name = "SpeedLinesFX"
-	speedLinesFrame.Size = UDim2.new(1, 0, 1, 0)
-	speedLinesFrame.Position = UDim2.new(0, 0, 0, 0)
-	speedLinesFrame.BackgroundTransparency = 1
-	speedLinesFrame.BorderSizePixel = 0
-	speedLinesFrame.ZIndex = 1
-	speedLinesFrame.Parent = guiScreen
-
-	local speedStroke = Instance.new("UIStroke")
-	speedStroke.Color = Color3.fromRGB(220, 245, 255)
-	speedStroke.Thickness = 14
-	speedStroke.Transparency = 1.0
-	speedStroke.Parent = speedLinesFrame
 
 	-- =========================================================================
 	-- 🏁 [1] TOP-LEFT: RANK BADGE & LEADERBOARD LIST
@@ -298,159 +284,175 @@ local function createHUDUI()
 	lapStroke.Parent = lapNumLabel
 
 	-- =========================================================================
-	-- 🏎️ [3] BOTTOM-RIGHT: TACHOMETER ARC GAUGE + DIGITAL SPEEDOMETER
+	-- 🏎️ [3] BOTTOM-CENTER: NITRO GAUGE + SPEEDOMETER
 	-- =========================================================================
-	local bottomRightFrame = Instance.new("Frame")
-	bottomRightFrame.Name = "BottomRightSpeedometer"
-	bottomRightFrame.Size = UDim2.new(0, 200, 0, 170)
-	bottomRightFrame.Position = UDim2.new(0.97, -200, 0.95, -170)
-	bottomRightFrame.BackgroundColor3 = Color3.fromRGB(10, 14, 22)
-	bottomRightFrame.BackgroundTransparency = 0.12
-	bottomRightFrame.BorderSizePixel = 0
-	bottomRightFrame.ZIndex = 10
-	bottomRightFrame.Parent = guiScreen
+	local bottomCenterHUD = Instance.new("Frame")
+	bottomCenterHUD.Name = "BottomCenterHUD"
+	bottomCenterHUD.Size = UDim2.new(0, 360, 0, 90)
+	bottomCenterHUD.Position = UDim2.new(0.5, -180, 0.95, -90)
+	bottomCenterHUD.BackgroundTransparency = 1
+	bottomCenterHUD.ZIndex = 10
+	bottomCenterHUD.Parent = guiScreen
 
-	local bCorner = Instance.new("UICorner")
-	bCorner.CornerRadius = UDim.new(0, 22)
-	bCorner.Parent = bottomRightFrame
-
-	local bStroke = Instance.new("UIStroke")
-	bStroke.Color = Color3.fromRGB(0, 230, 255)
-	bStroke.Thickness = 2.5
-	bStroke.Parent = bottomRightFrame
-
-	-- Speedometer Outer Circular Arc Ring Frame
-	local arcRing = Instance.new("Frame")
-	arcRing.Name = "ArcRing"
-	arcRing.Size = UDim2.new(0.86, 0, 0.86, 0)
-	arcRing.Position = UDim2.new(0.07, 0, 0.07, 0)
-	arcRing.BackgroundTransparency = 1
-	arcRing.ZIndex = 11
-	arcRing.Parent = bottomRightFrame
-
-	local arcRingStroke = Instance.new("UIStroke")
-	arcRingStroke.Color = Color3.fromRGB(0, 240, 255)
-	arcRingStroke.Thickness = 6.0
-	arcRingStroke.Transparency = 0.1
-	arcRingStroke.Parent = arcRing
-
-	arcFillGradient = Instance.new("UIGradient")
-	arcFillGradient.Color = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 240, 255)),
-		ColorSequenceKeypoint.new(0.7, Color3.fromRGB(255, 200, 0)),
-		ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 50, 50)),
-	})
-	arcFillGradient.Parent = arcRingStroke
-
-	-- Unit Label: km/h
-	local unitLabel = Instance.new("TextLabel")
-	unitLabel.Name = "KmLabel"
-	unitLabel.Size = UDim2.new(1, 0, 0, 20)
-	unitLabel.Position = UDim2.new(0, 0, 0.22, 0)
-	unitLabel.BackgroundTransparency = 1
-	unitLabel.Font = Enum.Font.GothamBold
-	unitLabel.Text = "km/h"
-	unitLabel.TextColor3 = Color3.fromRGB(160, 230, 255)
-	unitLabel.TextSize = 14
-	unitLabel.ZIndex = 12
-	unitLabel.Parent = bottomRightFrame
-
-	-- Digital Speed Number in Center (e.g., 90)
-	speedNumLabel = Instance.new("TextLabel")
-	speedNumLabel.Name = "DigitalSpeedNum"
-	speedNumLabel.Size = UDim2.new(1, 0, 0, 56)
-	speedNumLabel.Position = UDim2.new(0, 0, 0.35, 0)
-	speedNumLabel.BackgroundTransparency = 1
-	speedNumLabel.Font = Enum.Font.GothamBlack
-	speedNumLabel.Text = "0"
-	speedNumLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-	speedNumLabel.TextSize = 44
-	speedNumLabel.ZIndex = 13
-	speedNumLabel.Parent = bottomRightFrame
-
-	local dNumStroke = Instance.new("UIStroke")
-	dNumStroke.Color = Color3.fromRGB(0, 0, 0)
-	dNumStroke.Thickness = 2.5
-	dNumStroke.Parent = speedNumLabel
-
-	-- Mode Badge Label below number
-	speedModeLabel = Instance.new("TextLabel")
-	speedModeLabel.Name = "ModeBadge"
-	speedModeLabel.Size = UDim2.new(1, 0, 0, 20)
-	speedModeLabel.Position = UDim2.new(0, 0, 0.74, 0)
-	speedModeLabel.BackgroundTransparency = 1
-	speedModeLabel.Font = Enum.Font.GothamBold
-	speedModeLabel.Text = "⚡ READY"
-	speedModeLabel.TextColor3 = Color3.fromRGB(0, 240, 255)
-	speedModeLabel.TextSize = 12
-	speedModeLabel.ZIndex = 12
-	speedModeLabel.Parent = bottomRightFrame
-
-	-- =========================================================================
-	-- 🚀 [4] BOTTOM-CENTER: HORIZONTAL NITRO BOOSTER GAUGE BAR
-	-- =========================================================================
+	-- 1. N2O Booster Gauge (Top part)
+	local n2oLabel = Instance.new("TextLabel")
+	n2oLabel.Size = UDim2.new(0, 40, 0, 20)
+	n2oLabel.Position = UDim2.new(0, 10, 0, 0)
+	n2oLabel.BackgroundTransparency = 1
+	n2oLabel.Font = Enum.Font.GothamBlack
+	n2oLabel.Text = "N2O"
+	n2oLabel.TextColor3 = Color3.fromRGB(150, 150, 180)
+	n2oLabel.TextSize = 16
+	n2oLabel.TextXAlignment = Enum.TextXAlignment.Right
+	n2oLabel.ZIndex = 11
+	n2oLabel.Parent = bottomCenterHUD
+	
+	rebirthEffectLabel = Instance.new("TextLabel")
+	rebirthEffectLabel.Size = UDim2.new(0, 100, 0, 20)
+	rebirthEffectLabel.Position = UDim2.new(1, -25, 0, 0) -- right side of booster bar
+	rebirthEffectLabel.BackgroundTransparency = 1
+	rebirthEffectLabel.Font = Enum.Font.GothamBold
+	rebirthEffectLabel.Text = "환생효과 +0%"
+	rebirthEffectLabel.TextColor3 = Color3.fromRGB(0, 255, 100)
+	rebirthEffectLabel.TextSize = 12
+	rebirthEffectLabel.TextXAlignment = Enum.TextXAlignment.Left
+	rebirthEffectLabel.ZIndex = 11
+	rebirthEffectLabel.Parent = bottomCenterHUD
+	
+	local rStroke = Instance.new("UIStroke")
+	rStroke.Color = Color3.fromRGB(0, 50, 20)
+	rStroke.Thickness = 1
+	rStroke.Parent = rebirthEffectLabel
+	
 	local boosterGaugeBg = Instance.new("Frame")
-	boosterGaugeBg.Name = "BottomCenterBoosterGauge"
-	boosterGaugeBg.Size = UDim2.new(0, 380, 0, 34)
-	boosterGaugeBg.Position = UDim2.new(0.5, -190, 0.91, 0) -- Bottom-Center horizontal bar!
-	boosterGaugeBg.BackgroundColor3 = Color3.fromRGB(8, 12, 18)
-	boosterGaugeBg.BackgroundTransparency = 0.1
+	boosterGaugeBg.Name = "BoosterGaugeBg"
+	boosterGaugeBg.Size = UDim2.new(0, 260, 0, 12)
+	boosterGaugeBg.Position = UDim2.new(0, 60, 0, 4)
+	boosterGaugeBg.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+	boosterGaugeBg.BackgroundTransparency = 0.5
 	boosterGaugeBg.BorderSizePixel = 0
 	boosterGaugeBg.ClipsDescendants = true
 	boosterGaugeBg.ZIndex = 11
-	boosterGaugeBg.Parent = guiScreen
-
-	local gaugeCorner = Instance.new("UICorner")
-	gaugeCorner.CornerRadius = UDim.new(0, 10)
-	gaugeCorner.Parent = boosterGaugeBg
+	boosterGaugeBg.Parent = bottomCenterHUD
 
 	boosterGaugeStroke = Instance.new("UIStroke")
-	boosterGaugeStroke.Color = Color3.fromRGB(0, 240, 255)
-	boosterGaugeStroke.Thickness = 2.0
-	boosterGaugeStroke.Transparency = 0.0
+	boosterGaugeStroke.Color = Color3.fromRGB(255, 200, 100)
+	boosterGaugeStroke.Thickness = 1.0
+	boosterGaugeStroke.Transparency = 0.5
 	boosterGaugeStroke.Parent = boosterGaugeBg
 
-	-- High-Contrast Gradient Booster Fill Bar
 	boosterFillBar = Instance.new("Frame")
 	boosterFillBar.Name = "FillBar"
 	boosterFillBar.Size = UDim2.new(1, 0, 1, 0)
 	boosterFillBar.Position = UDim2.new(0, 0, 0, 0)
-	boosterFillBar.BackgroundColor3 = Color3.fromRGB(0, 240, 255)
-	boosterFillBar.BackgroundTransparency = 0
+	boosterFillBar.BackgroundColor3 = Color3.fromRGB(255, 230, 0)
 	boosterFillBar.BorderSizePixel = 0
 	boosterFillBar.ZIndex = 12
 	boosterFillBar.Parent = boosterGaugeBg
-
-	local fillCorner = Instance.new("UICorner")
-	fillCorner.CornerRadius = UDim.new(0, 10)
-	fillCorner.Parent = boosterFillBar
-
-	local gradient = Instance.new("UIGradient")
-	gradient.Color = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 215, 0)),
-		ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 240, 255)),
+	
+	local boosterGradient = Instance.new("UIGradient")
+	boosterGradient.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 0)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 180, 0)),
 	})
-	gradient.Parent = boosterFillBar
+	boosterGradient.Parent = boosterFillBar
 
-	-- Bold High-Contrast Text Overlay
-	boosterTextLabel = Instance.new("TextLabel")
-	boosterTextLabel.Name = "BoosterText"
-	boosterTextLabel.Size = UDim2.new(1, 0, 1, 0)
-	boosterTextLabel.Position = UDim2.new(0, 0, 0, 0)
-	boosterTextLabel.BackgroundTransparency = 1
-	boosterTextLabel.Font = Enum.Font.GothamBlack
-	boosterTextLabel.Text = "⚡ BOOST READY 100% [PRESS SPACE]"
-	boosterTextLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-	boosterTextLabel.TextSize = 13
-	boosterTextLabel.ZIndex = 15
-	boosterTextLabel.Parent = boosterGaugeBg
+	-- 2. Speedometer Panel (Bottom part)
+	local speedPanel = Instance.new("Frame")
+	speedPanel.Name = "SpeedPanel"
+	speedPanel.Size = UDim2.new(0, 300, 0, 50)
+	speedPanel.Position = UDim2.new(0.5, -150, 0, 30)
+	speedPanel.BackgroundColor3 = Color3.fromRGB(15, 60, 80)
+	speedPanel.BackgroundTransparency = 0.4
+	speedPanel.BorderSizePixel = 0
+	speedPanel.ZIndex = 10
+	speedPanel.Parent = bottomCenterHUD
+	
+	-- Angular look for speed panel
+	local speedPanelCorner = Instance.new("UICorner")
+	speedPanelCorner.CornerRadius = UDim.new(0, 12)
+	speedPanelCorner.Parent = speedPanel
+	
+	local speedPanelStroke = Instance.new("UIStroke")
+	speedPanelStroke.Color = Color3.fromRGB(0, 200, 255)
+	speedPanelStroke.Thickness = 1.5
+	speedPanelStroke.Transparency = 0.5
+	speedPanelStroke.Parent = speedPanel
 
-	local textStroke = Instance.new("UIStroke")
-	textStroke.Color = Color3.fromRGB(0, 0, 0)
-	textStroke.Thickness = 2.0
-	textStroke.Transparency = 0.0
-	textStroke.Parent = boosterTextLabel
+	-- Digital Speed Number
+	speedNumLabel = Instance.new("TextLabel")
+	speedNumLabel.Name = "DigitalSpeedNum"
+	speedNumLabel.Size = UDim2.new(1, 0, 1, 0)
+	speedNumLabel.Position = UDim2.new(0, -20, 0, 0)
+	speedNumLabel.BackgroundTransparency = 1
+	speedNumLabel.Font = Enum.Font.GothamBlack
+	speedNumLabel.Text = "0.0"
+	speedNumLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+	speedNumLabel.TextSize = 42
+	speedNumLabel.TextXAlignment = Enum.TextXAlignment.Center
+	speedNumLabel.ZIndex = 13
+	speedNumLabel.Parent = speedPanel
+	
+	-- Unit Label: km/h
+	local unitLabel = Instance.new("TextLabel")
+	unitLabel.Name = "KmLabel"
+	unitLabel.Size = UDim2.new(0, 50, 0, 20)
+	unitLabel.Position = UDim2.new(1, 5, 0.5, 0)
+	unitLabel.BackgroundTransparency = 1
+	unitLabel.Font = Enum.Font.GothamBold
+	unitLabel.Text = "km/h"
+	unitLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+	unitLabel.TextSize = 16
+	unitLabel.TextXAlignment = Enum.TextXAlignment.Left
+	unitLabel.ZIndex = 13
+	unitLabel.Parent = speedNumLabel
+	
+	-- Mode Badge Label (replaces the arc ring's text)
+	speedModeLabel = Instance.new("TextLabel")
+	speedModeLabel.Name = "ModeBadge"
+	speedModeLabel.Size = UDim2.new(1, 0, 0, 15)
+	speedModeLabel.Position = UDim2.new(0, 0, 1, 5)
+	speedModeLabel.BackgroundTransparency = 1
+	speedModeLabel.Font = Enum.Font.GothamBold
+	speedModeLabel.Text = "⚡ READY"
+	speedModeLabel.TextColor3 = Color3.fromRGB(0, 240, 255)
+	speedModeLabel.TextSize = 14
+	speedModeLabel.ZIndex = 12
+	speedModeLabel.Parent = bottomCenterHUD
+	
+	-- Left Blue Dashes
+	local leftDashes = Instance.new("Frame")
+	leftDashes.Size = UDim2.new(0, 30, 1, 0)
+	leftDashes.Position = UDim2.new(0, -35, 0, 0)
+	leftDashes.BackgroundTransparency = 1
+	leftDashes.Parent = speedPanel
+	
+	-- Right Blue Dashes
+	local rightDashes = Instance.new("Frame")
+	rightDashes.Size = UDim2.new(0, 30, 1, 0)
+	rightDashes.Position = UDim2.new(1, 5, 0, 0)
+	rightDashes.BackgroundTransparency = 1
+	rightDashes.Parent = speedPanel
+	
+	for i = 1, 5 do
+		local lDash = Instance.new("Frame")
+		lDash.Size = UDim2.new(1, -i*3, 0, 6)
+		lDash.Position = UDim2.new(0, i*3, 0, (i-1) * 9 + 4)
+		lDash.BackgroundColor3 = Color3.fromRGB(0, 240, 255)
+		lDash.BorderSizePixel = 0
+		lDash.ZIndex = 11
+		lDash.Parent = leftDashes
+		
+		local rDash = Instance.new("Frame")
+		rDash.Size = UDim2.new(1, -i*3, 0, 6)
+		rDash.Position = UDim2.new(0, 0, 0, (i-1) * 9 + 4)
+		rDash.BackgroundColor3 = Color3.fromRGB(0, 240, 255)
+		rDash.BorderSizePixel = 0
+		rDash.ZIndex = 11
+		rDash.Parent = rightDashes
+	end
 
+	-- (Bottom-Center Booster Gauge has been removed and replaced by the Arc Ring Gauge)
 	guiScreen.Enabled = false
 end
 
@@ -462,7 +464,7 @@ local skaterJoints = {}
 stateRemote.OnClientEvent:Connect(function(mounted: boolean, boardModel: Model?)
 	isMounted = mounted
 	currentBoardModel = boardModel
-	boosterGauge = 100.0
+	boosterGauge = 0.0 -- 초기 부스터는 0%에서 시작
 	isBoosting = false
 	currentWalkSpeed = 0.0
 	currentSteerRate = 0.0
@@ -507,6 +509,31 @@ stateRemote.OnClientEvent:Connect(function(mounted: boolean, boardModel: Model?)
 				if Camera then
 					Camera.CameraType = Enum.CameraType.Scriptable
 					Camera.CFrame = CFrame.lookAt(currentPos - trackForwardDir * 16 + Vector3.new(0, 6.5, 0), currentPos + trackForwardDir * 25 + Vector3.new(0, 3.5, 0))
+				end
+				
+				-- 💨 Attach "wind force 3" VFX to Camera (so it surrounds the screen)
+				local existingVFX = Camera:FindFirstChild("CameraBoostVFX")
+				if existingVFX then existingVFX:Destroy() end
+				
+				local vfxSource = ReplicatedStorage:FindFirstChild("wind force 3")
+				if vfxSource and vfxSource:IsA("BasePart") then
+					local vfxClone = vfxSource:Clone()
+					vfxClone.Name = "CameraBoostVFX"
+					vfxClone.Massless = true
+					vfxClone.CanCollide = false
+					vfxClone.Anchored = true
+					
+					-- 원본 에셋이 워크스페이스에 배치되어 있던 '오리지널 회전값'을 저장해둡니다.
+					vfxClone:SetAttribute("OriginalRotation", vfxSource.CFrame - vfxSource.Position)
+					
+					-- Ensure it starts disabled/invisible
+					vfxClone.Transparency = 1
+					for _, desc in ipairs(vfxClone:GetDescendants()) do
+						if desc:IsA("ParticleEmitter") or desc:IsA("Trail") or desc:IsA("Beam") then
+							desc.Enabled = false
+						end
+					end
+					vfxClone.Parent = Camera
 				end
 			end
 		end)
@@ -639,6 +666,22 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 			currentHeadingYaw += currentSteerRate * deltaTime
 		end
 
+		local currentRebirths = 0
+		local leaderstats = LocalPlayer:FindFirstChild("leaderstats")
+		if leaderstats then
+			local rebirthsVal = leaderstats:FindFirstChild("Rebirths") :: IntValue
+			if rebirthsVal then
+				currentRebirths = rebirthsVal.Value
+			end
+		end
+		local rebirthData = RebirthConfig.GetRebirthData(currentRebirths)
+		
+		if rebirthEffectLabel then
+			rebirthEffectLabel.Text = string.format("환생효과 +%d%%", currentRebirths)
+		end
+		
+		local currentMaxBoosterSpeed = HoverboardConfig.BOOSTER_WALKSPEED + rebirthData.BoostSpeedBonus
+
 		local gyro = hrp:FindFirstChild("SteeringGyro") :: BodyGyro?
 		if not gyro then
 			gyro = Instance.new("BodyGyro")
@@ -652,7 +695,7 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 
 		if isBoosting then
 			boosterGauge = math.max(0, boosterGauge - (HoverboardConfig.BOOSTER_DRAIN_RATE * deltaTime))
-			currentWalkSpeed = HoverboardConfig.BOOSTER_WALKSPEED
+			currentWalkSpeed = currentMaxBoosterSpeed
 			if boosterGauge <= 0 then
 				isBoosting = false
 			end
@@ -776,9 +819,11 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 		Camera.CFrame = CFrame.lookAt(desiredCamPos, lookAtTarget)
 
 		if isBoosting then
-			local shakeX = (math.random() - 0.5) * 0.08
-			local shakeY = (math.random() - 0.5) * 0.08
-			Camera.CFrame = Camera.CFrame * CFrame.Angles(math.rad(shakeX), math.rad(shakeY), 0)
+			local shakeIntensity = 1.2 -- Increased amplitude!
+			local shakeX = (math.random() - 0.5) * shakeIntensity
+			local shakeY = (math.random() - 0.5) * shakeIntensity
+			local shakeZ = (math.random() - 0.5) * (shakeIntensity * 0.5)
+			Camera.CFrame = Camera.CFrame * CFrame.Angles(math.rad(shakeX), math.rad(shakeY), math.rad(shakeZ))
 		end
 	end
 
@@ -802,12 +847,12 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 	end
 
 	-- ----------------------------------------------------
-	-- 🏎️ 5. UPDATE BOTTOM-RIGHT TACHOMETER SPEEDOMETER
+	-- 🏎️ 5. UPDATE BOTTOM-CENTER SPEEDOMETER
 	-- ----------------------------------------------------
-	local displayKmh = math.floor(currentSpeed * 1.5)
+	local displayKmh = currentSpeed
 
 	if speedNumLabel then
-		speedNumLabel.Text = tostring(displayKmh)
+		speedNumLabel.Text = string.format("%.1f", displayKmh)
 		if isBoosting then
 			speedNumLabel.TextColor3 = Color3.fromRGB(255, 215, 0) -- Gold Number during Boost!
 		else
@@ -815,53 +860,57 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 		end
 	end
 
+	-- ----------------------------------------------------
+	-- 🚀 6. UPDATE NITRO BOOSTER BAR & MODE LABEL
+	-- ----------------------------------------------------
+	if boosterFillBar then
+		local pct = math.clamp(boosterGauge / HoverboardConfig.BOOSTER_MAX_GAUGE, 0, 1)
+		boosterFillBar.Size = boosterFillBar.Size:Lerp(UDim2.new(pct, 0, 1, 0), math.clamp(deltaTime * 15, 0, 1))
+	end
+
 	if speedModeLabel then
 		if isBoosting then
-			speedModeLabel.Text = "🔥 NITRO BURST"
-			speedModeLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
-		elseif displayKmh > 5 then
-			speedModeLabel.Text = "🛹 CRUISING"
-			speedModeLabel.TextColor3 = Color3.fromRGB(0, 240, 255)
+			speedModeLabel.Text = "🔥 BOOSTING! 🔥"
+			speedModeLabel.TextColor3 = Color3.fromRGB(255, 100, 50)
+			if boosterGaugeStroke then boosterGaugeStroke.Color = Color3.fromRGB(255, 100, 50) end
+		elseif boosterGauge >= HoverboardConfig.BOOSTER_MAX_GAUGE then
+			-- Flash effect
+			local flash = (math.floor(currentClock * 8) % 2 == 0)
+			if flash then
+				speedModeLabel.Text = "⚡ SPACE ⚡"
+				speedModeLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
+				if boosterGaugeStroke then boosterGaugeStroke.Color = Color3.fromRGB(255, 255, 0) end
+			else
+				speedModeLabel.Text = "⚡ READY"
+				speedModeLabel.TextColor3 = Color3.fromRGB(0, 240, 255)
+				if boosterGaugeStroke then boosterGaugeStroke.Color = Color3.fromRGB(255, 200, 100) end
+			end
 		else
-			speedModeLabel.Text = "⚡ READY"
-			speedModeLabel.TextColor3 = Color3.fromRGB(180, 240, 255)
+			speedModeLabel.Text = ""
+			if boosterGaugeStroke then boosterGaugeStroke.Color = Color3.fromRGB(255, 200, 100) end
 		end
 	end
-
-	-- ----------------------------------------------------
-	-- 🚀 6. UPDATE BOTTOM-CENTER NITRO BOOSTER GAUGE
-	-- ----------------------------------------------------
-	if boosterFillBar and boosterTextLabel then
-		local pct = math.clamp(boosterGauge / HoverboardConfig.BOOSTER_MAX_GAUGE, 0, 1)
-		boosterFillBar.Size = UDim2.new(pct, 0, 1, 0)
-
+	
+	-- 7. "wind force 3" Camera VFX Toggle
+	local cameraVFX = Camera:FindFirstChild("CameraBoostVFX")
+	if cameraVFX then
 		if isBoosting then
-			boosterTextLabel.Text = string.format("🔥 WIND BURSTING! %d%%", math.floor(boosterGauge))
-			boosterTextLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-			if boosterGaugeStroke then
-				boosterGaugeStroke.Color = Color3.fromRGB(255, 215, 0)
-			end
-		elseif boosterGauge >= 99.9 then
-			boosterTextLabel.Text = "⚡ BOOST READY 100% [PRESS SPACE]"
-			boosterTextLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-			if boosterGaugeStroke then
-				boosterGaugeStroke.Color = Color3.fromRGB(0, 240, 255)
-			end
-		else
-			boosterTextLabel.Text = string.format("⚡ CHARGING BOOST... %d%%", math.floor(boosterGauge))
-			boosterTextLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-			if boosterGaugeStroke then
-				boosterGaugeStroke.Color = Color3.fromRGB(0, 180, 240)
+			-- 원본 에셋의 회전값을 그대로 카메라에 적용합니다. (사용자가 워크스페이스에서 본 그대로 렌더링됨)
+			local origRot = cameraVFX:GetAttribute("OriginalRotation")
+			if origRot then
+				cameraVFX.CFrame = Camera.CFrame * origRot
+			else
+				cameraVFX.CFrame = Camera.CFrame
 			end
 		end
-	end
-
-	-- 7. Screen Edge Wind Lines Overlay
-	if speedLinesFrame then
-		local stroke = speedLinesFrame:FindFirstChildOfClass("UIStroke")
-		if stroke then
-			local targetTrans = isBoosting and 0.25 or 1.0
-			stroke.Transparency += (targetTrans - stroke.Transparency) * math.clamp(deltaTime * 10, 0, 1)
+		
+		if isBoosting ~= _G.lastBoostingState then
+			_G.lastBoostingState = isBoosting
+			for _, desc in ipairs(cameraVFX:GetDescendants()) do
+				if desc:IsA("ParticleEmitter") or desc:IsA("Beam") or desc:IsA("Trail") then
+					desc.Enabled = isBoosting
+				end
+			end
 		end
 	end
 	
