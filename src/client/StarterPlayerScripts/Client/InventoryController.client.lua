@@ -106,9 +106,13 @@ local function switchTab(tabName)
 	if tabName == "Board" then
 		if boardsScroll then boardsScroll.Visible = true end
 		if skillsScroll then skillsScroll.Visible = false end
+		if boardsTabBtn then boardsTabBtn.BackgroundColor3 = Color3.fromRGB(255, 200, 50) end
+		if skillsTabBtn then skillsTabBtn.BackgroundColor3 = Color3.fromRGB(210, 220, 230) end
 	else
 		if boardsScroll then boardsScroll.Visible = false end
 		if skillsScroll then skillsScroll.Visible = true end
+		if boardsTabBtn then boardsTabBtn.BackgroundColor3 = Color3.fromRGB(210, 220, 230) end
+		if skillsTabBtn then skillsTabBtn.BackgroundColor3 = Color3.fromRGB(255, 200, 50) end
 	end
 end
 
@@ -233,7 +237,7 @@ local function updateRightColumn()
 	-- 아이콘 바운스(플로팅) 애니메이션 효과 추가
 	if rImage then
 		local startTick = tick()
-		local basePos = UDim2.new(0.1, 0, 0.05, 0)
+		local basePos = UDim2.new(0.05, 0, 0.05, 0)
 		local conn = RunService.RenderStepped:Connect(function()
 			local t = tick() - startTick
 			local bounce = math.sin(t * 2.5) * 0.04 -- 속도 2.5, 진폭 4% (천천히 부드럽게)
@@ -304,12 +308,6 @@ local function createInvCard(item, itemType, parentScroll, layoutOrder)
 	cardBtn.Parent = parentScroll
 	cardBtn.Visible = true
 	
-	local bgGradient = Instance.new("UIGradient")
-	-- 보스의 요청대로 호버보드와 스킬의 카드 배경색을 호버보드(파란색)으로 통일합니다.
-	bgGradient.Color = ColorSequence.new(Color3.fromRGB(100, 220, 255), Color3.fromRGB(20, 100, 255))
-	bgGradient.Rotation = 45
-	bgGradient.Parent = cardBtn
-	
 	local cardStroke = cardBtn:FindFirstChild("UIStroke")
 	if cardStroke then cardStroke.Thickness = 5 end
 	
@@ -340,7 +338,7 @@ local function createInvCard(item, itemType, parentScroll, layoutOrder)
 		if vpf then vpf.Visible = true end
 	end
 	
-	local nameLabel = cardBtn:FindFirstChild("ItemName")
+	local nameLabel = cardBtn:FindFirstChild("ItemName", true)
 	if nameLabel then nameLabel.Text = string.gsub(item.name, "%s*%([a-zA-Z가-힣%s]+%)", "") end
 	
 	local statusLabel = cardBtn:FindFirstChild("Status")

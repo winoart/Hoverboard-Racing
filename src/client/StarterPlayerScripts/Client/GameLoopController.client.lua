@@ -97,16 +97,15 @@ local function updateMapCardAvatars(mapVotes: MapVoteData)
 
 					local imgLabel = Instance.new("ImageLabel")
 					imgLabel.Name = "Voter_" .. tostring(voter.userId or 0)
-					imgLabel.Size = UDim2.new(0, iconSize, 0, iconSize)
-					imgLabel.Position = UDim2.new(0, (idx - 1) * (iconSize + 5), 0, 4)
-					imgLabel.BackgroundColor3 = Color3.fromRGB(30, 40, 60)
-					imgLabel.BackgroundTransparency = 0.2
+					imgLabel.Size = UDim2.new(0, 32, 0, 32)
+					imgLabel.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+					imgLabel.BorderSizePixel = 0
+					imgLabel.ZIndex = 42
 					imgLabel.Image = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(voter.userId or 1) .. "&w=150&h=150"
-					imgLabel.ZIndex = 40
 					imgLabel.Parent = container
-
+					
 					local imgCorner = Instance.new("UICorner")
-					imgCorner.CornerRadius = UDim.new(1, 0)
+					imgCorner.CornerRadius = UDim.new(1, 0) -- Circle
 					imgCorner.Parent = imgLabel
 
 					local imgStroke = Instance.new("UIStroke")
@@ -160,9 +159,6 @@ local function refreshDisplays()
 		if votingModalFrame then
 			if currentPhase == "MAP_VOTING" and not isVotingModalDismissed then
 				votingModalFrame.Visible = true
-				if modalFooterTimerLabel then
-					modalFooterTimerLabel.Text = string.format("맵 투표 %ds", math.max(0, phaseTimeLeft))
-				end
 			else
 				votingModalFrame.Visible = false
 			end
@@ -261,73 +257,89 @@ local function createGameLoopUI()
 	-- [2] 3-CARD MAP VOTING MODAL UI (15s)
 	votingModalFrame = Instance.new("Frame")
 	votingModalFrame.Name = "VotingModal"
-	votingModalFrame.Size = UDim2.new(0, 780, 0, 370)
-	votingModalFrame.Position = UDim2.new(0.5, -390, 0.5, -185)
-	votingModalFrame.BackgroundColor3 = Color3.fromRGB(14, 18, 28)
-	votingModalFrame.BackgroundTransparency = 0.05
+	votingModalFrame.Size = UDim2.new(0, 780, 0, 390)
+	votingModalFrame.Position = UDim2.new(0.5, -390, 0.5, -195)
+	votingModalFrame.BackgroundColor3 = Color3.fromRGB(150, 240, 255) -- Cyan Glass
+	votingModalFrame.BackgroundTransparency = 0.5
 	votingModalFrame.BorderSizePixel = 0
 	votingModalFrame.Visible = true
 	votingModalFrame.ZIndex = 35
 	votingModalFrame.Parent = mainGuiScreen
 
 	local modalCorner = Instance.new("UICorner")
-	modalCorner.CornerRadius = UDim.new(0, 16)
+	modalCorner.CornerRadius = UDim.new(0, 24)
 	modalCorner.Parent = votingModalFrame
 
 	local modalStroke = Instance.new("UIStroke")
-	modalStroke.Color = Color3.fromRGB(255, 200, 30)
-	modalStroke.Thickness = 2.5
+	modalStroke.Color = Color3.fromRGB(0, 0, 0)
+	modalStroke.Thickness = 8
 	modalStroke.Parent = votingModalFrame
+
+	local titleFrame = Instance.new("Frame")
+	titleFrame.Name = "TitleFrame"
+	titleFrame.Size = UDim2.new(1, -60, 0, 60)
+	titleFrame.Position = UDim2.new(0, 30, 0, 20)
+	titleFrame.BackgroundColor3 = Color3.fromRGB(40, 180, 255)
+	titleFrame.BorderSizePixel = 0
+	titleFrame.ZIndex = 36
+	titleFrame.Parent = votingModalFrame
+	
+	local titleCorner = Instance.new("UICorner")
+	titleCorner.CornerRadius = UDim.new(0.5, 0)
+	titleCorner.Parent = titleFrame
+	
+	local titleStroke = Instance.new("UIStroke")
+	titleStroke.Color = Color3.fromRGB(0, 0, 0)
+	titleStroke.Thickness = 6
+	titleStroke.Parent = titleFrame
 
 	local modalTitle = Instance.new("TextLabel")
 	modalTitle.Name = "ModalTitle"
-	modalTitle.Size = UDim2.new(1, 0, 0, 40)
-	modalTitle.Position = UDim2.new(0, 0, 0, 10)
+	modalTitle.Size = UDim2.new(1, 0, 1, 0)
 	modalTitle.BackgroundTransparency = 1
-	modalTitle.Font = Enum.Font.GothamBlack
-	modalTitle.Text = "🗳️ SELECT NEXT MAP"
-	modalTitle.TextColor3 = Color3.fromRGB(255, 215, 0)
-	modalTitle.TextSize = 20
-	modalTitle.ZIndex = 36
-	modalTitle.Parent = votingModalFrame
+	modalTitle.FontFace = Font.fromName("Montserrat", Enum.FontWeight.ExtraBold, Enum.FontStyle.Normal)
+	modalTitle.Text = "SELECT NEXT MAP"
+	modalTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+	modalTitle.TextSize = 32
+	modalTitle.ZIndex = 37
+	modalTitle.Parent = titleFrame
+	
+	local titleTextStroke = Instance.new("UIStroke")
+	titleTextStroke.Color = Color3.fromRGB(0, 0, 0)
+	titleTextStroke.Thickness = 3
+	titleTextStroke.Parent = modalTitle
 
 	local closeBtn = Instance.new("TextButton")
 	closeBtn.Name = "CloseButton"
-	closeBtn.Size = UDim2.new(0, 30, 0, 30)
-	closeBtn.Position = UDim2.new(1, -40, 0, 10)
-	closeBtn.BackgroundColor3 = Color3.fromRGB(200, 40, 40)
-	closeBtn.Font = Enum.Font.GothamBold
+	closeBtn.Size = UDim2.new(0, 44, 0, 44)
+	closeBtn.Position = UDim2.new(1, -22, 0, -22)
+	closeBtn.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
+	closeBtn.FontFace = Font.fromName("Montserrat", Enum.FontWeight.ExtraBold, Enum.FontStyle.Normal)
 	closeBtn.Text = "X"
 	closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-	closeBtn.TextSize = 16
+	closeBtn.TextSize = 28
 	closeBtn.ZIndex = 40
 	closeBtn.Parent = votingModalFrame
 	
 	local closeCorner = Instance.new("UICorner")
-	closeCorner.CornerRadius = UDim.new(0, 8)
+	closeCorner.CornerRadius = UDim.new(1, 0)
 	closeCorner.Parent = closeBtn
+	
+	local closeStroke = Instance.new("UIStroke")
+	closeStroke.Color = Color3.fromRGB(0, 0, 0)
+	closeStroke.Thickness = 4
+	closeStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	closeStroke.Parent = closeBtn
 	
 	closeBtn.MouseButton1Click:Connect(function()
 		isVotingModalDismissed = true
 		refreshDisplays()
 	end)
 
-	modalFooterTimerLabel = Instance.new("TextLabel")
-	modalFooterTimerLabel.Name = "ModalTimerLabel"
-	modalFooterTimerLabel.Size = UDim2.new(1, 0, 0, 24)
-	modalFooterTimerLabel.Position = UDim2.new(0, 0, 0.89, 0)
-	modalFooterTimerLabel.BackgroundTransparency = 1
-	modalFooterTimerLabel.Font = Enum.Font.GothamBold
-	modalFooterTimerLabel.Text = "맵 투표 15s"
-	modalFooterTimerLabel.TextColor3 = Color3.fromRGB(0, 230, 255)
-	modalFooterTimerLabel.TextSize = 13
-	modalFooterTimerLabel.ZIndex = 36
-	modalFooterTimerLabel.Parent = votingModalFrame
-
 	local cardContainer = Instance.new("Frame")
 	cardContainer.Name = "CardContainer"
-	cardContainer.Size = UDim2.new(1, -30, 0, 240)
-	cardContainer.Position = UDim2.new(0, 15, 0, 55)
+	cardContainer.Size = UDim2.new(1, -30, 0, 260)
+	cardContainer.Position = UDim2.new(0, 15, 0, 100)
 	cardContainer.BackgroundTransparency = 1
 	cardContainer.ZIndex = 36
 	cardContainer.Parent = votingModalFrame
@@ -337,76 +349,129 @@ local function createGameLoopUI()
 		card.Name = "MapCard_" .. config.id
 		card.Size = UDim2.new(0, 235, 1, 0)
 		card.Position = UDim2.new(0, (idx - 1) * 255, 0, 0)
-		card.BackgroundColor3 = config.bgGrad
+		card.BackgroundColor3 = config.color -- Using brighter theme color
 		card.BorderSizePixel = 0
 		card.ZIndex = 37
 		card.Parent = cardContainer
 
 		local cCorner = Instance.new("UICorner")
-		cCorner.CornerRadius = UDim.new(0, 12)
+		cCorner.CornerRadius = UDim.new(0, 16)
 		cCorner.Parent = card
 
 		local cStroke = Instance.new("UIStroke")
-		cStroke.Color = config.color
-		cStroke.Thickness = 2.0
-		cStroke.Transparency = 0.3
+		cStroke.Color = Color3.fromRGB(0, 0, 0)
+		cStroke.Thickness = 4
+		cStroke.Transparency = 0
 		cStroke.Parent = card
 		cardStrokes[config.id] = cStroke
 
-		local mapHeaderFrame = Instance.new("Frame")
-		mapHeaderFrame.Size = UDim2.new(1, 0, 0, 80)
-		mapHeaderFrame.BackgroundColor3 = config.color
-		mapHeaderFrame.BackgroundTransparency = 0.7
-		mapHeaderFrame.BorderSizePixel = 0
-		mapHeaderFrame.ZIndex = 38
-		mapHeaderFrame.Parent = card
+		-- UIGradient stripes for card background
+		local patternBg = Instance.new("Frame", card)
+		patternBg.Size = UDim2.new(1, 0, 1, 0)
+		patternBg.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+		patternBg.BorderSizePixel = 0
+		patternBg.ZIndex = 37
+		Instance.new("UICorner", patternBg).CornerRadius = UDim.new(0, 16)
+		local grad = Instance.new("UIGradient", patternBg)
+		grad.Rotation = 45
+		local keypoints = {}
+		table.insert(keypoints, NumberSequenceKeypoint.new(0, 0.85))
+		for i = 1, 9 do
+			local pos = i / 10
+			if i % 2 == 1 then
+				table.insert(keypoints, NumberSequenceKeypoint.new(pos, 0.85))
+				table.insert(keypoints, NumberSequenceKeypoint.new(pos + 0.001, 1))
+			else
+				table.insert(keypoints, NumberSequenceKeypoint.new(pos, 1))
+				table.insert(keypoints, NumberSequenceKeypoint.new(pos + 0.001, 0.85))
+			end
+		end
+		table.insert(keypoints, NumberSequenceKeypoint.new(1, 1))
+		grad.Transparency = NumberSequence.new(keypoints)
 
-		local hCorner = Instance.new("UICorner")
-		hCorner.CornerRadius = UDim.new(0, 12)
-		hCorner.Parent = mapHeaderFrame
-
-		local mapTitleLabel = Instance.new("TextLabel")
-		mapTitleLabel.Size = UDim2.new(1, -10, 0, 30)
-		mapTitleLabel.Position = UDim2.new(0, 5, 0, 12)
-		mapTitleLabel.BackgroundTransparency = 1
-		mapTitleLabel.Font = Enum.Font.GothamBlack
-		mapTitleLabel.Text = config.title
-		mapTitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-		mapTitleLabel.TextSize = 15
-		mapTitleLabel.ZIndex = 39
-		mapTitleLabel.Parent = mapHeaderFrame
-
-		local mapSubLabel = Instance.new("TextLabel")
-		mapSubLabel.Size = UDim2.new(1, -10, 0, 20)
-		mapSubLabel.Position = UDim2.new(0, 5, 0, 44)
-		mapSubLabel.BackgroundTransparency = 1
-		mapSubLabel.Font = Enum.Font.GothamMedium
-		mapSubLabel.Text = config.sub
-		mapSubLabel.TextColor3 = Color3.fromRGB(200, 220, 240)
-		mapSubLabel.TextSize = 11
-		mapSubLabel.ZIndex = 39
-		mapSubLabel.Parent = mapHeaderFrame
-
-		local vLabel = Instance.new("TextLabel")
-		vLabel.Size = UDim2.new(1, 0, 0, 25)
-		vLabel.Position = UDim2.new(0, 0, 0.38, 0)
-		vLabel.BackgroundTransparency = 1
-		vLabel.Font = Enum.Font.GothamBlack
-		vLabel.Text = "🗳️ 0 Votes"
-		vLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
-		vLabel.TextSize = 13
-		vLabel.ZIndex = 38
-		vLabel.Parent = card
-		cardVoteLabels[config.id] = vLabel
+		local mapImage = Instance.new("ImageLabel")
+		mapImage.Name = "MapImage"
+		mapImage.Size = UDim2.new(1, -20, 0, 120)
+		mapImage.Position = UDim2.new(0, 10, 0, 15)
+		mapImage.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+		mapImage.Image = config.imageId or ""
+		mapImage.ScaleType = Enum.ScaleType.Crop
+		mapImage.BorderSizePixel = 0
+		mapImage.ZIndex = 38
+		mapImage.Parent = card
+		
+		local imgCorner = Instance.new("UICorner")
+		imgCorner.CornerRadius = UDim.new(0, 12)
+		imgCorner.Parent = mapImage
+		
+		local imgStroke = Instance.new("UIStroke")
+		imgStroke.Color = Color3.fromRGB(0, 0, 0)
+		imgStroke.Thickness = 3
+		imgStroke.Parent = mapImage
 
 		local avatarFrame = Instance.new("Frame")
 		avatarFrame.Name = "AvatarContainer"
-		avatarFrame.Size = UDim2.new(1, -16, 0, 46)
-		avatarFrame.Position = UDim2.new(0, 8, 0.52, 0)
+		avatarFrame.Size = UDim2.new(1, -10, 1, -10)
+		avatarFrame.Position = UDim2.new(0, 5, 0, 5)
 		avatarFrame.BackgroundTransparency = 1
-		avatarFrame.ZIndex = 38
-		avatarFrame.Parent = card
+		avatarFrame.ZIndex = 39
+		avatarFrame.Parent = mapImage
 		cardAvatarContainers[config.id] = avatarFrame
+		
+		local avatarLayout = Instance.new("UIGridLayout")
+		avatarLayout.CellSize = UDim2.new(0, 32, 0, 32)
+		avatarLayout.CellPadding = UDim2.new(0, 5, 0, 5)
+		avatarLayout.SortOrder = Enum.SortOrder.LayoutOrder
+		avatarLayout.Parent = avatarFrame
+
+		local mapTitleLabel = Instance.new("TextLabel")
+		mapTitleLabel.Size = UDim2.new(1, -20, 0, 30)
+		mapTitleLabel.Position = UDim2.new(0, 10, 0, 145)
+		mapTitleLabel.BackgroundTransparency = 1
+		mapTitleLabel.FontFace = Font.fromName("Montserrat", Enum.FontWeight.ExtraBold, Enum.FontStyle.Normal)
+		mapTitleLabel.Text = config.title
+		mapTitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+		mapTitleLabel.TextSize = 20
+		mapTitleLabel.ZIndex = 39
+		mapTitleLabel.Parent = card
+		
+		local mapTitleStroke = Instance.new("UIStroke")
+		mapTitleStroke.Color = Color3.fromRGB(0, 0, 0)
+		mapTitleStroke.Thickness = 3
+		mapTitleStroke.Parent = mapTitleLabel
+
+		local mapSubLabel = Instance.new("TextLabel")
+		mapSubLabel.Size = UDim2.new(1, -20, 0, 20)
+		mapSubLabel.Position = UDim2.new(0, 10, 0, 180)
+		mapSubLabel.BackgroundTransparency = 1
+		mapSubLabel.FontFace = Font.fromName("Montserrat", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+		mapSubLabel.Text = config.sub
+		mapSubLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+		mapSubLabel.TextSize = 14
+		mapSubLabel.ZIndex = 39
+		mapSubLabel.Parent = card
+		
+		local mapSubStroke = Instance.new("UIStroke")
+		mapSubStroke.Color = Color3.fromRGB(0, 0, 0)
+		mapSubStroke.Thickness = 2
+		mapSubStroke.Parent = mapSubLabel
+
+		local vLabel = Instance.new("TextLabel")
+		vLabel.Size = UDim2.new(1, -20, 0, 30)
+		vLabel.Position = UDim2.new(0, 10, 0, 215)
+		vLabel.BackgroundTransparency = 1
+		vLabel.FontFace = Font.fromName("Montserrat", Enum.FontWeight.ExtraBold, Enum.FontStyle.Normal)
+		vLabel.Text = "🗳️ 0 Votes"
+		vLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
+		vLabel.TextSize = 18
+		vLabel.ZIndex = 38
+		vLabel.Parent = card
+		
+		local vStroke = Instance.new("UIStroke")
+		vStroke.Color = Color3.fromRGB(0, 0, 0)
+		vStroke.Thickness = 3
+		vStroke.Parent = vLabel
+		cardVoteLabels[config.id] = vLabel
 
 		local clickBtn = Instance.new("TextButton")
 		clickBtn.Size = UDim2.new(1, 0, 1, 0)
@@ -437,13 +502,13 @@ local function createGameLoopUI()
 
 			for mId, stroke in pairs(cardStrokes) do
 				if mId == config.id then
-					stroke.Color = Color3.fromRGB(255, 215, 0)
-					stroke.Thickness = 3.5
+					stroke.Color = Color3.fromRGB(255, 200, 50) -- Gold for selected
+					stroke.Thickness = 8
 					stroke.Transparency = 0.0
 				else
-					stroke.Color = Color3.fromRGB(100, 110, 130)
-					stroke.Thickness = 1.5
-					stroke.Transparency = 0.5
+					stroke.Color = Color3.fromRGB(0, 0, 0)
+					stroke.Thickness = 4
+					stroke.Transparency = 0.0
 				end
 			end
 
@@ -461,87 +526,102 @@ local function createGameLoopUI()
 	loadingModalFrame.Name = "LoadingModal"
 	loadingModalFrame.Size = UDim2.new(0, 540, 0, 210)
 	loadingModalFrame.Position = UDim2.new(0.5, -270, 0.5, -105)
-	loadingModalFrame.BackgroundColor3 = Color3.fromRGB(14, 18, 28)
-	loadingModalFrame.BackgroundTransparency = 0.05
+	loadingModalFrame.BackgroundColor3 = Color3.fromRGB(150, 240, 255)
+	loadingModalFrame.BackgroundTransparency = 0.5
 	loadingModalFrame.BorderSizePixel = 0
 	loadingModalFrame.Visible = false
 	loadingModalFrame.ZIndex = 50
 	loadingModalFrame.Parent = mainGuiScreen
 
 	local lCorner = Instance.new("UICorner")
-	lCorner.CornerRadius = UDim.new(0, 16)
+	lCorner.CornerRadius = UDim.new(0, 24)
 	lCorner.Parent = loadingModalFrame
 
 	local lStroke = Instance.new("UIStroke")
-	lStroke.Color = Color3.fromRGB(0, 240, 255)
-	lStroke.Thickness = 2.5
+	lStroke.Color = Color3.fromRGB(0, 0, 0)
+	lStroke.Thickness = 8
 	lStroke.Parent = loadingModalFrame
 
 	loadingTitleLabel = Instance.new("TextLabel")
 	loadingTitleLabel.Name = "LoadingTitle"
 	loadingTitleLabel.Size = UDim2.new(1, -20, 0, 45)
-	loadingTitleLabel.Position = UDim2.new(0, 10, 0, 20)
+	loadingTitleLabel.Position = UDim2.new(0, 10, 0, 30)
 	loadingTitleLabel.BackgroundTransparency = 1
-	loadingTitleLabel.Font = Enum.Font.GothamBlack
+	loadingTitleLabel.FontFace = Font.fromName("Montserrat", Enum.FontWeight.ExtraBold, Enum.FontStyle.Normal)
 	loadingTitleLabel.Text = "🏆 SELECTED MAP: Oval Speedway"
-	loadingTitleLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
-	loadingTitleLabel.TextSize = 20
+	loadingTitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+	loadingTitleLabel.TextSize = 28
 	loadingTitleLabel.ZIndex = 51
 	loadingTitleLabel.Parent = loadingModalFrame
+	
+	local loadTitleStroke = Instance.new("UIStroke")
+	loadTitleStroke.Color = Color3.fromRGB(0, 0, 0)
+	loadTitleStroke.Thickness = 4
+	loadTitleStroke.Parent = loadingTitleLabel
 
 	loadingSubLabel = Instance.new("TextLabel")
 	loadingSubLabel.Name = "LoadingSub"
 	loadingSubLabel.Size = UDim2.new(1, -20, 0, 25)
-	loadingSubLabel.Position = UDim2.new(0, 10, 0, 68)
+	loadingSubLabel.Position = UDim2.new(0, 10, 0, 75)
 	loadingSubLabel.BackgroundTransparency = 1
-	loadingSubLabel.Font = Enum.Font.GothamMedium
+	loadingSubLabel.FontFace = Font.fromName("Montserrat", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
 	loadingSubLabel.Text = "맵 불러오는 중 (5s)"
-	loadingSubLabel.TextColor3 = Color3.fromRGB(180, 220, 255)
-	loadingSubLabel.TextSize = 13
+	loadingSubLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+	loadingSubLabel.TextSize = 18
 	loadingSubLabel.ZIndex = 51
 	loadingSubLabel.Parent = loadingModalFrame
+	
+	local loadSubStroke = Instance.new("UIStroke")
+	loadSubStroke.Color = Color3.fromRGB(0, 0, 0)
+	loadSubStroke.Thickness = 3
+	loadSubStroke.Parent = loadingSubLabel
 
 	-- Loading Progress Bar Track
 	local loadTrack = Instance.new("Frame")
 	loadTrack.Name = "LoadTrack"
-	loadTrack.Size = UDim2.new(0.86, 0, 0, 28)
-	loadTrack.Position = UDim2.new(0.07, 0, 0.58, 0)
-	loadTrack.BackgroundColor3 = Color3.fromRGB(25, 35, 50)
+	loadTrack.Size = UDim2.new(0.86, 0, 0, 36)
+	loadTrack.Position = UDim2.new(0.07, 0, 0.62, 0)
+	loadTrack.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 	loadTrack.BorderSizePixel = 0
 	loadTrack.ZIndex = 51
 	loadTrack.Parent = loadingModalFrame
 
 	local tCorner = Instance.new("UICorner")
-	tCorner.CornerRadius = UDim.new(0, 10)
+	tCorner.CornerRadius = UDim.new(0, 18)
 	tCorner.Parent = loadTrack
 
 	local tStroke = Instance.new("UIStroke")
-	tStroke.Color = Color3.fromRGB(0, 200, 240)
-	tStroke.Thickness = 1.5
+	tStroke.Color = Color3.fromRGB(0, 0, 0)
+	tStroke.Thickness = 4
 	tStroke.Parent = loadTrack
 
 	loadingFillBar = Instance.new("Frame")
 	loadingFillBar.Name = "LoadFill"
 	loadingFillBar.Size = UDim2.new(0, 0, 1, 0)
-	loadingFillBar.BackgroundColor3 = Color3.fromRGB(0, 230, 255)
+	loadingFillBar.BackgroundColor3 = Color3.fromRGB(255, 200, 50) -- Gold fill
 	loadingFillBar.BorderSizePixel = 0
 	loadingFillBar.ZIndex = 52
 	loadingFillBar.Parent = loadTrack
 
 	local fCorner = Instance.new("UICorner")
-	fCorner.CornerRadius = UDim.new(0, 10)
+	fCorner.CornerRadius = UDim.new(0, 18)
 	fCorner.Parent = loadingFillBar
 
 	loadingPercentLabel = Instance.new("TextLabel")
 	loadingPercentLabel.Name = "LoadPercent"
 	loadingPercentLabel.Size = UDim2.new(1, 0, 1, 0)
 	loadingPercentLabel.BackgroundTransparency = 1
-	loadingPercentLabel.Font = Enum.Font.GothamBlack
+	loadingPercentLabel.FontFace = Font.fromName("Montserrat", Enum.FontWeight.ExtraBold, Enum.FontStyle.Normal)
 	loadingPercentLabel.Text = "0%"
 	loadingPercentLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-	loadingPercentLabel.TextSize = 13
+	loadingPercentLabel.TextSize = 18
 	loadingPercentLabel.ZIndex = 53
 	loadingPercentLabel.Parent = loadTrack
+	
+	local pctStroke = Instance.new("UIStroke")
+	pctStroke.Color = Color3.fromRGB(0, 0, 0)
+	pctStroke.Thickness = 3
+	pctStroke.Parent = loadingPercentLabel
 end
 
 createGameLoopUI()

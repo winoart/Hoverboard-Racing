@@ -55,51 +55,83 @@ local function createRebirthWindow()
 	bg.Name = "Background"
 	bg.Size = UDim2.new(1, 0, 1, 0)
 	bg.BackgroundColor3 = Color3.new(0, 0, 0)
-	bg.BackgroundTransparency = 0.5
+	bg.BackgroundTransparency = 1 -- Fully transparent to remove the black overlay
 	bg.Visible = false
 	bg.Parent = screenGui
 	rebirthWindow = bg
 
 	local panel = Instance.new("Frame")
 	panel.Name = "Panel"
-	panel.Size = UDim2.new(0, 700, 0, 450)
-	panel.Position = UDim2.new(0.5, -350, 0.5, -225)
-	panel.BackgroundColor3 = Color3.fromRGB(20, 25, 35)
+	panel.Size = UDim2.new(0, 740, 0, 480)
+	panel.Position = UDim2.new(0.5, -370, 0.5, -240)
+	panel.BackgroundColor3 = Color3.fromRGB(150, 240, 255)
+	panel.BackgroundTransparency = 0.5
 	panel.Parent = bg
 
 	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 16)
+	corner.CornerRadius = UDim.new(0, 24)
 	corner.Parent = panel
 
 	local stroke = Instance.new("UIStroke")
-	stroke.Color = Color3.fromRGB(0, 240, 255)
-	stroke.Thickness = 3
+	stroke.Color = Color3.fromRGB(0, 0, 0)
+	stroke.Thickness = 8
 	stroke.Parent = panel
+	
+	local titleFrame = Instance.new("Frame")
+	titleFrame.Name = "TitleFrame"
+	titleFrame.Size = UDim2.new(1, -60, 0, 60)
+	titleFrame.Position = UDim2.new(0, 30, 0, 20)
+	titleFrame.BackgroundColor3 = Color3.fromRGB(40, 180, 255)
+	titleFrame.BorderSizePixel = 0
+	titleFrame.ZIndex = 2
+	titleFrame.Parent = panel
+	
+	local titleCorner = Instance.new("UICorner")
+	titleCorner.CornerRadius = UDim.new(0.5, 0)
+	titleCorner.Parent = titleFrame
+	
+	local titleFrameStroke = Instance.new("UIStroke")
+	titleFrameStroke.Color = Color3.fromRGB(0, 0, 0)
+	titleFrameStroke.Thickness = 6
+	titleFrameStroke.Parent = titleFrame
 
 	local title = Instance.new("TextLabel")
 	title.Name = "Title"
-	title.Size = UDim2.new(1, 0, 0, 60)
+	title.Size = UDim2.new(1, 0, 1, 0)
 	title.BackgroundTransparency = 1
-	title.Font = Enum.Font.GothamBlack
+	title.FontFace = Font.fromName("Montserrat", Enum.FontWeight.ExtraBold, Enum.FontStyle.Normal)
 	title.Text = "REBIRTH"
-	title.TextColor3 = Color3.fromRGB(0, 240, 255)
-	title.TextSize = 40
-	title.Parent = panel
+	title.TextColor3 = Color3.fromRGB(255, 255, 255)
+	title.TextSize = 36
+	title.ZIndex = 3
+	title.Parent = titleFrame
+	
+	local titleTextStroke = Instance.new("UIStroke")
+	titleTextStroke.Color = Color3.fromRGB(0, 0, 0)
+	titleTextStroke.Thickness = 3
+	titleTextStroke.Parent = title
 
 	local closeBtn = Instance.new("TextButton")
 	closeBtn.Name = "CloseBtn"
-	closeBtn.Size = UDim2.new(0, 50, 0, 50)
-	closeBtn.Position = UDim2.new(1, -60, 0, 10)
-	closeBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
-	closeBtn.Font = Enum.Font.GothamBold
+	closeBtn.Size = UDim2.new(0, 44, 0, 44)
+	closeBtn.Position = UDim2.new(1, -22, 0, -22)
+	closeBtn.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
+	closeBtn.FontFace = Font.fromName("Montserrat", Enum.FontWeight.ExtraBold, Enum.FontStyle.Normal)
 	closeBtn.Text = "X"
 	closeBtn.TextColor3 = Color3.new(1, 1, 1)
-	closeBtn.TextSize = 24
+	closeBtn.TextSize = 28
+	closeBtn.ZIndex = 5
 	closeBtn.Parent = panel
 	
 	local closeCorner = Instance.new("UICorner")
-	closeCorner.CornerRadius = UDim.new(0, 8)
+	closeCorner.CornerRadius = UDim.new(1, 0)
 	closeCorner.Parent = closeBtn
+	
+	local closeStroke = Instance.new("UIStroke")
+	closeStroke.Color = Color3.fromRGB(0, 0, 0)
+	closeStroke.Thickness = 4
+	closeStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	closeStroke.Parent = closeBtn
 
 	closeBtn.MouseButton1Click:Connect(function()
 		bg.Visible = false
@@ -109,8 +141,8 @@ local function createRebirthWindow()
 	-- Info Container
 	local infoContainer = Instance.new("Frame")
 	infoContainer.Name = "InfoContainer"
-	infoContainer.Size = UDim2.new(1, -40, 0, 250)
-	infoContainer.Position = UDim2.new(0, 20, 0, 80)
+	infoContainer.Size = UDim2.new(1, -60, 0, 250)
+	infoContainer.Position = UDim2.new(0, 30, 0, 100)
 	infoContainer.BackgroundTransparency = 1
 	infoContainer.Parent = panel
 
@@ -118,97 +150,147 @@ local function createRebirthWindow()
 	local function createCard(name, pos, color)
 		local card = Instance.new("Frame")
 		card.Name = name
-		card.Size = UDim2.new(0, 200, 1, 0)
+		card.Size = UDim2.new(0, 210, 1, 0)
 		card.Position = pos
-		card.BackgroundColor3 = Color3.fromRGB(30, 35, 45)
+		card.BackgroundColor3 = color
 		card.Parent = infoContainer
 
 		local cCorner = Instance.new("UICorner")
-		cCorner.CornerRadius = UDim.new(0, 12)
+		cCorner.CornerRadius = UDim.new(0, 16)
 		cCorner.Parent = card
 		
 		local cStroke = Instance.new("UIStroke")
-		cStroke.Color = color
-		cStroke.Thickness = 2
+		cStroke.Color = Color3.fromRGB(0, 0, 0)
+		cStroke.Thickness = 4
 		cStroke.Parent = card
+		
+		-- UIGradient Stripes
+		local patternBg = Instance.new("Frame", card)
+		patternBg.Size = UDim2.new(1, 0, 1, 0)
+		patternBg.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+		patternBg.BorderSizePixel = 0
+		Instance.new("UICorner", patternBg).CornerRadius = UDim.new(0, 16)
+		local grad = Instance.new("UIGradient", patternBg)
+		grad.Rotation = 45
+		local keypoints = {}
+		table.insert(keypoints, NumberSequenceKeypoint.new(0, 0.85))
+		for i = 1, 9 do
+			local p = i / 10
+			if i % 2 == 1 then
+				table.insert(keypoints, NumberSequenceKeypoint.new(p, 0.85))
+				table.insert(keypoints, NumberSequenceKeypoint.new(p + 0.001, 1))
+			else
+				table.insert(keypoints, NumberSequenceKeypoint.new(p, 1))
+				table.insert(keypoints, NumberSequenceKeypoint.new(p + 0.001, 0.85))
+			end
+		end
+		table.insert(keypoints, NumberSequenceKeypoint.new(1, 1))
+		grad.Transparency = NumberSequence.new(keypoints)
 
 		local rTitle = Instance.new("TextLabel")
 		rTitle.Name = "RebirthLevel"
 		rTitle.Size = UDim2.new(1, 0, 0, 40)
-		rTitle.Position = UDim2.new(0, 0, 0, 10)
+		rTitle.Position = UDim2.new(0, 0, 0, 15)
 		rTitle.BackgroundTransparency = 1
-		rTitle.Font = Enum.Font.GothamBold
+		rTitle.FontFace = Font.fromName("Montserrat", Enum.FontWeight.ExtraBold, Enum.FontStyle.Normal)
 		rTitle.Text = "환생 X"
-		rTitle.TextColor3 = color
+		rTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
 		rTitle.TextSize = 28
+		rTitle.ZIndex = 2
 		rTitle.Parent = card
+		
+		local rtStroke = Instance.new("UIStroke")
+		rtStroke.Color = Color3.fromRGB(0, 0, 0)
+		rtStroke.Thickness = 3
+		rtStroke.Parent = rTitle
 		
 		local benefit = Instance.new("TextLabel")
 		benefit.Name = "BenefitText"
 		benefit.Size = UDim2.new(1, -20, 0, 150)
-		benefit.Position = UDim2.new(0, 10, 0, 60)
+		benefit.Position = UDim2.new(0, 10, 0, 70)
 		benefit.BackgroundTransparency = 1
-		benefit.Font = Enum.Font.GothamMedium
+		benefit.FontFace = Font.fromName("Montserrat", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
 		benefit.Text = "이점 내역"
 		benefit.TextColor3 = Color3.new(1, 1, 1)
-		benefit.TextSize = 18
+		benefit.TextSize = 32
 		benefit.TextWrapped = true
-		benefit.TextYAlignment = Enum.TextYAlignment.Top
+		benefit.TextYAlignment = Enum.TextYAlignment.Center
+		benefit.ZIndex = 2
 		benefit.Parent = card
+		
+		local bStroke = Instance.new("UIStroke")
+		bStroke.Color = Color3.fromRGB(0, 0, 0)
+		bStroke.Thickness = 2
+		bStroke.Parent = benefit
 
 		return card
 	end
 
-	createCard("PrevCard", UDim2.new(0, 0, 0, 0), Color3.fromRGB(150, 150, 150))
-	createCard("CurrentCard", UDim2.new(0.5, -100, 0, 0), Color3.fromRGB(255, 215, 0))
-	createCard("NextCard", UDim2.new(1, -200, 0, 0), Color3.fromRGB(0, 240, 255))
+	createCard("PrevCard", UDim2.new(0, 0, 0, 0), Color3.fromRGB(70, 80, 90))
+	createCard("CurrentCard", UDim2.new(0.5, -105, 0, 0), Color3.fromRGB(255, 140, 20))
+	createCard("NextCard", UDim2.new(1, -210, 0, 0), Color3.fromRGB(40, 180, 255))
 	
 	-- Arrows
 	local arrow1 = Instance.new("TextLabel")
-	arrow1.Size = UDim2.new(0, 60, 0, 60)
-	arrow1.Position = UDim2.new(0, 200, 0.5, -30)
+	arrow1.Size = UDim2.new(0, 50, 0, 60)
+	arrow1.Position = UDim2.new(0, 215, 0.5, -30)
 	arrow1.BackgroundTransparency = 1
-	arrow1.Font = Enum.Font.GothamBlack
+	arrow1.FontFace = Font.fromName("Montserrat", Enum.FontWeight.ExtraBold, Enum.FontStyle.Normal)
 	arrow1.Text = "→"
 	arrow1.TextColor3 = Color3.new(1, 1, 1)
 	arrow1.TextSize = 50
 	arrow1.Parent = infoContainer
 	
+	local a1Stroke = Instance.new("UIStroke")
+	a1Stroke.Color = Color3.fromRGB(0, 0, 0)
+	a1Stroke.Thickness = 4
+	a1Stroke.Parent = arrow1
+	
 	local arrow2 = arrow1:Clone()
-	arrow2.Position = UDim2.new(1, -260, 0.5, -30)
+	arrow2.Position = UDim2.new(1, -265, 0.5, -30)
 	arrow2.Parent = infoContainer
 
 	-- Action Button
 	local doRebirthBtn = Instance.new("TextButton")
 	doRebirthBtn.Name = "DoRebirthBtn"
-	doRebirthBtn.Size = UDim2.new(0, 300, 0, 60)
-	doRebirthBtn.Position = UDim2.new(0.5, -150, 1, -80)
-	doRebirthBtn.BackgroundColor3 = Color3.fromRGB(0, 240, 255)
-	doRebirthBtn.Font = Enum.Font.GothamBlack
+	doRebirthBtn.Size = UDim2.new(0, 320, 0, 70)
+	doRebirthBtn.Position = UDim2.new(0.5, -160, 1, -95)
+	doRebirthBtn.BackgroundColor3 = Color3.fromRGB(100, 220, 110)
+	doRebirthBtn.FontFace = Font.fromName("Montserrat", Enum.FontWeight.ExtraBold, Enum.FontStyle.Normal)
 	doRebirthBtn.Text = "환생하기"
-	doRebirthBtn.TextColor3 = Color3.new(0, 0, 0)
-	doRebirthBtn.TextSize = 30
+	doRebirthBtn.TextColor3 = Color3.new(1, 1, 1)
+	doRebirthBtn.TextSize = 34
 	doRebirthBtn.Parent = panel
 
 	local btnCorner = Instance.new("UICorner")
-	btnCorner.CornerRadius = UDim.new(0, 12)
+	btnCorner.CornerRadius = UDim.new(0, 20)
 	btnCorner.Parent = doRebirthBtn
+	
+	local btnStroke = Instance.new("UIStroke")
+	btnStroke.Color = Color3.fromRGB(0, 0, 0)
+	btnStroke.Thickness = 6
+	btnStroke.Parent = doRebirthBtn
+	
+	local btnTextStroke = Instance.new("UIStroke")
+	btnTextStroke.Color = Color3.fromRGB(0, 0, 0)
+	btnTextStroke.Thickness = 3
+	btnTextStroke.Parent = doRebirthBtn
 	
 	doRebirthBtn.MouseButton1Click:Connect(function()
 		local success, msg = requestRebirthRemote:InvokeServer()
 		if success then
 			doRebirthBtn.Text = "환생 성공!"
-			doRebirthBtn.BackgroundColor3 = Color3.fromRGB(0, 255, 100)
+			doRebirthBtn.BackgroundColor3 = Color3.fromRGB(50, 255, 50)
 			task.delay(1.5, function()
 				if rebirthWindow then rebirthWindow.Visible = false end
 				isWindowOpen = false
 			end)
 		else
-			doRebirthBtn.Text = msg
+			-- doRebirthBtn.Text = msg -- Removed so it just says "환생하기" as requested by user
 			doRebirthBtn.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
 			task.delay(1.5, function()
 				doRebirthBtn.Text = "환생하기"
-				doRebirthBtn.BackgroundColor3 = Color3.fromRGB(0, 240, 255)
+				doRebirthBtn.BackgroundColor3 = Color3.fromRGB(100, 220, 110)
 			end)
 		end
 	end)
@@ -258,7 +340,7 @@ local function updateRebirthWindow()
 		else
 			bText = string.format("부스터 스피드 +%.1f", rData.BoostSpeedBonus)
 			if isActive then
-				bText = bText .. string.format("\n\n요구 거리: %s", formatDistance(rData.RequiredDistance))
+				bText = bText .. string.format("\n요구 거리: %s", formatDistance(rData.RequiredDistance))
 			end
 		end
 		benefitText.Text = bText
@@ -273,10 +355,10 @@ local function updateRebirthWindow()
 		
 		if currentDist >= nextRebirthData.RequiredDistance then
 			doRebirthBtn.Text = "환생하기"
-			doRebirthBtn.BackgroundColor3 = Color3.fromRGB(0, 240, 255)
+			doRebirthBtn.BackgroundColor3 = Color3.fromRGB(100, 220, 110)
 			doRebirthBtn.Active = true
 		else
-			doRebirthBtn.Text = string.format("거리 부족 (%s / %s)", formatDistance(currentDist), formatDistance(nextRebirthData.RequiredDistance))
+			doRebirthBtn.Text = "환생하기"
 			doRebirthBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
 			doRebirthBtn.Active = false
 		end

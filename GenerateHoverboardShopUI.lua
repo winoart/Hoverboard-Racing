@@ -14,58 +14,95 @@ local bgFrame = Instance.new("Frame")
 bgFrame.Name = "Background"
 bgFrame.Size = UDim2.new(0, 800, 0, 500)
 bgFrame.Position = UDim2.new(0.5, -400, 0.5, -250)
-bgFrame.BackgroundColor3 = Color3.fromRGB(30, 35, 45)
+bgFrame.BackgroundColor3 = Color3.fromRGB(150, 240, 255)
+bgFrame.BackgroundTransparency = 0.5
 bgFrame.Parent = screenGui
 
 local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 16)
+corner.CornerRadius = UDim.new(0, 24)
 corner.Parent = bgFrame
 
 local stroke = Instance.new("UIStroke")
-stroke.Color = Color3.fromRGB(255, 215, 0)
-stroke.Thickness = 3
+stroke.Color = Color3.fromRGB(0, 0, 0)
+stroke.Thickness = 8
 stroke.Parent = bgFrame
+
+local titleFrame = Instance.new("Frame")
+titleFrame.Name = "TitleFrame"
+titleFrame.Size = UDim2.new(1, -60, 0, 60)
+titleFrame.Position = UDim2.new(0, 30, 0, 20)
+titleFrame.BackgroundColor3 = Color3.fromRGB(40, 180, 255)
+titleFrame.BorderSizePixel = 0
+titleFrame.ZIndex = 2
+titleFrame.Parent = bgFrame
+
+local titleCorner = Instance.new("UICorner")
+titleCorner.CornerRadius = UDim.new(0.5, 0)
+titleCorner.Parent = titleFrame
+
+local titleFrameStroke = Instance.new("UIStroke")
+titleFrameStroke.Color = Color3.fromRGB(0, 0, 0)
+titleFrameStroke.Thickness = 6
+titleFrameStroke.Parent = titleFrame
 
 local title = Instance.new("TextLabel")
 title.Name = "Title"
-title.Size = UDim2.new(1, 0, 0, 60)
+title.Size = UDim2.new(1, 0, 1, 0)
 title.BackgroundTransparency = 1
-title.Font = Enum.Font.GothamBlack
+title.FontFace = Font.fromName("Montserrat", Enum.FontWeight.ExtraBold, Enum.FontStyle.Normal)
 title.Text = "호버보드 상점"
-title.TextColor3 = Color3.fromRGB(255, 215, 0)
-title.TextSize = 32
-title.Parent = bgFrame
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.TextSize = 36
+title.ZIndex = 3
+title.Parent = titleFrame
+
+local titleTextStroke = Instance.new("UIStroke")
+titleTextStroke.Color = Color3.fromRGB(0, 0, 0)
+titleTextStroke.Thickness = 3
+titleTextStroke.Parent = title
 
 local closeBtn = Instance.new("TextButton")
 closeBtn.Name = "CloseButton"
-closeBtn.Size = UDim2.new(0, 40, 0, 40)
-closeBtn.Position = UDim2.new(1, -50, 0, 10)
-closeBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-closeBtn.Font = Enum.Font.GothamBold
+closeBtn.Size = UDim2.new(0, 44, 0, 44)
+closeBtn.Position = UDim2.new(1, -22, 0, -22)
+closeBtn.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
+closeBtn.FontFace = Font.fromName("Montserrat", Enum.FontWeight.ExtraBold, Enum.FontStyle.Normal)
 closeBtn.Text = "X"
 closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-closeBtn.TextSize = 24
+closeBtn.TextSize = 28
+closeBtn.ZIndex = 5
 closeBtn.Parent = bgFrame
 
 local closeCorner = Instance.new("UICorner")
 closeCorner.CornerRadius = UDim.new(1, 0)
 closeCorner.Parent = closeBtn
 
+local closeStroke = Instance.new("UIStroke")
+closeStroke.Color = Color3.fromRGB(0, 0, 0)
+closeStroke.Thickness = 4
+closeStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+closeStroke.Parent = closeBtn
+
 local refreshTimerLabel = Instance.new("TextLabel")
 refreshTimerLabel.Name = "RefreshTimerLabel"
 refreshTimerLabel.Size = UDim2.new(1, 0, 0, 30)
-refreshTimerLabel.Position = UDim2.new(0, 0, 0, 60)
+refreshTimerLabel.Position = UDim2.new(0, 0, 0, 85)
 refreshTimerLabel.BackgroundTransparency = 1
-refreshTimerLabel.Font = Enum.Font.GothamMedium
+refreshTimerLabel.FontFace = Font.fromName("Montserrat", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
 refreshTimerLabel.Text = "다음 갱신까지: --:--"
-refreshTimerLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-refreshTimerLabel.TextSize = 18
+refreshTimerLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+refreshTimerLabel.TextSize = 20
 refreshTimerLabel.Parent = bgFrame
+
+local refreshStroke = Instance.new("UIStroke")
+refreshStroke.Color = Color3.fromRGB(0, 0, 0)
+refreshStroke.Thickness = 3
+refreshStroke.Parent = refreshTimerLabel
 
 local scrollFrame = Instance.new("ScrollingFrame")
 scrollFrame.Name = "ScrollFrame"
-scrollFrame.Size = UDim2.new(1, -40, 1, -110)
-scrollFrame.Position = UDim2.new(0, 20, 0, 90)
+scrollFrame.Size = UDim2.new(1, -40, 1, -125)
+scrollFrame.Position = UDim2.new(0, 20, 0, 115)
 scrollFrame.BackgroundTransparency = 1
 scrollFrame.ScrollBarThickness = 8
 scrollFrame.Parent = bgFrame
@@ -92,8 +129,36 @@ cardTemplate.Visible = true
 cardTemplate.Parent = scrollFrame
 
 local cardCorner = Instance.new("UICorner")
-cardCorner.CornerRadius = UDim.new(0, 12)
+cardCorner.CornerRadius = UDim.new(0, 16)
 cardCorner.Parent = cardTemplate
+
+local cardStroke = Instance.new("UIStroke")
+cardStroke.Color = Color3.fromRGB(0, 0, 0)
+cardStroke.Thickness = 4
+cardStroke.Parent = cardTemplate
+
+-- UIGradient Stripes
+local patternBg = Instance.new("Frame", cardTemplate)
+patternBg.Size = UDim2.new(1, 0, 1, 0)
+patternBg.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+patternBg.BorderSizePixel = 0
+Instance.new("UICorner", patternBg).CornerRadius = UDim.new(0, 16)
+local grad = Instance.new("UIGradient", patternBg)
+grad.Rotation = 45
+local keypoints = {}
+table.insert(keypoints, NumberSequenceKeypoint.new(0, 0.85))
+for i = 1, 9 do
+	local p = i / 10
+	if i % 2 == 1 then
+		table.insert(keypoints, NumberSequenceKeypoint.new(p, 0.85))
+		table.insert(keypoints, NumberSequenceKeypoint.new(p + 0.001, 1))
+	else
+		table.insert(keypoints, NumberSequenceKeypoint.new(p, 1))
+		table.insert(keypoints, NumberSequenceKeypoint.new(p + 0.001, 0.85))
+	end
+end
+table.insert(keypoints, NumberSequenceKeypoint.new(1, 1))
+grad.Transparency = NumberSequence.new(keypoints)
 
 local img = Instance.new("ImageLabel")
 img.Name = "ItemImage"
@@ -102,6 +167,7 @@ img.Position = UDim2.new(0, 10, 0, 10)
 img.BackgroundTransparency = 1
 img.Image = ""
 img.ScaleType = Enum.ScaleType.Fit
+img.ZIndex = 2
 img.Parent = cardTemplate
 
 local nameLabel = Instance.new("TextLabel")
@@ -109,46 +175,59 @@ nameLabel.Name = "ItemName"
 nameLabel.Size = UDim2.new(1, 0, 0, 30)
 nameLabel.Position = UDim2.new(0, 0, 0, 180)
 nameLabel.BackgroundTransparency = 1
-nameLabel.Font = Enum.Font.GothamBold
+nameLabel.FontFace = Font.fromName("Montserrat", Enum.FontWeight.ExtraBold, Enum.FontStyle.Normal)
 nameLabel.Text = "이름"
 nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-nameLabel.TextSize = 20
+nameLabel.TextSize = 22
+nameLabel.ZIndex = 2
 nameLabel.Parent = cardTemplate
 
 local nameStroke = Instance.new("UIStroke")
 nameStroke.Color = Color3.fromRGB(0, 0, 0)
-nameStroke.Thickness = 1.5
+nameStroke.Thickness = 3
 nameStroke.Parent = nameLabel
 
 local priceLabel = Instance.new("TextLabel")
 priceLabel.Name = "PriceLabel"
 priceLabel.Size = UDim2.new(1, 0, 0, 30)
-priceLabel.Position = UDim2.new(0, 0, 0, 210)
+priceLabel.Position = UDim2.new(0, 0, 0, 215)
 priceLabel.BackgroundTransparency = 1
-priceLabel.Font = Enum.Font.GothamMedium
+priceLabel.FontFace = Font.fromName("Montserrat", Enum.FontWeight.ExtraBold, Enum.FontStyle.Normal)
 priceLabel.Text = "0 G"
 priceLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
-priceLabel.TextSize = 18
+priceLabel.TextSize = 20
+priceLabel.ZIndex = 2
 priceLabel.Parent = cardTemplate
 
 local priceStroke = Instance.new("UIStroke")
 priceStroke.Color = Color3.fromRGB(0, 0, 0)
-priceStroke.Thickness = 1.5
+priceStroke.Thickness = 3
 priceStroke.Parent = priceLabel
 
 local buyBtn = Instance.new("TextButton")
 buyBtn.Name = "BuyButton"
-buyBtn.Size = UDim2.new(1, -40, 0, 40)
-buyBtn.Position = UDim2.new(0, 20, 1, -50)
-buyBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
-buyBtn.Font = Enum.Font.GothamBold
-buyBtn.TextSize = 18
+buyBtn.Size = UDim2.new(1, -40, 0, 46)
+buyBtn.Position = UDim2.new(0, 20, 1, -55)
+buyBtn.BackgroundColor3 = Color3.fromRGB(100, 220, 110)
+buyBtn.FontFace = Font.fromName("Montserrat", Enum.FontWeight.ExtraBold, Enum.FontStyle.Normal)
+buyBtn.TextSize = 22
 buyBtn.Text = "구매"
 buyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+buyBtn.ZIndex = 3
 buyBtn.Parent = cardTemplate
 
 local btnCorner = Instance.new("UICorner")
-btnCorner.CornerRadius = UDim.new(0, 8)
+btnCorner.CornerRadius = UDim.new(0, 12)
 btnCorner.Parent = buyBtn
+
+local btnStroke = Instance.new("UIStroke")
+btnStroke.Color = Color3.fromRGB(0, 0, 0)
+btnStroke.Thickness = 4
+btnStroke.Parent = buyBtn
+
+local btnTextStroke = Instance.new("UIStroke")
+btnTextStroke.Color = Color3.fromRGB(0, 0, 0)
+btnTextStroke.Thickness = 2
+btnTextStroke.Parent = buyBtn
 
 print("HoverboardShopHUD generated in StarterGui!")

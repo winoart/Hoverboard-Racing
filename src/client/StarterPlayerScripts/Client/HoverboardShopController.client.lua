@@ -95,7 +95,7 @@ local function updateButtons()
 			btn.AutoButtonColor = false
 		else
 			btn.Text = "구매"
-			btn.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+			btn.BackgroundColor3 = Color3.fromRGB(100, 220, 110)
 			btn.Active = true
 			btn.AutoButtonColor = true
 		end
