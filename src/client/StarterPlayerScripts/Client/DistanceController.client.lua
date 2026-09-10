@@ -11,6 +11,7 @@ local Workspace = game:GetService("Workspace")
 local LocalPlayer = Players.LocalPlayer
 local remotesFolder = ReplicatedStorage:WaitForChild("HoverboardRemotes")
 local addDistanceRemote = remotesFolder:WaitForChild("AddDistance") :: RemoteEvent
+local exitTreadmillRemote = remotesFolder:WaitForChild("ExitTreadmill") :: RemoteEvent
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local RebirthConfig = require(Shared:WaitForChild("RebirthConfig"))
@@ -169,7 +170,15 @@ RunService.RenderStepped:Connect(function(dt)
 	
 	-- 속도를 기반으로 이동 거리 계산 (m/s 기준으로 환산, 예를들어 1스터드 = 0.28m)
 	-- 게임적 허용으로 1스터드 = 1m 로 취급하거나, 속도에 비례해 거리를 올립니다.
-	local speed = Vector3.new(hrp.AssemblyLinearVelocity.X, 0, hrp.AssemblyLinearVelocity.Z).Magnitude
+	local speed = 0
+	if LocalPlayer:GetAttribute("OnTreadmill") then
+		local HoverboardConfig = require(ReplicatedStorage.Shared.HoverboardConfig)
+		local rbData = RebirthConfig.GetRebirthData(LocalPlayer:GetAttribute("Rebirths") or 0)
+		speed = HoverboardConfig.RIDE_WALKSPEED + rbData.BoostSpeedBonus
+	else
+		speed = Vector3.new(hrp.AssemblyLinearVelocity.X, 0, hrp.AssemblyLinearVelocity.Z).Magnitude
+	end
+	
 	local distanceMoved = speed * dt
 	
 	if distanceMoved > 0 then
@@ -183,5 +192,13 @@ RunService.RenderStepped:Connect(function(dt)
 			accumulatedDistance = 0
 		end
 		lastSyncTime = os.clock()
+	end
+end)
+
+-- Handle Jump to exit Treadmill
+local UserInputService = game:GetService("UserInputService")
+UserInputService.JumpRequest:Connect(function()
+	if LocalPlayer:GetAttribute("OnTreadmill") then
+		exitTreadmillRemote:FireServer()
 	end
 end)

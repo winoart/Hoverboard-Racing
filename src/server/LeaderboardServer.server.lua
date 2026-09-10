@@ -8,7 +8,7 @@ local Workspace = game:GetService("Workspace")
 
 local WinsOrderedStore = DataStoreService:GetOrderedDataStore("HoverboardWins_Ordered_v1")
 
-local UPDATE_INTERVAL = 15
+local UPDATE_INTERVAL = 60
 
 local function createRow(rank: number, username: string, wins: number, userId: number)
 	local row = Instance.new("Frame")
@@ -270,11 +270,51 @@ local function updateLeaderboard()
 	print("✅ [LeaderboardServer] 글로벌 리더보드 갱신 완료!")
 end
 
+local function getSurfaceGui()
+	local board = Workspace:FindFirstChild("HoverboardLeaderboard", true) or Workspace:FindFirstChild("GlovalLeaderBoard", true) or Workspace:FindFirstChild("GlobalLeaderboardBoard", true)
+	if not board then return nil end
+	return board:FindFirstChild("RaceBoard", true) or board:FindFirstChild("LeaderboardSurfaceGui", true) or board:FindFirstChildWhichIsA("SurfaceGui", true)
+end
+
+local function updateRefreshCounter(timeLeft: number)
+	local surfaceGui = getSurfaceGui()
+	if not surfaceGui then return end
+	
+	local counter = surfaceGui:FindFirstChild("RefreshCounter")
+	if not counter then
+		counter = Instance.new("TextLabel")
+		counter.Name = "RefreshCounter"
+		counter.Size = UDim2.new(1, 0, 0, 80)
+		counter.AnchorPoint = Vector2.new(0.5, 1)
+		counter.Position = UDim2.new(0.5, 0, 1, -20)
+		counter.BackgroundTransparency = 1
+		counter.Font = Enum.Font.GothamBlack
+		counter.TextColor3 = Color3.fromRGB(255, 255, 255)
+		counter.TextScaled = true
+		counter.ZIndex = 20
+		counter.Parent = surfaceGui
+		
+		local stroke = Instance.new("UIStroke")
+		stroke.Color = Color3.fromRGB(0, 0, 0)
+		stroke.Thickness = 4
+		stroke.Parent = counter
+	end
+	counter.Text = string.format("Refresh in %ds", timeLeft)
+end
+
 task.spawn(function()
 	-- Give LoungeGenerator some time to spawn the board
 	task.wait(10)
+	updateLeaderboard()
+	
+	local timeLeft = UPDATE_INTERVAL
 	while true do
-		updateLeaderboard()
-		task.wait(UPDATE_INTERVAL)
+		updateRefreshCounter(timeLeft)
+		task.wait(1)
+		timeLeft -= 1
+		if timeLeft <= 0 then
+			updateLeaderboard()
+			timeLeft = UPDATE_INTERVAL
+		end
 	end
 end)

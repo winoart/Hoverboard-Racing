@@ -962,35 +962,7 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 end)
 
 local function showBoosterToast()
-	print("🚨 BOOSTER TOAST CALLED! 🚨")
-	if not guiScreen then return end
-	local config = SkillMessages.Design.MySkillToast
-	local toast = Instance.new("TextLabel")
-	toast.Size = UDim2.new(0, 800, 0, 100)
-	toast.Position = UDim2.new(0.5, -400, config.PosY, 0)
-	toast.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-	toast.BackgroundTransparency = 0.5 -- DEBUG: 반투명 빨간색 배경
-	toast.Font = config.Font
-	toast.Text = SkillMessages.Messages.BoosterActivated or "🔥 부스터 ON!"
-	toast.TextColor3 = config.TextColor
-	toast.TextSize = config.TextSize
-	toast.ZIndex = 100
-	toast.Parent = guiScreen
-	
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = config.StrokeColor
-	stroke.Thickness = config.StrokeThickness
-	stroke.Parent = toast
-	
-	TweenService:Create(toast, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Position = UDim2.new(0.5, -200, config.PosY - 0.05, 0) }):Play()
-	task.delay(1.5, function()
-		local t = TweenService:Create(toast, TweenInfo.new(0.5), { TextTransparency = 1 })
-		TweenService:Create(stroke, TweenInfo.new(0.5), { Transparency = 1 }):Play()
-		t:Play()
-		t.Completed:Connect(function()
-			toast:Destroy()
-		end)
-	end)
+	-- 부스터 발동 메시지는 더 이상 표시하지 않습니다. (유저 요청)
 end
 
 -- Trigger One-Tap Continuous Booster on Spacebar press
@@ -1147,42 +1119,55 @@ if raceFinishedRemote then
 			timerLabel.Text = string.format("TIME  %02d:%02d:%02d", mins, secs, cs)
 		end
 		
-		-- Show FINISHED or RETIRED UI
-		local finishLabel = Instance.new("TextLabel")
-		finishLabel.Name = "FinishText"
-		finishLabel.Size = UDim2.new(1, 0, 1, 0)
-		finishLabel.Position = UDim2.new(0, 0, 0, 0)
-		finishLabel.BackgroundTransparency = 1
-		finishLabel.Font = Enum.Font.GothamBlack
+		-- Show brief personal rank UI for 2 seconds
+		local myRankLabel = Instance.new("TextLabel")
+		myRankLabel.Name = "MyRankPopUp"
+		myRankLabel.Size = UDim2.new(1, 0, 0, 100)
+		myRankLabel.Position = UDim2.new(0, 0, 0.4, 0)
+		myRankLabel.BackgroundTransparency = 1
+		myRankLabel.Font = Enum.Font.GothamBlack
 		
 		if finalRank == 999 then
-			finishLabel.Text = "RETIRED!\nTime Over"
-			finishLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
+			myRankLabel.Text = "RETIRED"
+			myRankLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
 		else
-			finishLabel.Text = "FINISHED!\nRank: " .. finalRank .. "\nTime: " .. string.format("%.2f", finishTime) .. "s"
-			finishLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
+			local rankStr = finalRank .. "st"
+			if finalRank == 2 then rankStr = "2nd"
+			elseif finalRank == 3 then rankStr = "3rd"
+			elseif finalRank > 3 then rankStr = finalRank .. "th" end
+			myRankLabel.Text = "YOUR RANK: " .. rankStr
+			myRankLabel.TextColor3 = Color3.fromRGB(255, 200, 50)
 		end
 		
-		finishLabel.TextSize = 80
-		finishLabel.TextWrapped = true
+		myRankLabel.TextSize = 60
+		myRankLabel.ZIndex = 100
 		
 		local stroke = Instance.new("UIStroke")
 		stroke.Color = Color3.fromRGB(0, 0, 0)
-		stroke.Thickness = 5
-		stroke.Parent = finishLabel
+		stroke.Thickness = 4
+		stroke.Parent = myRankLabel
 		
 		if guiScreen then
-			finishLabel.Parent = guiScreen
+			myRankLabel.Parent = guiScreen
 		end
 		
-		-- Animate UI
-		finishLabel.Size = UDim2.new(1, 0, 0, 0)
-		finishLabel.Position = UDim2.new(0, 0, 0.5, 0)
-		TweenService:Create(finishLabel, TweenInfo.new(0.5, Enum.EasingStyle.Bounce), {
-			Size = UDim2.new(1, 0, 1, 0),
-			Position = UDim2.new(0, 0, 0, 0)
+		TweenService:Create(myRankLabel, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+			Size = UDim2.new(1, 0, 0, 120),
+			TextSize = 80
 		}):Play()
 		
+		task.delay(2, function()
+			if myRankLabel then
+				local tw = TweenService:Create(myRankLabel, TweenInfo.new(0.3), {TextTransparency = 1})
+				if stroke then
+					TweenService:Create(stroke, TweenInfo.new(0.3), {Transparency = 1}):Play()
+				end
+				tw:Play()
+				tw.Completed:Connect(function()
+					myRankLabel:Destroy()
+				end)
+			end
+		end)		
 		-- Stop movement by dismounting and locking
 		dismountRemote:FireServer()
 		local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
@@ -1249,9 +1234,10 @@ if showScoreboardRemote then
 		
 		-- Scoreboard Panel
 		local panel = Instance.new("Frame")
-		panel.Size = UDim2.new(0, 500, 0, 400)
-		panel.Position = UDim2.new(0.5, -250, 0.5, -200)
-		panel.BackgroundColor3 = Color3.fromRGB(25, 30, 40)
+		panel.Size = UDim2.new(0, 600, 0, 520)
+		panel.Position = UDim2.new(0.5, -300, 0.5, -260)
+		panel.BackgroundColor3 = Color3.fromRGB(150, 240, 255)
+		panel.BackgroundTransparency = 0.5
 		panel.ZIndex = 51
 		panel.Parent = bg
 		
@@ -1260,8 +1246,8 @@ if showScoreboardRemote then
 		corner.Parent = panel
 		
 		local stroke = Instance.new("UIStroke")
-		stroke.Color = Color3.fromRGB(255, 200, 0)
-		stroke.Thickness = 3
+		stroke.Color = Color3.fromRGB(0, 0, 0)
+		stroke.Thickness = 4
 		stroke.Parent = panel
 		
 		-- Title
@@ -1270,10 +1256,15 @@ if showScoreboardRemote then
 		title.BackgroundTransparency = 1
 		title.Font = Enum.Font.GothamBlack
 		title.Text = "RACE RESULTS"
-		title.TextColor3 = Color3.fromRGB(255, 200, 0)
+		title.TextColor3 = Color3.fromRGB(40, 180, 255)
 		title.TextSize = 36
 		title.ZIndex = 52
 		title.Parent = panel
+		
+		local titleStroke = Instance.new("UIStroke")
+		titleStroke.Color = Color3.fromRGB(0, 0, 0)
+		titleStroke.Thickness = 3
+		titleStroke.Parent = title
 		
 		-- Scroll Frame for results
 		local scroll = Instance.new("ScrollingFrame")
@@ -1292,13 +1283,19 @@ if showScoreboardRemote then
 		for i, data in ipairs(results) do
 			local item = Instance.new("Frame")
 			item.Size = UDim2.new(1, -10, 0, 40)
-			item.BackgroundColor3 = Color3.fromRGB(40, 45, 55)
+			item.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+			item.BackgroundTransparency = 0.2
 			item.ZIndex = 53
 			item.Parent = scroll
 			
 			local itemCorner = Instance.new("UICorner")
 			itemCorner.CornerRadius = UDim.new(0, 6)
 			itemCorner.Parent = item
+			
+			local itemStroke = Instance.new("UIStroke")
+			itemStroke.Color = Color3.fromRGB(0, 0, 0)
+			itemStroke.Thickness = 2
+			itemStroke.Parent = item
 			
 			local rankText = "RETIRE"
 			local rankColor = Color3.fromRGB(150, 150, 150)
@@ -1308,10 +1305,26 @@ if showScoreboardRemote then
 				elseif data.rank == 3 then rankText = "3rd"
 				elseif data.rank > 3 then rankText = data.rank .. "th" end
 				
-				if data.rank == 1 then rankColor = Color3.fromRGB(255, 215, 0)
-				elseif data.rank == 2 then rankColor = Color3.fromRGB(192, 192, 192)
-				elseif data.rank == 3 then rankColor = Color3.fromRGB(205, 127, 50)
-				else rankColor = Color3.fromRGB(255, 255, 255) end
+				if data.rank == 1 then 
+					rankColor = Color3.fromRGB(255, 200, 50)
+					item.BackgroundColor3 = Color3.fromRGB(255, 250, 200)
+				elseif data.rank == 2 then 
+					rankColor = Color3.fromRGB(210, 220, 230)
+					item.BackgroundColor3 = Color3.fromRGB(240, 245, 255)
+				elseif data.rank == 3 then 
+					rankColor = Color3.fromRGB(205, 127, 50)
+				else 
+					rankColor = Color3.fromRGB(255, 255, 255) 
+				end
+			end
+			
+			-- Highlight local player's row
+			local isMe = (data.name == LocalPlayer.Name or data.name == LocalPlayer.DisplayName)
+			if isMe then
+				itemStroke.Color = Color3.fromRGB(255, 80, 80)
+				itemStroke.Thickness = 3
+				item.BackgroundColor3 = Color3.fromRGB(255, 240, 180)
+				item.BackgroundTransparency = 0.1
 			end
 			
 			local rLabel = Instance.new("TextLabel")
@@ -1326,6 +1339,11 @@ if showScoreboardRemote then
 			rLabel.ZIndex = 54
 			rLabel.Parent = item
 			
+			local rStroke = Instance.new("UIStroke")
+			rStroke.Color = Color3.fromRGB(0, 0, 0)
+			rStroke.Thickness = 2
+			rStroke.Parent = rLabel
+			
 			local nLabel = Instance.new("TextLabel")
 			nLabel.Size = UDim2.new(0, 180, 1, 0)
 			nLabel.Position = UDim2.new(0, 80, 0, 0)
@@ -1338,17 +1356,27 @@ if showScoreboardRemote then
 			nLabel.ZIndex = 54
 			nLabel.Parent = item
 			
+			local nStroke = Instance.new("UIStroke")
+			nStroke.Color = Color3.fromRGB(0, 0, 0)
+			nStroke.Thickness = 2
+			nStroke.Parent = nLabel
+			
 			local tLabel = Instance.new("TextLabel")
 			tLabel.Size = UDim2.new(0, 100, 1, 0)
 			tLabel.Position = UDim2.new(0, 270, 0, 0)
 			tLabel.BackgroundTransparency = 1
 			tLabel.Font = Enum.Font.RobotoMono
 			tLabel.Text = data.time
-			tLabel.TextColor3 = Color3.new(0.8, 0.8, 0.8)
+			tLabel.TextColor3 = Color3.new(1, 1, 1)
 			tLabel.TextSize = 18
 			tLabel.TextXAlignment = Enum.TextXAlignment.Right
 			tLabel.ZIndex = 54
 			tLabel.Parent = item
+			
+			local tStroke = Instance.new("UIStroke")
+			tStroke.Color = Color3.fromRGB(0, 0, 0)
+			tStroke.Thickness = 2
+			tStroke.Parent = tLabel
 			
 			local gLabel = Instance.new("TextLabel")
 			gLabel.Size = UDim2.new(0, 80, 1, 0)
@@ -1356,11 +1384,16 @@ if showScoreboardRemote then
 			gLabel.BackgroundTransparency = 1
 			gLabel.Font = Enum.Font.GothamBold
 			gLabel.Text = "+" .. data.gold .. "G"
-			gLabel.TextColor3 = Color3.fromRGB(255, 230, 0)
+			gLabel.TextColor3 = Color3.fromRGB(255, 200, 50)
 			gLabel.TextSize = 20
 			gLabel.TextXAlignment = Enum.TextXAlignment.Right
 			gLabel.ZIndex = 54
 			gLabel.Parent = item
+			
+			local gStroke = Instance.new("UIStroke")
+			gStroke.Color = Color3.fromRGB(0, 0, 0)
+			gStroke.Thickness = 2
+			gStroke.Parent = gLabel
 		end
 		
 		scroll.CanvasSize = UDim2.new(0, 0, 0, #results * 45)

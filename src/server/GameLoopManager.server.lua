@@ -39,6 +39,12 @@ local updateRankingsRemote = getOrCreateRemote("UpdateRankings")
 local suddenDeathRemote = getOrCreateRemote("SuddenDeathUpdate")
 local showScoreboardRemote = getOrCreateRemote("ShowScoreboard")
 
+local toggleAFKRemote = getOrCreateRemote("ToggleAFK")
+toggleAFKRemote.OnServerEvent:Connect(function(player, isAFK)
+	player:SetAttribute("IsAFK", isAFK)
+	print("💤 " .. player.Name .. " is now AFK: " .. tostring(isAFK))
+end)
+
 local LapManager = require(script.Parent:WaitForChild("LapManager") :: ModuleScript)
 
 -- Server Configuration
@@ -100,6 +106,7 @@ local function teleportAllToLounge()
 		if boardModel then
 			boardModel:Destroy()
 		end
+		player:SetAttribute("IsRacing", false)
 		stateRemote:FireClient(player, false, nil)
 		teleportPlayer(player, loungeCFrame)
 	end
@@ -135,14 +142,21 @@ local function teleportAllToTrackAndMount()
 
 	local hoverboardModels = ReplicatedStorage:FindFirstChild("HoverboardModels")
 
-	for idx, player in ipairs(Players:GetPlayers()) do
-		local col = (idx - 1) % 4
-		local row = math.floor((idx - 1) / 4)
+	local activeIdx = 0
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player:GetAttribute("IsAFK") then
+			continue
+		end
+		
+		activeIdx += 1
+		local col = (activeIdx - 1) % 4
+		local row = math.floor((activeIdx - 1) / 4)
 		local gridOffset = CFrame.new((col - 1.5) * 8, 0, -row * 10)
 		-- Restore original snowboard/skateboard sideways stance:
 		local sideProfileRotation = CFrame.Angles(0, math.rad(-90), 0)
 		local targetCFrame = trackCFrame * gridOffset * sideProfileRotation
 
+		player:SetAttribute("IsRacing", true)
 		teleportPlayer(player, targetCFrame)
 
 		local equippedId = player:FindFirstChild("EquippedHoverboardId")
@@ -285,7 +299,7 @@ end
 -- Helper: Freeze player movement during countdown
 local function lockAllPlayersMovement()
 	for _, player in ipairs(Players:GetPlayers()) do
-		if player.Character then
+		if player.Character and player:GetAttribute("IsRacing") then
 			local hum = player.Character:FindFirstChildOfClass("Humanoid")
 			if hum then
 				hum.WalkSpeed = 0
@@ -297,7 +311,7 @@ end
 -- Helper: Unlock player movement at GO!
 local function unlockAllPlayersMovement()
 	for _, player in ipairs(Players:GetPlayers()) do
-		if player.Character then
+		if player.Character and player:GetAttribute("IsRacing") then
 			local hum = player.Character:FindFirstChildOfClass("Humanoid")
 			if hum then
 				hum.WalkSpeed = HoverboardConfig.RIDE_WALKSPEED
@@ -461,12 +475,14 @@ task.spawn(function()
 		LapManager.retireUnfinishedPlayers()
 
 		-- ---------------------------------------------------------------------
-		-- STEP 5: POST-RACE SCOREBOARD (7 Seconds)
+		-- STEP 5: POST-RACE SCOREBOARD (10 Seconds)
 		-- ---------------------------------------------------------------------
-		print("🏆 [GameLoop] 레이스 종료! 결과창 표시 (7초)")
+		print("🏆 [GameLoop] 레이스 종료! 3초 대기 후 결과창 표시 (7초)")
 		currentPhase = "POST_RACE"
-		phaseTimeLeft = 7
+		phaseTimeLeft = 10
 		broadcastPhaseUpdate()
+		
+		task.wait(3)
 		
 		local scoreboardData = LapManager.getFinalScoreboardData()
 		showScoreboardRemote:FireAllClients(scoreboardData)

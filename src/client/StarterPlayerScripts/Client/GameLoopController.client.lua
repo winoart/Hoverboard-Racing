@@ -157,7 +157,7 @@ local function refreshDisplays()
 
 		-- Modal 1: 15s Map Voting Modal
 		if votingModalFrame then
-			if currentPhase == "MAP_VOTING" and not isVotingModalDismissed then
+			if currentPhase == "MAP_VOTING" and not isVotingModalDismissed and not LocalPlayer:GetAttribute("IsAFK") then
 				votingModalFrame.Visible = true
 			else
 				votingModalFrame.Visible = false
@@ -166,7 +166,7 @@ local function refreshDisplays()
 
 		-- Modal 2: 5s Animated Map Loading Screen Modal
 		if loadingModalFrame then
-			if currentPhase == "MAP_BUILDING" then
+			if currentPhase == "MAP_BUILDING" and not LocalPlayer:GetAttribute("IsAFK") then
 				loadingModalFrame.Visible = true
 				if loadingTitleLabel then
 					loadingTitleLabel.Text = "🏆 SELECTED MAP: " .. currentChosenMap
