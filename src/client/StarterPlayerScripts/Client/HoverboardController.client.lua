@@ -44,6 +44,9 @@ local defaultFOV = 70
 local targetFOV = 70
 local currentWalkSpeed = 0.0
 local currentSteerRate = 0.0 -- Damped steering turn rate for smooth cornering and auto-straightening
+local lastSafePosition: Vector3? = nil
+local lastSafeYaw = 0.0
+local fallCheckTimer = 0.0
 
 -- Nitro Booster State Variables
 local boosterGauge = 100.0 -- 0% to 100%
@@ -504,6 +507,11 @@ stateRemote.OnClientEvent:Connect(function(mounted: boolean, boardModel: Model?)
 				-- Keep the orientation set by the Server's GameLoopManager teleport
 				local _, ry, _ = hrp.CFrame:ToOrientation()
 				currentHeadingYaw = ry
+				
+				-- Initialize safe position
+				lastSafePosition = currentPos
+				lastSafeYaw = ry
+				
 				local trackForwardDir = Vector3.new(0, 0, 1)
 
 				if Camera then
@@ -597,6 +605,33 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 	if not hrp or not humanoid then return end
 
 	humanoid.AutoRotate = false
+
+	-- 🛡️ Fall Recovery Logic (트랙 이탈 즉시 복구)
+	if lastSafePosition then
+		if hrp.Position.Y < lastSafePosition.Y - 30 then
+			hrp.CFrame = CFrame.new(lastSafePosition + Vector3.new(0, 5, 0))
+			hrp.AssemblyLinearVelocity = Vector3.zero
+			hrp.AssemblyAngularVelocity = Vector3.zero
+			currentHeadingYaw = lastSafeYaw
+			currentWalkSpeed = 0.0
+			isBoosting = false
+		else
+			fallCheckTimer += deltaTime
+			if fallCheckTimer >= 0.5 then
+				fallCheckTimer = 0.0
+				local rayOrigin = hrp.Position
+				local rayDirection = Vector3.new(0, -15, 0)
+				local rayParams = RaycastParams.new()
+				rayParams.FilterDescendantsInstances = {character}
+				rayParams.FilterType = Enum.RaycastFilterType.Exclude
+				local result = Workspace:Raycast(rayOrigin, rayDirection, rayParams)
+				if result then
+					lastSafePosition = hrp.Position
+					lastSafeYaw = currentHeadingYaw
+				end
+			end
+		end
+	end
 
 	-- Stop leg flailing animations
 	local animator = humanoid:FindFirstChildOfClass("Animator")

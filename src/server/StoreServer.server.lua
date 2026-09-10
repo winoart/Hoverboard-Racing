@@ -37,6 +37,13 @@ if not buyHoverboardRemote then
 	buyHoverboardRemote.Parent = remotesFolder
 end
 
+local getKioskItemsRemote = remotesFolder:FindFirstChild("GetKioskItems") :: RemoteFunction
+if not getKioskItemsRemote then
+	getKioskItemsRemote = Instance.new("RemoteFunction")
+	getKioskItemsRemote.Name = "GetKioskItems"
+	getKioskItemsRemote.Parent = remotesFolder
+end
+
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local StoreConfig = require(Shared:WaitForChild("StoreConfig") :: ModuleScript)
 
@@ -268,4 +275,74 @@ buyHoverboardRemote.OnServerInvoke = function(player: Player, boardId: string)
 	print("🛒 [StoreServer] " .. player.Name .. " bought " .. targetItem.name .. " for " .. price .. "G")
 	
 	return true, targetItem.name .. " 구매 완료!"
+end
+
+-- 4. Hoverboard Kiosk Rotation Logic
+local currentKioskItems = {}
+local nextRefreshTime = 0
+local REFRESH_INTERVAL = 15 * 60 -- 15 minutes
+
+local function refreshKioskItems()
+	currentKioskItems = {}
+	
+	local function pickRarity()
+		local rand = math.random(1, 100)
+		local current = 0
+		for rarity, rate in pairs(StoreConfig.ShopRarityRates) do
+			current += rate
+			if rand <= current then
+				return rarity
+			end
+		end
+		return "Common"
+	end
+	
+	for i = 1, 3 do
+		local rarity = pickRarity()
+		local pool = {}
+		
+		-- Try to find items of the picked rarity that aren't already selected
+		for _, item in ipairs(StoreConfig.Items) do
+			if item.rarity == rarity and not table.find(currentKioskItems, item.id) then
+				table.insert(pool, item)
+			end
+		end
+		
+		-- Fallback: if no items available in this rarity, take any available item
+		if #pool == 0 then
+			for _, item in ipairs(StoreConfig.Items) do
+				if not table.find(currentKioskItems, item.id) then
+					table.insert(pool, item)
+				end
+			end
+		end
+		
+		if #pool > 0 then
+			local picked = pool[math.random(1, #pool)]
+			table.insert(currentKioskItems, picked.id)
+		end
+	end
+	
+	nextRefreshTime = os.time() + REFRESH_INTERVAL
+	print("🔄 [StoreServer] Hoverboard Kiosk items refreshed:", table.concat(currentKioskItems, ", "))
+end
+
+-- Initialize first rotation
+refreshKioskItems()
+
+task.spawn(function()
+	while true do
+		local waitTime = nextRefreshTime - os.time()
+		if waitTime <= 0 then
+			refreshKioskItems()
+		else
+			task.wait(1)
+		end
+	end
+end)
+
+getKioskItemsRemote.OnServerInvoke = function(player: Player)
+	-- Return current items and remaining seconds
+	local remaining = math.max(0, nextRefreshTime - os.time())
+	return currentKioskItems, remaining
 end
