@@ -163,6 +163,7 @@ local function updateSpectatorMode()
 		if Workspace.CurrentCamera and LocalPlayer.Character then
 			local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
 			if hum then
+				print("[DEBUG-AFK] Resetting CameraSubject to self!")
 				Workspace.CurrentCamera.CameraSubject = hum
 			end
 		end
@@ -194,8 +195,14 @@ task.spawn(function()
 		if isAFK and LocalPlayer.Character then
 			local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
 			if hum and hum:GetState() ~= Enum.HumanoidStateType.Dead then
-				-- Small jump to bypass anti-idle
-				hum.Jump = true
+				-- Small jump to bypass anti-idle, but ONLY if not on treadmill
+				-- Jumping on treadmill breaks the Hoverboard Freefall physics!
+				if not LocalPlayer:GetAttribute("OnTreadmill") then
+					hum.Jump = true
+				else
+					-- Just move them a tiny bit to prevent kick without jumping
+					hum:Move(Vector3.new(0, 0, 0.1), false)
+				end
 			end
 		end
 	end

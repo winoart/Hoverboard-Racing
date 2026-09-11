@@ -576,7 +576,7 @@ local function bindSlot(index)
 			return
 		end
 		
-		if slots[index] and slots[index].skillId then -- Removed isRaceStarted check for testing
+		if slots[index] and slots[index].skillId and (isRaceStarted and LocalPlayer:GetAttribute("IsRacing")) then
 			local skillId = slots[index].skillId
 			
 			local lastUsed = clientCooldowns[skillId]
@@ -766,8 +766,8 @@ end)
 -- Key inputs
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then return end
-	if not isRaceStarted then
-		-- print("🚫 대기실에서는 스킬을 사용할 수 없습니다!")
+	if not isRaceStarted or not LocalPlayer:GetAttribute("IsRacing") then
+		-- print("🚫 대기실/AFK 상태에서는 스킬을 사용할 수 없습니다!")
 		return
 	end
 	for i, key in ipairs(hotkeys) do

@@ -122,8 +122,7 @@ end
 local function refreshDisplays()
 	pcall(function()
 		local character = LocalPlayer.Character
-		local boardModel = character and character:FindFirstChild("EquippedHoverboard")
-		local isPlayerInRace = (boardModel ~= nil)
+		local isPlayerInRace = LocalPlayer:GetAttribute("IsRacing") == true
 
 		-- Top Header Banner
 		if headerStatusLabel and headerTimerLabel then

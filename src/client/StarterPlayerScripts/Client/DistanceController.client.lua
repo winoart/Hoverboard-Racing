@@ -11,10 +11,10 @@ local Workspace = game:GetService("Workspace")
 local LocalPlayer = Players.LocalPlayer
 local remotesFolder = ReplicatedStorage:WaitForChild("HoverboardRemotes")
 local addDistanceRemote = remotesFolder:WaitForChild("AddDistance") :: RemoteEvent
-local exitTreadmillRemote = remotesFolder:WaitForChild("ExitTreadmill") :: RemoteEvent
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local RebirthConfig = require(Shared:WaitForChild("RebirthConfig"))
+local HoverboardConfig = require(Shared:WaitForChild("HoverboardConfig"))
 
 local accumulatedDistance = 0
 local lastSyncTime = os.clock()
@@ -39,23 +39,23 @@ local function getMeterLabel(): TextLabel?
 	if playerGui then
 		local targetLabel = nil
 		
-		-- 1. 먼저 MeterTextLabel 이라는 이름으로 찾아봅니다.
+		-- 1. 먼저 MeterTextLabel 이나 MeterDisplayHUD 라는 이름으로 찾아봅니다.
 		for _, gui in ipairs(playerGui:GetChildren()) do
 			if gui:IsA("ScreenGui") then
-				local label = gui:FindFirstChild("MeterTextLabel", true)
-				if label and label:IsA("TextLabel") then
+				local label = gui:FindFirstChild("MeterTextLabel", true) or gui:FindFirstChild("MeterDisplayHUD", true)
+				if label and (label:IsA("TextLabel") or label:IsA("TextButton")) then
 					targetLabel = label
 					break
 				end
 			end
 		end
 		
-		-- 2. 만약 이름을 다르게 지으셨다면, 텍스트가 "12345"인 텍스트 라벨을 무조건 찾습니다!
+		-- 2. 만약 이름을 다르게 지으셨다면, 텍스트가 "12345"인 텍스트 관련 UI를 무조건 찾습니다!
 		if not targetLabel then
 			for _, gui in ipairs(playerGui:GetChildren()) do
 				if gui:IsA("ScreenGui") then
 					for _, desc in ipairs(gui:GetDescendants()) do
-						if desc:IsA("TextLabel") and desc.Text == "12345" then
+						if (desc:IsA("TextLabel") or desc:IsA("TextButton")) and desc.Text == "12345" then
 							targetLabel = desc
 							break
 						end
@@ -85,15 +85,12 @@ local function getMeterLabel(): TextLabel?
 	return nil
 end
 
-local function spawnLightningEffect(meterLabel: TextLabel, hrp: BasePart)
-	local camera = Workspace.CurrentCamera
-	if not camera then return end
+local function spawnLightningEffect(meterLabel: TextLabel?, hrp: BasePart)
+	local playerGui = LocalPlayer:WaitForChild("PlayerGui")
 	
-	local screenPos, onScreen = camera:WorldToScreenPoint(hrp.Position)
+	-- 월드 좌표를 스크린 좌표로 변환
+	local screenPos, onScreen = Workspace.CurrentCamera:WorldToScreenPoint(hrp.Position)
 	if not onScreen then return end
-	
-	local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
-	if not playerGui then return end
 	
 	local fxScreen = playerGui:FindFirstChild("LightningFXGui")
 	if not fxScreen then
@@ -103,7 +100,12 @@ local function spawnLightningEffect(meterLabel: TextLabel, hrp: BasePart)
 	end
 	
 	-- 타겟 위치 (미터 텍스트 라벨의 중앙)
-	local targetPos = UDim2.new(0, meterLabel.AbsolutePosition.X + (meterLabel.AbsoluteSize.X / 2), 0, meterLabel.AbsolutePosition.Y + (meterLabel.AbsoluteSize.Y / 2))
+	local targetPos
+	if meterLabel then
+		targetPos = UDim2.new(0, meterLabel.AbsolutePosition.X + (meterLabel.AbsoluteSize.X / 2), 0, meterLabel.AbsolutePosition.Y + (meterLabel.AbsoluteSize.Y / 2))
+	else
+		targetPos = UDim2.new(0, screenPos.X, 0, screenPos.Y - 250)
+	end
 	
 	for i = 1, 3 do
 		local icon = Instance.new("TextLabel")
@@ -136,7 +138,8 @@ local function spawnLightningEffect(meterLabel: TextLabel, hrp: BasePart)
 		local flyTweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.In)
 		local flyTween = TweenService:Create(icon, flyTweenInfo, {
 			Position = targetPos,
-			TextSize = 40 -- 도착할 때 살짝 작아지면서 흡수되는 느낌
+			TextSize = meterLabel and 40 or 10,
+			TextTransparency = meterLabel and 0 or 1
 		})
 		
 		popTween.Completed:Connect(function()
@@ -169,20 +172,20 @@ RunService.RenderStepped:Connect(function(dt)
 		currentDistance = (distanceVal and distanceVal.Value or 0) + accumulatedDistance
 		if meterLabel then
 			meterLabel.Text = formatDistance(currentDistance)
-			
-			-- 초기 접속 시 가지고 있던 거리로 기준점 초기화 (불필요한 번개 생성 방지)
-			if lastLightningDistance == -1 then
-				lastLightningDistance = currentDistance
-			end
-			
-			-- 번개 이펙트 생성 (100미터 마다)
-			if currentDistance - lastLightningDistance >= LIGHTNING_SPAWN_INTERVAL then
-				lastLightningDistance = currentDistance
-				-- 캐릭터 HRP가 있을 때만 이펙트 발생
-				local hrp = character:FindFirstChild("HumanoidRootPart") :: BasePart
-				if hrp then
-					spawnLightningEffect(meterLabel, hrp)
-				end
+		end
+		
+		-- 초기 접속 시 가지고 있던 거리로 기준점 초기화 (불필요한 번개 생성 방지)
+		if lastLightningDistance == -1 or currentDistance < lastLightningDistance then
+			lastLightningDistance = currentDistance
+		end
+		
+		-- 번개 이펙트 생성 (100미터 마다)
+		if currentDistance - lastLightningDistance >= LIGHTNING_SPAWN_INTERVAL then
+			lastLightningDistance = currentDistance
+			-- 캐릭터 HRP가 있을 때만 이펙트 발생
+			local hrp = character:FindFirstChild("HumanoidRootPart") :: BasePart
+			if hrp then
+				spawnLightningEffect(meterLabel, hrp)
 			end
 		end
 	end
@@ -191,13 +194,13 @@ RunService.RenderStepped:Connect(function(dt)
 	local hrp = character:FindFirstChild("HumanoidRootPart") :: BasePart
 	local equippedBoard = character:FindFirstChild("EquippedHoverboard")
 	
-	if not hrp or not equippedBoard then return end
+	if not hrp then return end
+	if not equippedBoard and not LocalPlayer:GetAttribute("OnTreadmill") then return end
 	
 	-- 속도를 기반으로 이동 거리 계산 (m/s 기준으로 환산, 예를들어 1스터드 = 0.28m)
 	-- 게임적 허용으로 1스터드 = 1m 로 취급하거나, 속도에 비례해 거리를 올립니다.
 	local speed = 0
 	if LocalPlayer:GetAttribute("OnTreadmill") then
-		local HoverboardConfig = require(ReplicatedStorage.Shared.HoverboardConfig)
 		local rbData = RebirthConfig.GetRebirthData(LocalPlayer:GetAttribute("Rebirths") or 0)
 		speed = HoverboardConfig.RIDE_WALKSPEED + rbData.BoostSpeedBonus
 	else
@@ -217,13 +220,5 @@ RunService.RenderStepped:Connect(function(dt)
 			accumulatedDistance = 0
 		end
 		lastSyncTime = os.clock()
-	end
-end)
-
--- Handle Jump to exit Treadmill
-local UserInputService = game:GetService("UserInputService")
-UserInputService.JumpRequest:Connect(function()
-	if LocalPlayer:GetAttribute("OnTreadmill") then
-		exitTreadmillRemote:FireServer()
 	end
 end)

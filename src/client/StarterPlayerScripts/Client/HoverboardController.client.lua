@@ -583,7 +583,10 @@ end)
 
 -- 🛹 PROCEDURAL ANIMATION: Dynamic Skater Stance (Runs after Animator)
 RunService.Stepped:Connect(function(_, deltaTime)
-	if not isMounted then return end
+	local character = LocalPlayer.Character
+	if not character then return end
+	local hasBoard = character:FindFirstChild("EquippedHoverboard") ~= nil
+	if not isMounted and not hasBoard then return end
 
 	-- Lean into turns dynamically based on steer rate
 	local leanFactor = currentSteerRate * 0.35 
@@ -603,10 +606,47 @@ end)
 
 -- Main Render Loop for Arcade Racing HUD, Hovering Physics, Speedometer, Booster Gauge & Wind FX
 RunService.RenderStepped:Connect(function(deltaTime: number)
-	if not isMounted then return end
-
 	local character = LocalPlayer.Character
 	if not character then return end
+	local hasBoard = character:FindFirstChild("EquippedHoverboard") ~= nil
+
+	if hasBoard and not isMounted then
+		-- Only stop leg flailing animations and bob for Treadmill Free Movement
+		local humanoid = character:FindFirstChildOfClass("Humanoid")
+		if humanoid then
+			local animator = humanoid:FindFirstChildOfClass("Animator")
+			if animator then
+				for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+					if track.Name:lower():find("run") or track.Name:lower():find("walk") then
+						track:Stop()
+					end
+				end
+			end
+			-- Only animate HipHeight if they are NOT in Freefall.
+			-- Modifying HipHeight every frame while in Freefall prevents Roblox from detecting the ground!
+			if humanoid:GetState() == Enum.HumanoidStateType.Freefall then
+				humanoid.HipHeight = HoverboardConfig.HOVER_HEIGHT
+			else
+				local clockTime = os.clock()
+				local bobOffset = math.sin(clockTime * HoverboardConfig.BOB_FREQUENCY) * HoverboardConfig.BOB_AMPLITUDE
+				humanoid.HipHeight = HoverboardConfig.HOVER_HEIGHT + bobOffset
+			end
+		end
+		return
+	end
+
+	if not hasBoard then
+		local humanoid = character:FindFirstChildOfClass("Humanoid")
+		if humanoid and humanoid.HipHeight > 2.5 then
+			humanoid.HipHeight = 2.0
+			-- Also make sure they are not stuck in Freefall when getting off
+			if humanoid:GetState() == Enum.HumanoidStateType.Freefall then
+				humanoid:ChangeState(Enum.HumanoidStateType.Running)
+			end
+		end
+	end
+
+	if not isMounted then return end
 
 	local hrp = character:FindFirstChild("HumanoidRootPart") :: BasePart?
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
@@ -649,11 +689,14 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 	end
 
 	-- Stop leg flailing animations
+	local hasBoard = character:FindFirstChild("EquippedHoverboard") ~= nil
 	local animator = humanoid:FindFirstChildOfClass("Animator")
 	if animator then
 		for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
 			if track.Name:lower():find("run") or track.Name:lower():find("walk") then
-				track:Stop()
+				if hasBoard then
+					track:Stop()
+				end
 			end
 		end
 	end
@@ -1008,7 +1051,7 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 			if boosterGaugeStroke then boosterGaugeStroke.Color = Color3.fromRGB(255, 100, 50) end
 		elseif boosterGauge >= HoverboardConfig.BOOSTER_MAX_GAUGE then
 			-- Flash effect
-			local flash = (math.floor(currentClock * 8) % 2 == 0)
+			local flash = (math.floor(clockTime * 8) % 2 == 0)
 			if flash then
 				speedModeLabel.Text = "⚡ SPACE ⚡"
 				speedModeLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
@@ -1210,6 +1253,24 @@ if raceFinishedRemote then
 			lapNumLabel.Text = string.format("%d / %d LAPS", totalLaps, totalLaps)
 		end
 		
+		-- [DEBUG] Track player state to find out why WASD breaks!
+		task.spawn(function()
+			for i = 1, 15 do
+				task.wait(1)
+				local char = LocalPlayer.Character
+				if char then
+					local hum = char:FindFirstChildOfClass("Humanoid")
+					local hrp = char:FindFirstChild("HumanoidRootPart")
+					if hum and hrp then
+						print(string.format("[DEBUG-WASD] Time: %d | WalkSpeed: %.1f | State: %s | HipHeight: %.1f | Anchored: %s | isMounted: %s | hasBoard: %s | IsRacing: %s",
+							i, hum.WalkSpeed, tostring(hum:GetState()), hum.HipHeight, tostring(hrp.Anchored), tostring(isMounted), 
+							tostring(char:FindFirstChild("EquippedHoverboard") ~= nil), tostring(LocalPlayer:GetAttribute("IsRacing"))
+						))
+					end
+				end
+			end
+		end)
+		
 		if timerLabel and finalRank ~= 999 then
 			local mins = math.floor(finishTime / 60)
 			local secs = math.floor(finishTime % 60)
@@ -1266,12 +1327,14 @@ if raceFinishedRemote then
 				end)
 			end
 		end)		
-		-- Stop movement by dismounting and locking
-		dismountRemote:FireServer()
-		local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-		if hum then
-			hum.WalkSpeed = 0
-			hum.JumpPower = 0
+		-- Stop movement by dismounting and locking ONLY for racers
+		if LocalPlayer:GetAttribute("IsRacing") then
+			dismountRemote:FireServer()
+			local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+			if hum then
+				hum.WalkSpeed = 0
+				hum.JumpPower = 0
+			end
 		end
 	end)
 end
