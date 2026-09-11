@@ -4,6 +4,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
+local UserInputService = game:GetService("UserInputService")
 
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
@@ -50,8 +51,8 @@ btnStroke.Parent = afkBtn
 -- Central Watermark UI
 local watermark = Instance.new("TextLabel")
 watermark.Name = "AFKWatermark"
-watermark.Size = UDim2.new(1, 0, 1, 0)
-watermark.Position = UDim2.new(0, 0, 0, 0)
+watermark.Size = UDim2.new(1, 0, 0, 100)
+watermark.Position = UDim2.new(0, 0, 0, 120)
 watermark.BackgroundTransparency = 1
 watermark.Font = Enum.Font.GothamBlack
 watermark.Text = "A.F.K"
@@ -195,6 +196,18 @@ task.spawn(function()
 			if hum and hum:GetState() ~= Enum.HumanoidStateType.Dead then
 				-- Small jump to bypass anti-idle
 				hum.Jump = true
+			end
+		end
+	end
+end)
+
+-- 4. Dismount Treadmill with Spacebar
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if input.KeyCode == Enum.KeyCode.Space then
+		if LocalPlayer:GetAttribute("OnTreadmill") then
+			local exitRemote = remotesFolder:FindFirstChild("ExitTreadmill") :: RemoteEvent?
+			if exitRemote then
+				exitRemote:FireServer()
 			end
 		end
 	end

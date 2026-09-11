@@ -20,7 +20,7 @@ local accumulatedDistance = 0
 local lastSyncTime = os.clock()
 local SYNC_INTERVAL = 1.0 -- 1초마다 서버에 전송
 
-local lastLightningDistance = 0
+local lastLightningDistance = -1
 local LIGHTNING_SPAWN_INTERVAL = 100 -- 100미터마다 번개 생성
 
 -- 포맷팅 함수
@@ -102,38 +102,58 @@ local function spawnLightningEffect(meterLabel: TextLabel, hrp: BasePart)
 		fxScreen.Parent = playerGui
 	end
 	
-	local icon = Instance.new("TextLabel")
-	icon.Size = UDim2.new(0, 60, 0, 60)
-	icon.Position = UDim2.new(0, screenPos.X, 0, screenPos.Y)
-	icon.AnchorPoint = Vector2.new(0.5, 0.5)
-	icon.BackgroundTransparency = 1
-	icon.Font = Enum.Font.GothamBlack
-	icon.Text = "⚡"
-	icon.TextSize = 60
-	icon.TextColor3 = Color3.fromRGB(255, 255, 0)
-	icon.ZIndex = 100
-	
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = Color3.new(0, 0, 0)
-	stroke.Thickness = 3
-	stroke.Parent = icon
-	
-	icon.Parent = fxScreen
-	
 	-- 타겟 위치 (미터 텍스트 라벨의 중앙)
 	local targetPos = UDim2.new(0, meterLabel.AbsolutePosition.X + (meterLabel.AbsoluteSize.X / 2), 0, meterLabel.AbsolutePosition.Y + (meterLabel.AbsoluteSize.Y / 2))
 	
-	-- 투명해지지 않고 확실하게 꽂히도록 수정, 속도는 약간 더 빠르게
-	local tweenInfo = TweenInfo.new(0.4, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
-	local tween = TweenService:Create(icon, tweenInfo, {
-		Position = targetPos,
-		TextSize = 40 -- 도착할 때 살짝 작아지면서 흡수되는 느낌
-	})
-	
-	tween:Play()
-	tween.Completed:Connect(function()
-		icon:Destroy()
-	end)
+	for i = 1, 3 do
+		local icon = Instance.new("TextLabel")
+		icon.Size = UDim2.new(0, 78, 0, 78) -- 기존 60에서 30% 증가
+		icon.Position = UDim2.new(0, screenPos.X, 0, screenPos.Y)
+		icon.AnchorPoint = Vector2.new(0.5, 0.5)
+		icon.BackgroundTransparency = 1
+		icon.Font = Enum.Font.GothamBlack
+		icon.Text = "⚡"
+		icon.TextSize = 78
+		icon.TextColor3 = Color3.fromRGB(255, 255, 0) -- 노란색 시도
+		icon.ZIndex = 100
+		
+		local stroke = Instance.new("UIStroke")
+		stroke.Color = Color3.new(0, 0, 0)
+		stroke.Thickness = 2
+		stroke.Parent = icon
+		
+		icon.Parent = fxScreen
+		
+		-- 1단계: 플레이어 몸에서 아래쪽으로 스무스하게 튀어나오기
+		local randomX = screenPos.X + math.random(-80, 80)
+		local randomY = screenPos.Y + math.random(50, 120)
+		local popPos = UDim2.new(0, randomX, 0, randomY)
+		
+		local popTweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+		local popTween = TweenService:Create(icon, popTweenInfo, {Position = popPos})
+		
+		-- 2단계: 거리 표시 UI 쪽으로 가속하며 빨려 들어가기 (가속도 = EasingDirection.In)
+		local flyTweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.In)
+		local flyTween = TweenService:Create(icon, flyTweenInfo, {
+			Position = targetPos,
+			TextSize = 40 -- 도착할 때 살짝 작아지면서 흡수되는 느낌
+		})
+		
+		popTween.Completed:Connect(function()
+			flyTween:Play()
+		end)
+		
+		flyTween.Completed:Connect(function()
+			icon:Destroy()
+		end)
+		
+		-- 3개의 번개가 약간의 시차를 두고 순차적으로 튀어나오도록 딜레이 적용
+		task.delay((i - 1) * 0.15, function()
+			if icon.Parent then
+				popTween:Play()
+			end
+		end)
+	end
 end
 
 RunService.RenderStepped:Connect(function(dt)
@@ -149,6 +169,11 @@ RunService.RenderStepped:Connect(function(dt)
 		currentDistance = (distanceVal and distanceVal.Value or 0) + accumulatedDistance
 		if meterLabel then
 			meterLabel.Text = formatDistance(currentDistance)
+			
+			-- 초기 접속 시 가지고 있던 거리로 기준점 초기화 (불필요한 번개 생성 방지)
+			if lastLightningDistance == -1 then
+				lastLightningDistance = currentDistance
+			end
 			
 			-- 번개 이펙트 생성 (100미터 마다)
 			if currentDistance - lastLightningDistance >= LIGHTNING_SPAWN_INTERVAL then

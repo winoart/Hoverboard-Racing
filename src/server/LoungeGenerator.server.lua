@@ -134,7 +134,7 @@ local function createInvisibleWalls(centerCFrame: CFrame, size: Vector3, spawnCF
 		wall.CFrame = offsetCFrame
 		wall.Anchored = true
 		wall.CanCollide = true
-		wall.Transparency = 0.6 -- 반투명하게 해서 눈에 보이게 렌더링
+		wall.Transparency = 1 -- 투명하게 처리하여 게임 내에서 보이지 않게 함
 		wall.Material = Enum.Material.ForceField
 		wall.Color = Color3.fromRGB(0, 200, 255)
 		wall.Parent = wallFolder

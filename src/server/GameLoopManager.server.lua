@@ -102,13 +102,16 @@ local function teleportAllToLounge()
 	local loungeCFrame = getLoungeCFrame()
 
 	for _, player in ipairs(Players:GetPlayers()) do
-		local boardModel = player.Character and player.Character:FindFirstChild("EquippedHoverboard")
-		if boardModel then
-			boardModel:Destroy()
+		-- 레이스에 참여 중이었던 유저만 대기실로 복귀 처리합니다. (대기실/AFK 유저 보호)
+		if player:GetAttribute("IsRacing") then
+			local boardModel = player.Character and player.Character:FindFirstChild("EquippedHoverboard")
+			if boardModel then
+				boardModel:Destroy()
+			end
+			player:SetAttribute("IsRacing", false)
+			stateRemote:FireClient(player, false, nil)
+			teleportPlayer(player, loungeCFrame)
 		end
-		player:SetAttribute("IsRacing", false)
-		stateRemote:FireClient(player, false, nil)
-		teleportPlayer(player, loungeCFrame)
 	end
 end
 
@@ -139,12 +142,14 @@ end
 -- Teleport All Lounge Players to Track Start Grid & Auto-Mount Hoverboards
 local function teleportAllToTrackAndMount()
 	local trackCFrame = getTrackStartGridCFrame()
-
+	print("[DEBUG-GLM] teleportAllToTrackAndMount started. trackCFrame: " .. tostring(trackCFrame.Position))
 	local hoverboardModels = ReplicatedStorage:FindFirstChild("HoverboardModels")
 
 	local activeIdx = 0
 	for _, player in ipairs(Players:GetPlayers()) do
+		print("[DEBUG-GLM] Checking player: " .. player.Name .. " | IsAFK: " .. tostring(player:GetAttribute("IsAFK")) .. " | OnTreadmill: " .. tostring(player:GetAttribute("OnTreadmill")))
 		if player:GetAttribute("IsAFK") then
+			print("[DEBUG-GLM] Skipped " .. player.Name .. " due to IsAFK")
 			continue
 		end
 		
@@ -152,12 +157,12 @@ local function teleportAllToTrackAndMount()
 		local col = (activeIdx - 1) % 4
 		local row = math.floor((activeIdx - 1) / 4)
 		local gridOffset = CFrame.new((col - 1.5) * 8, 0, -row * 10)
-		-- Restore original snowboard/skateboard sideways stance:
 		local sideProfileRotation = CFrame.Angles(0, math.rad(-90), 0)
 		local targetCFrame = trackCFrame * gridOffset * sideProfileRotation
 
 		player:SetAttribute("IsRacing", true)
-		teleportPlayer(player, targetCFrame)
+		player:SetAttribute("OnTreadmill", false)
+		player:SetAttribute("PreTreadmillPosition", nil)
 
 		local equippedId = player:FindFirstChild("EquippedHoverboardId")
 		local boardName = equippedId and equippedId.Value or "DefaultHoverboard"
@@ -167,57 +172,74 @@ local function teleportAllToTrackAndMount()
 		end
 
 		if player.Character and boardTemplate then
-			for _, child in ipairs(player.Character:GetChildren()) do
-				if child.Name == "EquippedHoverboard" or child.Name:lower():find("hoverboard") then
-					child:Destroy()
-				end
-			end
-
-			local boardClone = boardTemplate:Clone()
-			boardClone.Name = "EquippedHoverboard"
-
-			for _, part in ipairs(boardClone:GetDescendants()) do
-				if part:IsA("BasePart") then
-					part.Anchored = false
-					part.CanCollide = false
-					part.Massless = true
-				end
-			end
-
-			local rootPart = boardClone.PrimaryPart
 			local hrp = player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
-
-			if rootPart and hrp then
-				-- 마법 빗자루(MagicBroom)의 경우 앞뒤가 바뀌어 있으므로 180도 회전 오프셋을 적용합니다.
-				local rotationOffset = CFrame.new()
-				if boardName == "MagicBroom" then
-					rotationOffset = CFrame.Angles(0, math.rad(180), 0)
-				end
-
-				-- 모델 전체를 캐릭터 발 밑으로 이동(PivotTo)시킵니다. (회전 오프셋 포함)
-				boardClone:PivotTo(hrp.CFrame * CFrame.new(0, -3.25, 0) * rotationOffset)
-
-				-- 그 다음 모든 부품을 중심 파트(PrimaryPart)에 단단히 용접합니다.
-				for _, part in ipairs(boardClone:GetDescendants()) do
-					if part:IsA("BasePart") and part ~= rootPart then
-						local wc = Instance.new("WeldConstraint")
-						wc.Part0 = rootPart
-						wc.Part1 = part
-						wc.Parent = rootPart
+			local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+			
+			print("[DEBUG-GLM] Player " .. player.Name .. " has Character. HRP: " .. tostring(hrp ~= nil) .. ", HumHealth: " .. tostring(humanoid and humanoid.Health))
+			
+			if hrp and humanoid and humanoid.Health > 0 then
+				print("[DEBUG-GLM] Destroying old boards for " .. player.Name)
+				-- 1. DESTROY old boards BEFORE moving
+				for _, child in ipairs(player.Character:GetChildren()) do
+					if child.Name == "EquippedHoverboard" or child.Name:lower():find("hoverboard") then
+						child:Destroy()
 					end
 				end
-				
-				boardClone.Parent = player.Character
 
-				local weld = Instance.new("Weld")
-				weld.Name = "HoverWeld"
-				weld.Part0 = hrp
-				weld.Part1 = rootPart
-				weld.C0 = CFrame.new(0, -3.25, 0) * rotationOffset
-				weld.Parent = rootPart
+				print("[DEBUG-GLM] Teleporting " .. player.Name .. " to " .. tostring(targetCFrame.Position))
+				-- 2. RESET physics and TELEPORT
+				hrp.AssemblyLinearVelocity = Vector3.zero
+				hrp.AssemblyAngularVelocity = Vector3.zero
+				hrp.CFrame = targetCFrame
 
-				stateRemote:FireClient(player, true, boardClone)
+				-- 3. CLONE and WELD new board
+				local boardClone = boardTemplate:Clone()
+				boardClone.Name = "EquippedHoverboard"
+
+				for _, part in ipairs(boardClone:GetDescendants()) do
+					if part:IsA("BasePart") then
+						part.Anchored = false
+						part.CanCollide = false
+						part.Massless = true
+					end
+				end
+
+				local rootPart = boardClone.PrimaryPart
+				if rootPart then
+					local rotationOffset = CFrame.new()
+					if boardName == "MagicBroom" then
+						rotationOffset = CFrame.Angles(0, math.rad(180), 0)
+					end
+
+					boardClone:PivotTo(hrp.CFrame * CFrame.new(0, -3.25, 0) * rotationOffset)
+
+					for _, part in ipairs(boardClone:GetDescendants()) do
+						if part:IsA("BasePart") and part ~= rootPart then
+							local wc = Instance.new("WeldConstraint")
+							wc.Part0 = rootPart
+							wc.Part1 = part
+							wc.Parent = rootPart
+						end
+					end
+					
+					boardClone.Parent = player.Character
+
+					local weld = Instance.new("Weld")
+					weld.Name = "HoverWeld"
+					weld.Part0 = hrp
+					weld.Part1 = rootPart
+					weld.C0 = CFrame.new(0, -3.25, 0) * rotationOffset
+					weld.Parent = rootPart
+
+					print("[DEBUG-GLM] Firing stateRemote for " .. player.Name .. " with forceIsRacing=true")
+					-- Force client to realize it's racing so it doesn't snap back to treadmill
+					stateRemote:FireClient(player, true, boardClone, nil, true)
+				else
+					print("[DEBUG-GLM] FAILED to find PrimaryPart in board template for " .. player.Name)
+				end
 			end
+		else
+			print("[DEBUG-GLM] Missing Character or BoardTemplate for " .. player.Name)
 		end
 	end
 end

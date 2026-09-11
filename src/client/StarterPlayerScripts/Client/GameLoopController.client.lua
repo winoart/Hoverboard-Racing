@@ -646,11 +646,14 @@ phaseRemote.OnClientEvent:Connect(function(phase: string, timeLeft: number, mapV
 	end
 	
 	if phase ~= currentPhase and (phase == "MAP_VOTING" or phase == "MAP_BUILDING") then
-		local uisToClose = {"HoverboardRouletteGui", "SkillStoreGui", "InventoryGui"}
-		for _, name in ipairs(uisToClose) do
-			local gui = playerGui:FindFirstChild(name)
-			if gui and gui:IsA("ScreenGui") then
-				gui.Enabled = false
+		-- AFK 모드인 유저는 투표 화면에 구애받지 않도록 UI 강제 종료를 하지 않습니다.
+		if not LocalPlayer:GetAttribute("IsAFK") then
+			local uisToClose = {"HoverboardRouletteGui", "SkillStoreGui", "InventoryGui"}
+			for _, name in ipairs(uisToClose) do
+				local gui = playerGui:FindFirstChild(name)
+				if gui and gui:IsA("ScreenGui") then
+					gui.Enabled = false
+				end
 			end
 		end
 	end

@@ -471,13 +471,8 @@ phaseRemote.OnClientEvent:Connect(function(phase, timeLeft)
 	if phase == "INTERMISSION" or phase == "MAP_VOTING" then
 		hudGui.Enabled = true
 	else
-		-- 레이스 중(RACE_MATCH 등)이라도, 늦게 접속해 대기실에 있는 유저는 호버보드가 없습니다.
-		-- 호버보드가 없다면 대기실에 있는 것이므로 인벤토리를 띄워줍니다.
-		local character = LocalPlayer.Character
-		local isRacing = false
-		if character and character:FindFirstChild("EquippedHoverboard") then
-			isRacing = true
-		end
+		-- 레이스 중(RACE_MATCH 등)이라도, 늦게 접속해 대기실에 있는 유저나 트레드밀 훈련 중인 유저는 인벤토리가 보여야 합니다.
+		local isRacing = LocalPlayer:GetAttribute("IsRacing") == true
 		
 		if isRacing then
 			hudGui.Enabled = false

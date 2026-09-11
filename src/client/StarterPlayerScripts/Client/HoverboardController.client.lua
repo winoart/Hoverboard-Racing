@@ -464,7 +464,13 @@ createHUDUI()
 local skaterJoints = {}
 
 -- Handle Server State Changes & Steering Initialization
-stateRemote.OnClientEvent:Connect(function(mounted: boolean, boardModel: Model?)
+stateRemote.OnClientEvent:Connect(function(mounted: boolean, boardModel: Model?, savedPos: Vector3?, forceIsRacing: boolean?)
+	if forceIsRacing then
+		LocalPlayer:SetAttribute("OnTreadmill", false)
+		_G.wasOnTreadmill = false
+		lastSafePosition = nil -- Reset Fall Recovery to allow vertical teleport!
+	end
+
 	isMounted = mounted
 	currentBoardModel = boardModel
 	boosterGauge = 0.0 -- 초기 부스터는 0%에서 시작
@@ -475,7 +481,7 @@ stateRemote.OnClientEvent:Connect(function(mounted: boolean, boardModel: Model?)
 	raceStartTime = 0.0 -- Timer will start when countdown reaches 1!
 
 	if guiScreen then
-		guiScreen.Enabled = mounted
+		guiScreen.Enabled = mounted and not LocalPlayer:GetAttribute("OnTreadmill")
 	end
 
 	if mounted then
@@ -514,7 +520,7 @@ stateRemote.OnClientEvent:Connect(function(mounted: boolean, boardModel: Model?)
 				
 				local trackForwardDir = Vector3.new(0, 0, 1)
 
-				if Camera then
+				if Camera and not LocalPlayer:GetAttribute("OnTreadmill") then
 					Camera.CameraType = Enum.CameraType.Scriptable
 					Camera.CFrame = CFrame.lookAt(currentPos - trackForwardDir * 16 + Vector3.new(0, 6.5, 0), currentPos + trackForwardDir * 25 + Vector3.new(0, 3.5, 0))
 				end
@@ -548,11 +554,13 @@ stateRemote.OnClientEvent:Connect(function(mounted: boolean, boardModel: Model?)
 	else
 		isBoosting = false
 		isRaceStarted = false
+		_G.wasOnTreadmill = false
 		local character = LocalPlayer.Character
 		local hum = character and character:FindFirstChildOfClass("Humanoid")
 		if hum then
 			hum.AutoRotate = true
 			hum.WalkSpeed = 16
+			hum.HipHeight = 2.0 -- Reset to default R15 HipHeight to prevent floating in lounge
 			hum:SetStateEnabled(Enum.HumanoidStateType.Jumping, true)
 		end
 		
@@ -606,9 +614,16 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 
 	humanoid.AutoRotate = false
 
-	-- 🛡️ Fall Recovery Logic (트랙 이탈 즉시 복구)
-	if lastSafePosition then
+	-- 🛡️ Fall Recovery Logic (레이스 중 트랙 이탈 즉시 복구)
+	if isRaceStarted then
+		if not lastSafePosition then
+			-- Initialize if not set
+			lastSafePosition = hrp.Position
+			lastSafeYaw = currentHeadingYaw
+		end
+
 		if hrp.Position.Y < lastSafePosition.Y - 30 then
+			print("[DEBUG-FR] 낙하 감지! 안전지대로 복구합니다. 낙하 깊이: " .. string.format("%.1f", lastSafePosition.Y - hrp.Position.Y))
 			hrp.CFrame = CFrame.new(lastSafePosition + Vector3.new(0, 5, 0))
 			hrp.AssemblyLinearVelocity = Vector3.zero
 			hrp.AssemblyAngularVelocity = Vector3.zero
@@ -780,6 +795,72 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 	local clockTime = os.clock()
 	local bobOffset = math.sin(clockTime * HoverboardConfig.BOB_FREQUENCY) * HoverboardConfig.BOB_AMPLITUDE
 	humanoid.HipHeight = HoverboardConfig.HOVER_HEIGHT + bobOffset + stunLiftOffset
+	
+	local treadmillSwayOffset = 0
+	local treadmillBankSway = 0
+	if LocalPlayer:GetAttribute("OnTreadmill") then
+		treadmillSwayOffset = math.sin(clockTime * HoverboardConfig.BOB_FREQUENCY * 0.5) * 1.5
+		treadmillBankSway = math.cos(clockTime * HoverboardConfig.BOB_FREQUENCY * 0.5) * 10
+		
+		if not _G.treadmillBaseCFrame then
+			_G.treadmillBaseCFrame = hrp.CFrame
+		end
+		
+		-- 플레이어 캐릭터 기준의 좌우(RightVector) 방향으로 흔들리게 수정
+		local swayWorld = _G.treadmillBaseCFrame.RightVector * treadmillSwayOffset
+		
+		-- 다른 플레이어에게도 무빙이 보이도록 물리 제어기(AlignPosition)를 사용합니다.
+		local alignPos = hrp:FindFirstChild("TreadmillSwayPos") :: AlignPosition?
+		local targetAttach = Workspace.Terrain:FindFirstChild("TreadmillSwayTarget") :: Attachment?
+		
+		if not alignPos or not targetAttach then
+			-- 기존 찌꺼기 제거
+			if hrp:FindFirstChild("TreadmillSwayPos") then hrp.TreadmillSwayPos:Destroy() end
+			if hrp:FindFirstChild("TreadmillSwayOri") then hrp.TreadmillSwayOri:Destroy() end
+			if hrp:FindFirstChild("SwayAttach0") then hrp.SwayAttach0:Destroy() end
+			if Workspace.Terrain:FindFirstChild("TreadmillSwayTarget") then Workspace.Terrain.TreadmillSwayTarget:Destroy() end
+			
+			local attach0 = Instance.new("Attachment")
+			attach0.Name = "SwayAttach0"
+			attach0.Parent = hrp
+			
+			targetAttach = Instance.new("Attachment")
+			targetAttach.Name = "TreadmillSwayTarget"
+			targetAttach.Parent = Workspace.Terrain
+			
+			alignPos = Instance.new("AlignPosition")
+			alignPos.Name = "TreadmillSwayPos"
+			alignPos.Attachment0 = attach0
+			alignPos.Attachment1 = targetAttach
+			alignPos.Mode = Enum.PositionAlignmentMode.TwoAttachment
+			alignPos.ForceLimitMode = Enum.ForceLimitMode.PerAxis
+			-- Y축(위아래)은 힘을 0으로 줘서 HipHeight 바운스를 방해하지 않게 합니다.
+			alignPos.MaxAxesForce = Vector3.new(10000000, 0, 10000000) 
+			alignPos.Responsiveness = 200
+			alignPos.Parent = hrp
+			
+			local alignOri = Instance.new("AlignOrientation")
+			alignOri.Name = "TreadmillSwayOri"
+			alignOri.Attachment0 = attach0
+			alignOri.Attachment1 = targetAttach
+			alignOri.Mode = Enum.OrientationAlignmentMode.TwoAttachment
+			alignOri.MaxTorque = 10000000
+			alignOri.Responsiveness = 200
+			alignOri.Parent = hrp
+		end
+		
+		targetAttach.WorldCFrame = _G.treadmillBaseCFrame + swayWorld
+		hrp.Anchored = false -- 물리 엔진이 타 유저에게 동기화되도록 반드시 언앵커!
+	else
+		if _G.treadmillBaseCFrame then
+			hrp.Anchored = false
+			_G.treadmillBaseCFrame = nil
+			if hrp:FindFirstChild("TreadmillSwayPos") then hrp.TreadmillSwayPos:Destroy() end
+			if hrp:FindFirstChild("TreadmillSwayOri") then hrp.TreadmillSwayOri:Destroy() end
+			if hrp:FindFirstChild("SwayAttach0") then hrp.SwayAttach0:Destroy() end
+			if Workspace.Terrain:FindFirstChild("TreadmillSwayTarget") then Workspace.Terrain.TreadmillSwayTarget:Destroy() end
+		end
+	end
 
 	-- 2. Banking physics
 	local localVel = hrp.CFrame:VectorToObjectSpace(horizontalVelocity)
@@ -796,12 +877,14 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 	-- Apply Synchronized Feet Weld C0 Offset & Pitch/Bank Dynamic Lean Physics
 	if boardModel and rootPart then
 		local weld = rootPart:FindFirstChild("HoverWeld") :: Weld?
+		
 		if weld then
 			local pitchRad = math.rad(-pitchAngleDeg)
-			local bankRad = math.rad(currentBankAngle)
-			local baseStanceCFrame = CFrame.new(0, -2.5, 0) -- Adjusted for bent skater knees!
+			local bankRad = math.rad(currentBankAngle + treadmillBankSway)
+			local baseStanceCFrame = CFrame.new(0, -2.5, 0) 
 			weld.C0 = baseStanceCFrame * CFrame.Angles(pitchRad, 0, bankRad)
 		end
+		
 		-- Aerodynamic Wind Breaking Particles Control
 		local windAttachment = rootPart:FindFirstChild("WindAttachment") :: Attachment?
 		local windParticles = windAttachment and windAttachment:FindFirstChild("WindParticles") :: ParticleEmitter?
@@ -825,9 +908,23 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 
 	-- 3. Dynamic Arcade Chase Camera facing forward down track towards Signal Lights Arch
 	if Camera then
-		Camera.CameraType = Enum.CameraType.Scriptable
-		local targetCameraFOV = isBoosting and HoverboardConfig.BOOSTER_FOV or defaultFOV + (math.clamp(currentSpeed / HoverboardConfig.RIDE_WALKSPEED, 0, 1) * 10)
-		Camera.FieldOfView += (targetCameraFOV - Camera.FieldOfView) * math.clamp(deltaTime * 8, 0, 1)
+		if LocalPlayer:GetAttribute("OnTreadmill") then
+			if not _G.wasOnTreadmill then
+				_G.wasOnTreadmill = true
+				Camera.CameraType = Enum.CameraType.Custom
+				
+				-- 트레드밀 카메라: 초기 탑승 시에만 카메라 각도를 강제로 한 번 잡아줍니다.
+				-- 이후에는 Custom 모드이므로 유저가 마우스 우클릭으로 자유롭게 화면을 돌릴 수 있습니다.
+				local hrpPos = hrp.Position
+				local baseCamPos = hrpPos + Vector3.new(0, 4, 12)
+				local targetLook = hrpPos + Vector3.new(0, 2, -10)
+				Camera.CFrame = CFrame.lookAt(baseCamPos, targetLook)
+			end
+		else
+			_G.wasOnTreadmill = false
+			Camera.CameraType = Enum.CameraType.Scriptable
+			local targetCameraFOV = isBoosting and HoverboardConfig.BOOSTER_FOV or defaultFOV + (math.clamp(currentSpeed / HoverboardConfig.RIDE_WALKSPEED, 0, 1) * 10)
+			Camera.FieldOfView += (targetCameraFOV - Camera.FieldOfView) * math.clamp(deltaTime * 8, 0, 1)
 
 		-- 카메라와 캐릭터의 위치가 어긋나면서 발생하는 시각적 떨림(Lerp Jitter) 해결
 		-- 위치는 정확히 고정하고, 바라보는 방향(wDir)만 부드럽게 보간(Lerp)합니다.
@@ -859,6 +956,7 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 			local shakeY = (math.random() - 0.5) * shakeIntensity
 			local shakeZ = (math.random() - 0.5) * (shakeIntensity * 0.5)
 			Camera.CFrame = Camera.CFrame * CFrame.Angles(math.rad(shakeX), math.rad(shakeY), math.rad(shakeZ))
+		end
 		end
 	end
 
