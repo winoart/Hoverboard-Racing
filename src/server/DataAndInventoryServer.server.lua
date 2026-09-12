@@ -102,8 +102,6 @@ Players.PlayerAdded:Connect(function(player)
 		lastAttendanceDate.Value = data.LastAttendanceDate or ""
 		attendanceStreak.Value = data.AttendanceStreak or 0
 		
-		-- [TESTING] Give 50000 gold
-		gold.Value += 50000
 		
 		-- Load Boards
 		equippedBoardId.Value = data.EquippedHoverboardId or "DefaultHoverboard"

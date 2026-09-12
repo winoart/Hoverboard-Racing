@@ -82,6 +82,18 @@ end)
 local boardsTabBtn = findUI("BoardsTab") or findUI("BoardsTab frame")
 local skillsTabBtn = findUI("SkillsTab") or findUI("SkillsTab frame")
 
+-- Force translate static text and fonts
+if boardsTabBtn and boardsTabBtn:IsA("TextLabel") or (boardsTabBtn and boardsTabBtn:IsA("TextButton")) then
+	boardsTabBtn.Text = "HOVERBOARDS"
+	boardsTabBtn.Font = Enum.Font.FredokaOne
+	boardsTabBtn.TextSize = 22
+end
+if skillsTabBtn and skillsTabBtn:IsA("TextLabel") or (skillsTabBtn and skillsTabBtn:IsA("TextButton")) then
+	skillsTabBtn.Text = "SKILLS"
+	skillsTabBtn.Font = Enum.Font.FredokaOne
+	skillsTabBtn.TextSize = 22
+end
+
 -- Helper for clicking (Supports both Buttons and normal Frames)
 local function bindClick(guiObject, callback)
 	if not guiObject then return end
@@ -143,6 +155,18 @@ local rName = findUI("ItemName")
 local rDesc = findUI("ItemDesc")
 local actionBtn = findUI("ActionButton")
 
+if rName and rName:IsA("TextLabel") then
+	rName.Font = Enum.Font.FredokaOne
+	rName.Text = "Select an Item"
+end
+if rDesc and rDesc:IsA("TextLabel") then
+	rDesc.Font = Enum.Font.FredokaOne
+	rDesc.Text = "Description text will appear here. Please select an item from the list on the left."
+end
+if actionBtn and actionBtn:IsA("TextButton") then
+	actionBtn.Font = Enum.Font.FredokaOne
+end
+
 local allCards = {}
 local renderConnections = {}
 
@@ -183,8 +207,8 @@ local function updateRightColumn()
 	
 	if not selectedItem then
 		if rImage then rImage.Image = "" end
-		if rName then rName.Text = "아이템을 선택하세요" end
-		if rDesc then rDesc.Text = "" end
+		if rName then rName.Text = "Select an Item" end
+		if rDesc then rDesc.Text = "Description text will appear here. Please select an item from the list on the left." end
 		if rViewport then rViewport.Visible = false end
 		if rImage then rImage.Visible = true end
 		if actionBtn then actionBtn.Visible = false end
@@ -193,7 +217,7 @@ local function updateRightColumn()
 	
 	local info = selectedItem
 	if rName then rName.Text = info.name end
-	if rDesc then rDesc.Text = info.desc or info.description or "설명이 없습니다." end
+	if rDesc then rDesc.Text = info.desc or info.description or "No description available." end
 
 	local isEquipped = false
 	local isOwned = false
@@ -209,13 +233,13 @@ local function updateRightColumn()
 	if actionBtn then
 		actionBtn.Visible = true
 		if isEquipped then
-			actionBtn.Text = "장착 해제"
+			actionBtn.Text = "UNEQUIP"
 			actionBtn.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
 		elseif isOwned then
-			actionBtn.Text = "장착하기"
+			actionBtn.Text = "EQUIP"
 			actionBtn.BackgroundColor3 = Color3.fromRGB(60, 200, 60)
 		else
-			actionBtn.Text = "상점에서 구매"
+			actionBtn.Text = "BUY IN STORE"
 			actionBtn.BackgroundColor3 = Color3.fromRGB(150, 150, 150)
 		end
 	end
@@ -258,7 +282,7 @@ if actionBtn then
 				if not success and msg then
 					pcall(function()
 						game:GetService("StarterGui"):SetCore("SendNotification", {
-							Title = "알림",
+							Title = "Notification",
 							Text = msg,
 							Duration = 3
 						})
@@ -271,7 +295,7 @@ if actionBtn then
 				if not success and msg then
 					pcall(function()
 						game:GetService("StarterGui"):SetCore("SendNotification", {
-							Title = "안내",
+							Title = "Notification",
 							Text = msg,
 							Duration = 3
 						})
@@ -339,10 +363,16 @@ local function createInvCard(item, itemType, parentScroll, layoutOrder)
 	end
 	
 	local nameLabel = cardBtn:FindFirstChild("ItemName", true)
-	if nameLabel then nameLabel.Text = string.gsub(item.name, "%s*%([a-zA-Z가-힣%s]+%)", "") end
+	if nameLabel then 
+		nameLabel.Text = string.gsub(item.name, "%s*%([a-zA-Z가-힣%s]+%)", "")
+		nameLabel.Font = Enum.Font.FredokaOne
+	end
 	
 	local statusLabel = cardBtn:FindFirstChild("Status")
-	if statusLabel then statusLabel.Visible = false end
+	if statusLabel then 
+		statusLabel.Visible = false 
+		statusLabel.Font = Enum.Font.FredokaOne
+	end
 	
 	local checkIcon = Instance.new("ImageLabel")
 	checkIcon.Name = "EquippedCheck"

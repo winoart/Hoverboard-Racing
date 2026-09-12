@@ -49,7 +49,7 @@ for idx, item in ipairs(SkillStoreConfig.Skills) do
 	local nameLabel = Instance.new("TextLabel")
 	nameLabel.Size = UDim2.new(1, 0, 0, 40)
 	nameLabel.BackgroundTransparency = 1
-	nameLabel.Font = Enum.Font.GothamBold
+	nameLabel.Font = Enum.Font.FredokaOne
 	nameLabel.Text = item.name
 	nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 	nameLabel.TextSize = 28
@@ -73,7 +73,7 @@ for idx, item in ipairs(SkillStoreConfig.Skills) do
 	descLabel.Size = UDim2.new(1, -20, 0, 40)
 	descLabel.Position = UDim2.new(0, 10, 0, 160)
 	descLabel.BackgroundTransparency = 1
-	descLabel.Font = Enum.Font.Gotham
+	descLabel.Font = Enum.Font.FredokaOne
 	descLabel.Text = item.description
 	descLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
 	descLabel.TextSize = 12
@@ -92,7 +92,7 @@ for idx, item in ipairs(SkillStoreConfig.Skills) do
 	goldBtn.Size = UDim2.new(1, 0, 0, 30)
 	goldBtn.Position = UDim2.new(0, 0, 0, 20)
 	goldBtn.BackgroundColor3 = Color3.fromRGB(255, 180, 0)
-	goldBtn.Font = Enum.Font.GothamBold
+	goldBtn.Font = Enum.Font.FredokaOne
 	goldBtn.Text = "🟡 " .. item.goldPrice .. " G"
 	goldBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
 	goldBtn.TextSize = 16
@@ -107,8 +107,8 @@ for idx, item in ipairs(SkillStoreConfig.Skills) do
 	statusLabel.Size = UDim2.new(1, 0, 1, 0)
 	statusLabel.Position = UDim2.new(0, 0, 0, 0)
 	statusLabel.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
-	statusLabel.Font = Enum.Font.GothamBold
-	statusLabel.Text = "✅ 보유중"
+	statusLabel.Font = Enum.Font.FredokaOne
+	statusLabel.Text = "✅ Owned"
 	statusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 	statusLabel.TextSize = 18
 	statusLabel.Visible = false

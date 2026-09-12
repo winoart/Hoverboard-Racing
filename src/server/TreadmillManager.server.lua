@@ -4,6 +4,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local HoverboardConfig = require(Shared:WaitForChild("HoverboardConfig"))
+
 local remotesFolder = ReplicatedStorage:WaitForChild("HoverboardRemotes")
 
 -- Remove unused remotes for treadmill
@@ -12,8 +15,8 @@ if exitTreadmillRemote then exitTreadmillRemote:Destroy() end
 local toggleTreadmillBoardRemote = remotesFolder:FindFirstChild("ToggleTreadmillBoard")
 if toggleTreadmillBoardRemote then toggleTreadmillBoardRemote:Destroy() end
 
-local TREADMILL_MODEL: Model? = nil
-local TREADMILL_HITBOX: BasePart? = nil
+local TREADMILL_MODELS = {}
+local TREADMILL_HITBOXES = {}
 
 -- Setup Treadmills
 task.spawn(function()
@@ -21,58 +24,41 @@ task.spawn(function()
 	local lounge = Workspace:FindFirstChild("WaitingRoomLounge") or Workspace:FindFirstChild("WaitingRoom")
 	if not lounge then return end
 	
-	local firstTreadmill = nil
 	for _, model in ipairs(lounge:GetChildren()) do
 		if model.Name:find("Treadmill") then
-			if not firstTreadmill then
-				firstTreadmill = model :: Model
-			else
-				model:Destroy()
-			end
-		end
-	end
-	
-	if firstTreadmill then
-		TREADMILL_MODEL = firstTreadmill
-		TREADMILL_HITBOX = firstTreadmill:FindFirstChild("Hitbox") :: BasePart?
-		
-		-- Clear screen
-		local screen = firstTreadmill:FindFirstChild("Screen") :: BasePart?
-		if screen then
-			screen.Color = Color3.fromRGB(20, 35, 55)
-			for _, child in ipairs(screen:GetChildren()) do
-				if child.Name == "DashboardGui" then
-					child:Destroy()
-				end
-			end
-		end
-		
-		-- Scale Treadmill width by 2x
-		-- Calculate the center of the treadmill
-		local cframe, size = firstTreadmill:GetBoundingBox()
-		for _, desc in ipairs(firstTreadmill:GetDescendants()) do
-			if desc:IsA("BasePart") then
-				-- Convert part's CFrame to the model's local space
-				local localCFrame = cframe:ToObjectSpace(desc.CFrame)
+			table.insert(TREADMILL_MODELS, model)
+			
+			local hitbox = model:FindFirstChild("Hitbox") :: BasePart?
+			if hitbox then
+				-- 확실한 물리 간섭 방지 (유저 커스텀 모델의 세팅 오류 대비)
+				hitbox.CanCollide = false
+				hitbox.CanQuery = false
 				
-				-- Double the X position and X size
-				local scaledLocalCFrame = CFrame.new(localCFrame.Position * Vector3.new(2, 1, 1))
-					* (localCFrame - localCFrame.Position)
-					
-				desc.Size = desc.Size * Vector3.new(2, 1, 1)
-				desc.CFrame = cframe:ToWorldSpace(scaledLocalCFrame)
+				table.insert(TREADMILL_HITBOXES, hitbox)
 			end
-		end
-		
-		-- Animate belt
-		local belt = firstTreadmill:FindFirstChild("Belt")
-		local tex = belt and belt:FindFirstChild("BeltTexture")
-		if tex and tex:IsA("Texture") then
-			RunService.Heartbeat:Connect(function(dt)
-				if tex.StudsPerTileV > 0 then
-					tex.OffsetStudsV = (tex.OffsetStudsV - dt * 2) % tex.StudsPerTileV
+			
+			-- Clear screen
+			local screen = model:FindFirstChild("Screen") :: BasePart?
+			if screen then
+				screen.Color = Color3.fromRGB(20, 35, 55)
+				for _, child in ipairs(screen:GetChildren()) do
+					if child.Name == "DashboardGui" then
+						child:Destroy()
+					end
 				end
-			end)
+			end
+			
+			-- (개발자님이 직접 만드신 커스텀 모델의 크기를 유지하기 위해 2배 강제 확장 로직 삭제)
+			-- Animate belt
+			local belt = model:FindFirstChild("Belt")
+			local tex = belt and belt:FindFirstChild("BeltTexture")
+			if tex and tex:IsA("Texture") then
+				RunService.Heartbeat:Connect(function(dt)
+					if tex.StudsPerTileV > 0 then
+						tex.OffsetStudsV = (tex.OffsetStudsV - dt * 2) % tex.StudsPerTileV
+					end
+				end)
+			end
 		end
 	end
 end)
@@ -105,6 +91,7 @@ local function attachBoardToPlayer(player: Player)
 			if part:IsA("BasePart") then
 				part.Anchored = false
 				part.CanCollide = false
+				part.CanQuery = false
 				part.Massless = true
 			end
 		end
@@ -153,18 +140,20 @@ end
 local playersOnTreadmill = {}
 
 RunService.Heartbeat:Connect(function()
-	if not TREADMILL_HITBOX then return end
+	if #TREADMILL_HITBOXES == 0 then return end
 	
 	local overlapParams = OverlapParams.new()
-	local partsInZone = Workspace:GetPartsInPart(TREADMILL_HITBOX, overlapParams)
 	local currentPlayersInZone = {}
 	
-	for _, part in ipairs(partsInZone) do
-		local char = part.Parent
-		if char and char:FindFirstChildOfClass("Humanoid") then
-			local player = Players:GetPlayerFromCharacter(char)
-			if player and not player:GetAttribute("IsRacing") then
-				currentPlayersInZone[player] = true
+	for _, hitbox in ipairs(TREADMILL_HITBOXES) do
+		local partsInZone = Workspace:GetPartsInPart(hitbox, overlapParams)
+		for _, part in ipairs(partsInZone) do
+			local char = part.Parent
+			if char and char:FindFirstChildOfClass("Humanoid") then
+				local player = Players:GetPlayerFromCharacter(char)
+				if player and not player:GetAttribute("IsRacing") then
+					currentPlayersInZone[player] = true
+				end
 			end
 		end
 	end

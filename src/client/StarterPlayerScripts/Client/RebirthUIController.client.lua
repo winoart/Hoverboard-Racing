@@ -99,10 +99,10 @@ local function createRebirthWindow()
 	title.Name = "Title"
 	title.Size = UDim2.new(1, 0, 1, 0)
 	title.BackgroundTransparency = 1
-	title.FontFace = Font.fromName("Montserrat", Enum.FontWeight.ExtraBold, Enum.FontStyle.Normal)
+	title.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
 	title.Text = "REBIRTH"
 	title.TextColor3 = Color3.fromRGB(255, 255, 255)
-	title.TextSize = 36
+	title.TextSize = 42
 	title.ZIndex = 3
 	title.Parent = titleFrame
 	
@@ -116,7 +116,7 @@ local function createRebirthWindow()
 	closeBtn.Size = UDim2.new(0, 44, 0, 44)
 	closeBtn.Position = UDim2.new(1, -22, 0, -22)
 	closeBtn.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
-	closeBtn.FontFace = Font.fromName("Montserrat", Enum.FontWeight.ExtraBold, Enum.FontStyle.Normal)
+	closeBtn.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
 	closeBtn.Text = "X"
 	closeBtn.TextColor3 = Color3.new(1, 1, 1)
 	closeBtn.TextSize = 28
@@ -192,10 +192,10 @@ local function createRebirthWindow()
 		rTitle.Size = UDim2.new(1, 0, 0, 40)
 		rTitle.Position = UDim2.new(0, 0, 0, 15)
 		rTitle.BackgroundTransparency = 1
-		rTitle.FontFace = Font.fromName("Montserrat", Enum.FontWeight.ExtraBold, Enum.FontStyle.Normal)
-		rTitle.Text = "환생 X"
+		rTitle.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
+		rTitle.Text = "Rebirth X"
 		rTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
-		rTitle.TextSize = 28
+		rTitle.TextSize = 32
 		rTitle.ZIndex = 2
 		rTitle.Parent = card
 		
@@ -209,10 +209,10 @@ local function createRebirthWindow()
 		benefit.Size = UDim2.new(1, -20, 0, 150)
 		benefit.Position = UDim2.new(0, 10, 0, 70)
 		benefit.BackgroundTransparency = 1
-		benefit.FontFace = Font.fromName("Montserrat", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
-		benefit.Text = "이점 내역"
+		benefit.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
+		benefit.Text = "Benefit Details"
 		benefit.TextColor3 = Color3.new(1, 1, 1)
-		benefit.TextSize = 32
+		benefit.TextSize = 22
 		benefit.TextWrapped = true
 		benefit.TextYAlignment = Enum.TextYAlignment.Center
 		benefit.ZIndex = 2
@@ -235,7 +235,7 @@ local function createRebirthWindow()
 	arrow1.Size = UDim2.new(0, 50, 0, 60)
 	arrow1.Position = UDim2.new(0, 215, 0.5, -30)
 	arrow1.BackgroundTransparency = 1
-	arrow1.FontFace = Font.fromName("Montserrat", Enum.FontWeight.ExtraBold, Enum.FontStyle.Normal)
+	arrow1.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
 	arrow1.Text = "→"
 	arrow1.TextColor3 = Color3.new(1, 1, 1)
 	arrow1.TextSize = 50
@@ -256,10 +256,10 @@ local function createRebirthWindow()
 	doRebirthBtn.Size = UDim2.new(0, 320, 0, 70)
 	doRebirthBtn.Position = UDim2.new(0.5, -160, 1, -95)
 	doRebirthBtn.BackgroundColor3 = Color3.fromRGB(100, 220, 110)
-	doRebirthBtn.FontFace = Font.fromName("Montserrat", Enum.FontWeight.ExtraBold, Enum.FontStyle.Normal)
-	doRebirthBtn.Text = "환생하기"
+	doRebirthBtn.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
+	doRebirthBtn.Text = "REBIRTH"
 	doRebirthBtn.TextColor3 = Color3.new(1, 1, 1)
-	doRebirthBtn.TextSize = 34
+	doRebirthBtn.TextSize = 36
 	doRebirthBtn.Parent = panel
 
 	local btnCorner = Instance.new("UICorner")
@@ -279,7 +279,7 @@ local function createRebirthWindow()
 	doRebirthBtn.MouseButton1Click:Connect(function()
 		local success, msg = requestRebirthRemote:InvokeServer()
 		if success then
-			doRebirthBtn.Text = "환생 성공!"
+			doRebirthBtn.Text = "REBIRTH SUCCESS!"
 			doRebirthBtn.BackgroundColor3 = Color3.fromRGB(50, 255, 50)
 			task.delay(1.5, function()
 				if rebirthWindow then rebirthWindow.Visible = false end
@@ -289,7 +289,7 @@ local function createRebirthWindow()
 			-- doRebirthBtn.Text = msg -- Removed so it just says "환생하기" as requested by user
 			doRebirthBtn.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
 			task.delay(1.5, function()
-				doRebirthBtn.Text = "환생하기"
+				doRebirthBtn.Text = "REBIRTH"
 				doRebirthBtn.BackgroundColor3 = Color3.fromRGB(100, 220, 110)
 			end)
 		end
@@ -327,20 +327,20 @@ local function updateRebirthWindow()
 		
 		if rLevel < 0 then
 			rTitle.Text = "-"
-			benefitText.Text = "기록 없음"
+			benefitText.Text = "No Record"
 			return
 		end
 		
 		local rData = RebirthConfig.GetRebirthData(rLevel)
-		rTitle.Text = "환생 " .. rLevel
+		rTitle.Text = "Rebirth " .. rLevel
 		
 		local bText = ""
 		if rLevel == 0 then
-			bText = "기본 부스터 스피드"
+			bText = "Base\nBooster Speed"
 		else
-			bText = string.format("부스터 스피드 +%.1f", rData.BoostSpeedBonus)
+			bText = string.format("Booster Speed\n+%.1f", rData.BoostSpeedBonus)
 			if isActive then
-				bText = bText .. string.format("\n요구 거리: %s", formatDistance(rData.RequiredDistance))
+				bText = bText .. string.format("\n\nReq. Distance:\n%s", formatDistance(rData.RequiredDistance))
 			end
 		end
 		benefitText.Text = bText
@@ -354,17 +354,17 @@ local function updateRebirthWindow()
 		setCardData("NextCard", currentRebirths + 1, true)
 		
 		if currentDist >= nextRebirthData.RequiredDistance then
-			doRebirthBtn.Text = "환생하기"
+			doRebirthBtn.Text = "REBIRTH"
 			doRebirthBtn.BackgroundColor3 = Color3.fromRGB(100, 220, 110)
 			doRebirthBtn.Active = true
 		else
-			doRebirthBtn.Text = "환생하기"
+			doRebirthBtn.Text = "REBIRTH"
 			doRebirthBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
 			doRebirthBtn.Active = false
 		end
 	else
 		setCardData("NextCard", -1, false)
-		doRebirthBtn.Text = "최대 환생 도달!"
+		doRebirthBtn.Text = "MAX REBIRTH REACHED!"
 		doRebirthBtn.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
 		doRebirthBtn.Active = false
 	end

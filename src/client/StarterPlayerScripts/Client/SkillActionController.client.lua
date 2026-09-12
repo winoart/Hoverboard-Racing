@@ -271,12 +271,53 @@ local function spawnLocalProjectileVisual(skillId: string)
 	end)
 end
 
+local activeToasts = {}
+local MAX_TOASTS = 4
+local TOAST_SPACING = 0.08 -- Y-scale offset per toast
+
+local function addToastToStack(toast: TextLabel, config, offsetX: number)
+	-- 기존 토스트 위로 밀어내기
+	for i = #activeToasts, 1, -1 do
+		local tInfo = activeToasts[i]
+		if not tInfo.toast or not tInfo.toast.Parent then
+			table.remove(activeToasts, i)
+			continue
+		end
+		
+		tInfo.index = tInfo.index + 1
+		
+		if tInfo.index >= MAX_TOASTS then
+			-- 최대치 도달 시 강제 페이드아웃 및 삭제
+			if tInfo.flashTween then tInfo.flashTween:Cancel() end
+			TweenService:Create(tInfo.toast, TweenInfo.new(0.1), { TextTransparency = 1, BackgroundTransparency = 1 }):Play()
+			task.delay(0.1, function()
+				if tInfo.toast then tInfo.toast:Destroy() end
+			end)
+			table.remove(activeToasts, i)
+		else
+			-- 위로 애니메이션
+			local newY = tInfo.baseY - (tInfo.index * TOAST_SPACING)
+			TweenService:Create(tInfo.toast, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+				Position = UDim2.new(0.5, tInfo.offsetX, newY, 0)
+			}):Play()
+		end
+	end
+	
+	table.insert(activeToasts, {
+		toast = toast,
+		baseY = config.PosY,
+		offsetX = offsetX,
+		index = 0
+	})
+end
+
 local function showSkillToast(skillName: string)
 	local config = SkillMessages.Design.MySkillToast
 	local toast = Instance.new("TextLabel")
 	toast.Size = UDim2.new(0, 800, 0, 100)
-	toast.Position = UDim2.new(0.5, -400, config.PosY, 0)
+	toast.Position = UDim2.new(0.5, -400, config.PosY + 0.05, 0)
 	toast.BackgroundTransparency = 1
+	toast.TextTransparency = 1
 	toast.Font = config.Font
 	toast.Text = SkillMessages:Format("MySkillActivated", {skillName = skillName})
 	toast.TextColor3 = config.TextColor
@@ -290,11 +331,20 @@ local function showSkillToast(skillName: string)
 	local stroke = Instance.new("UIStroke")
 	stroke.Color = config.StrokeColor
 	stroke.Thickness = config.StrokeThickness
+	stroke.Transparency = 1
 	stroke.Parent = toast
 	
-	-- Animate up and fade out
-	TweenService:Create(toast, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Position = UDim2.new(0.5, -400, config.PosY - 0.05, 0) }):Play()
+	addToastToStack(toast, config, -400)
+	
+	-- Animate up and fade in
+	TweenService:Create(toast, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { 
+		Position = UDim2.new(0.5, -400, config.PosY, 0),
+		TextTransparency = 0
+	}):Play()
+	TweenService:Create(stroke, TweenInfo.new(0.3), { Transparency = 0 }):Play()
+	
 	task.delay(1.5, function()
+		if not toast.Parent then return end
 		local t = TweenService:Create(toast, TweenInfo.new(0.5), { TextTransparency = 1, BackgroundTransparency = 1 })
 		TweenService:Create(stroke, TweenInfo.new(0.5), { Transparency = 1 }):Play()
 		t:Play()
@@ -308,8 +358,9 @@ local function showWarningToast(message: string)
 	local config = SkillMessages.Design.WarningToast
 	local toast = Instance.new("TextLabel")
 	toast.Size = UDim2.new(0, 1000, 0, 120)
-	toast.Position = UDim2.new(0.5, -500, config.PosY, 0)
+	toast.Position = UDim2.new(0.5, -500, config.PosY + 0.05, 0)
 	toast.BackgroundTransparency = 1
+	toast.TextTransparency = 1
 	toast.Font = config.Font
 	toast.Text = message
 	toast.TextColor3 = config.TextColor
@@ -323,15 +374,32 @@ local function showWarningToast(message: string)
 	local stroke = Instance.new("UIStroke")
 	stroke.Color = config.StrokeColor
 	stroke.Thickness = config.StrokeThickness
+	stroke.Transparency = 1
 	stroke.Parent = toast
+	
+	addToastToStack(toast, config, -500)
 	
 	-- Flashing effect on text instead of background
 	local flashTween = TweenService:Create(toast, TweenInfo.new(0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { TextColor3 = Color3.fromRGB(255, 255, 255) })
 	flashTween:Play()
 	
-	-- Animate up and fade out
-	TweenService:Create(toast, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Position = UDim2.new(0.5, -500, config.PosY - 0.05, 0) }):Play()
+	-- Store flashTween in the activeToasts table so addToastToStack can cancel it
+	for _, tInfo in ipairs(activeToasts) do
+		if tInfo.toast == toast then
+			tInfo.flashTween = flashTween
+			break
+		end
+	end
+	
+	-- Animate up and fade in
+	TweenService:Create(toast, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { 
+		Position = UDim2.new(0.5, -500, config.PosY, 0),
+		TextTransparency = 0 
+	}):Play()
+	TweenService:Create(stroke, TweenInfo.new(0.3), { Transparency = 0 }):Play()
+	
 	task.delay(2.5, function()
+		if not toast.Parent then return end
 		flashTween:Cancel()
 		local t = TweenService:Create(toast, TweenInfo.new(0.5), { TextTransparency = 1, BackgroundTransparency = 1 })
 		TweenService:Create(stroke, TweenInfo.new(0.5), { Transparency = 1 }):Play()
@@ -422,16 +490,20 @@ local function bindSlot(index)
 	end
 	
 	-- 기존 Label이든 새 Label이든 가이드에 맞게 무조건 덮어쓰기
-	nameLabel.Size = UDim2.new(2, 0, 0, 30) -- 글자가 두 줄로 쪼개지지 않도록 충분히 넓게
+	nameLabel.Size = UDim2.new(1.3, 0, 0, 30) -- 줄여서 옆 슬롯 침범 방지
 	nameLabel.Position = UDim2.new(0.5, 0, 1, 0) -- 버튼 정중앙 하단
 	nameLabel.AnchorPoint = Vector2.new(0.5, 0.5) -- 정확히 경계선에 걸치게 앵커 포인트 조정
 	nameLabel.BackgroundTransparency = 1
-	nameLabel.FontFace = Font.new("rbxasset://fonts/families/Montserrat.json", Enum.FontWeight.Bold)
+	nameLabel.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
 	nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 	nameLabel.TextStrokeTransparency = 1
-	nameLabel.TextWrapped = false -- 두 줄 바꿈 방지
-	nameLabel.TextScaled = false
-	nameLabel.TextSize = 22
+	nameLabel.TextWrapped = true -- 두 줄 바꿈 허용
+	nameLabel.TextScaled = true -- 긴 글씨는 작아지게
+	
+	local sizeConstraint = nameLabel:FindFirstChildOfClass("UITextSizeConstraint") or Instance.new("UITextSizeConstraint")
+	sizeConstraint.MaxTextSize = 22
+	sizeConstraint.MinTextSize = 10
+	sizeConstraint.Parent = nameLabel
 	nameLabel.TextXAlignment = Enum.TextXAlignment.Center
 	nameLabel.TextYAlignment = Enum.TextYAlignment.Center
 	nameLabel.ZIndex = 4
@@ -469,7 +541,7 @@ local function bindSlot(index)
 		priceText.Size = UDim2.new(1, 0, 0.3, 0)
 		priceText.Position = UDim2.new(0, 0, 0.7, 0)
 		priceText.BackgroundTransparency = 1
-		priceText.Font = Enum.Font.GothamBlack
+		priceText.Font = Enum.Font.FredokaOne
 		priceText.TextColor3 = Color3.fromRGB(255, 215, 0) -- Gold/Robux color
 		priceText.TextStrokeTransparency = 0
 		priceText.TextSize = 14
@@ -657,7 +729,7 @@ local function refreshSlots()
 					slot.overlay.BackgroundTransparency = 0.5
 				elseif i == 4 then
 					if currentMax < 3 then
-						priceText.Text = "R 슬롯 해제 필요"
+						priceText.Text = "Unlock Slot 3 First"
 						priceText.TextColor3 = Color3.fromRGB(255, 100, 100)
 						slot.overlay.BackgroundTransparency = 0.8
 					else
@@ -676,8 +748,7 @@ local function refreshSlots()
 				local info = getSkillInfo(skillVal.Name)
 				if info then
 					slot.icon.Image = info.imageId
-					local cleanedName = string.gsub(info.name, "%s*%([a-zA-Z%s]+%)", "")
-					slot.nameLabel.Text = cleanedName
+					slot.nameLabel.Text = info.name
 					slot.stroke.Color = Color3.fromRGB(0, 0, 0)
 				else
 					slot.skillId = nil

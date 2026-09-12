@@ -12,9 +12,9 @@ return {
 		MySkillToast = {
 			PosY = 0.3, -- 화면 위에서부터의 위치 (0 ~ 1, 0.7 = 위에서 70% 지점)
 			TextSize = 60, -- 글자 크기
-			Font = Enum.Font.GothamBlack, -- 폰트 종류
-			StrokeColor = Color3.fromRGB(255, 150, 0), -- 글자 외곽선 색상 (주황색)
-			StrokeThickness = 0, -- 글자 외곽선 두께
+			Font = Enum.Font.FredokaOne, -- 글로벌 영어 폰트
+			StrokeColor = Color3.fromRGB(0, 0, 0), -- 검정 외곽선
+			StrokeThickness = 6, -- 아주 두꺼운 외곽선
 			TextColor = Color3.fromRGB(255, 200, 50), -- 글자 내부 색상
 		},
 
@@ -22,10 +22,10 @@ return {
 		WarningToast = {
 			PosY = 0.3, -- 화면 위에서부터의 위치 (0.3 = 위에서 30% 지점)
 			TextSize = 60, -- 글자 크기
-			Font = Enum.Font.GothamBlack, -- 폰트 종류
-			StrokeColor = Color3.fromRGB(255, 50, 50), -- 글자 외곽선 색상 (빨간색)
-			StrokeThickness = 0, -- 글자 외곽선 두께
-			TextColor = Color3.fromRGB(255, 100, 100), -- 글자 내부 색상
+			Font = Enum.Font.FredokaOne, -- 글로벌 영어 폰트
+			StrokeColor = Color3.fromRGB(0, 0, 0), -- 검정 외곽선
+			StrokeThickness = 6, -- 아주 두꺼운 외곽선
+			TextColor = Color3.fromRGB(255, 50, 50), -- 빨간색 글자
 		},
 		
 		-- [EMP 해킹 알림] 내가 EMP 공격을 받아 화면이 해킹당했을 때 뜨는 큰 알림
@@ -43,40 +43,40 @@ return {
 	Messages = {
 		-- 🛡️ [방어막 관련]
 		-- 상대방의 공격(얼음폭탄 등)을 내 방어막이 막아서 파괴되었을 때 나에게 뜨는 경고
-		ShieldBroken = "🛡️ 방어막이 소멸되었습니다!",
+		ShieldBroken = "🛡️ Shield Broken!",
 		
 		-- 내가 공격한 상대방이 방어막을 켜고 있어서, 상대의 방어막만 부수고 끝났을 때 나에게 뜨는 알림
 		-- {casterName} 자리에 상대방 이름이 자동으로 들어갑니다.
-		ShieldDisabledEnemy = "💥 {casterName}님의 방어막을 사용했습니다!",
+		ShieldDisabledEnemy = "💥 Broke {casterName}'s Shield!",
 
 		-- ⚠️ [피격 경고]
 		-- 누군가 나에게 타겟팅 스킬(얼음폭탄 등)을 쏘았을 때 나에게 뜨는 위험 경고
-		EnemyUsedSkillOnYou = "⚠️ {casterName}님이 당신에게 {skillName}을(를) 사용했습니다!",
+		EnemyUsedSkillOnYou = "⚠️ {casterName} used {skillName}!",
 
 		-- 🔥 [내 스킬 사용]
 		-- 내가 키보드 단축키를 눌러 스킬을 발동했을 때 화면 아래에 뜨는 문구
-		MySkillActivated = "🔥 [{skillName}] 발동!",
+		MySkillActivated = "🔥 [{skillName}] Activated!",
 
 		-- 🚀 [부스터 사용]
 		-- 부스터(Space바)를 켰을 때 뜨는 문구
-		BoosterActivated = "🔥 부스터 ON!",
+		BoosterActivated = "🔥 Booster ON!",
 
 		-- ⚡ [EMP 관련]
 		-- 내가 EMP 스킬을 성공적으로 사용하여 적들을 마비시켰을 때 나에게 뜨는 문구
-		EMPReady = "⚡ EMP 가동 완료!",
+		EMPReady = "⚡ EMP Hack Ready!",
 		
 		-- 다른 유저가 나에게 EMP를 쏘았을 때 나에게 뜨는 알림 (현재는 별도 해킹UI가 뜨므로 안 쓰임)
-		EnemyUsedEMP = "⚡ {casterName}님이 EMP를 사용했습니다!",
+		EnemyUsedEMP = "⚡ {casterName} used EMP!",
 		
 		-- 내가 EMP에 맞아 조작이 마비되었을 때 화면을 덮는 경고 문구
-		EMPHackText = "🚨 컨트롤 먹통입니다. 🚨",
+		EMPHackText = "🚨 CONTROLS HACKED 🚨",
 
 		-- ⏳ [시스템 안내]
 		-- 스킬 쿨타임이 덜 끝났는데 또 스킬 키를 눌렀을 때 (Output 창 등에 출력됨)
-		CooldownActive = "⏳ 아직 쿨타임 중입니다!",
+		CooldownActive = "⏳ On Cooldown!",
 		
 		-- 슬롯 구매 경고 (4번째 슬롯을 열려는데 3번째를 안 열었을 때)
-		NeedSlot3First = "3번째 슬롯을 먼저 구매해야 합니다!"
+		NeedSlot3First = "You must purchase the 3rd slot first!"
 	},
 
 	-- =======================================================

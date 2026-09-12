@@ -127,24 +127,24 @@ local function refreshDisplays()
 		-- Top Header Banner
 		if headerStatusLabel and headerTimerLabel then
 			if currentPhase == "INTERMISSION" then
-				headerStatusLabel.Text = "휴식시간"
+				headerStatusLabel.Text = "INTERMISSION"
 				headerStatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 				headerTimerLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 				headerTimerLabel.Text = string.format("%d", math.max(0, phaseTimeLeft))
 			elseif currentPhase == "MAP_VOTING" then
-				headerStatusLabel.Text = "맵 투표"
+				headerStatusLabel.Text = "MAP VOTING"
 				headerStatusLabel.TextColor3 = Color3.fromRGB(255, 220, 80)
 				headerTimerLabel.Text = string.format("%ds", math.max(0, phaseTimeLeft))
 			elseif currentPhase == "MAP_BUILDING" then
-				headerStatusLabel.Text = "맵 로딩 중..."
+				headerStatusLabel.Text = "LOADING MAP..."
 				headerStatusLabel.TextColor3 = Color3.fromRGB(80, 220, 255)
 				headerTimerLabel.Text = string.format("%ds", math.max(0, phaseTimeLeft))
 			elseif currentPhase == "RACE_MATCH" then
 				if isPlayerInRace then
-					headerStatusLabel.Text = "라운드 종료까지"
+					headerStatusLabel.Text = "ROUND ENDS IN"
 					headerStatusLabel.TextColor3 = Color3.fromRGB(0, 240, 255)
 				else
-					headerStatusLabel.Text = "라운드 종료까지 (대기실)"
+					headerStatusLabel.Text = "ROUND ENDS IN (LOUNGE)"
 					headerStatusLabel.TextColor3 = Color3.fromRGB(255, 190, 80)
 				end
 
@@ -171,7 +171,7 @@ local function refreshDisplays()
 					loadingTitleLabel.Text = "🏆 SELECTED MAP: " .. currentChosenMap
 				end
 				if loadingSubLabel then
-					loadingSubLabel.Text = string.format("맵 불러오는 중 (%ds)", math.max(0, phaseTimeLeft))
+					loadingSubLabel.Text = string.format("Loading Map (%ds)", math.max(0, phaseTimeLeft))
 				end
 
 				if loadingFillBar and loadingPercentLabel then
@@ -222,8 +222,8 @@ local function createGameLoopUI()
 	headerStatusLabel.Size = UDim2.new(0.5, -10, 1, 0)
 	headerStatusLabel.Position = UDim2.new(0, 0, 0, 0)
 	headerStatusLabel.BackgroundTransparency = 1
-	headerStatusLabel.Font = Enum.Font.GothamBlack
-	headerStatusLabel.Text = "휴식시간"
+	headerStatusLabel.Font = Enum.Font.FredokaOne
+	headerStatusLabel.Text = "INTERMISSION"
 	headerStatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 	headerStatusLabel.TextSize = 40
 	headerStatusLabel.TextXAlignment = Enum.TextXAlignment.Right
@@ -240,7 +240,7 @@ local function createGameLoopUI()
 	headerTimerLabel.Size = UDim2.new(0.5, -10, 1, 0)
 	headerTimerLabel.Position = UDim2.new(0.5, 10, 0, 0)
 	headerTimerLabel.BackgroundTransparency = 1
-	headerTimerLabel.Font = Enum.Font.GothamBlack
+	headerTimerLabel.Font = Enum.Font.FredokaOne
 	headerTimerLabel.Text = "15"
 	headerTimerLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 	headerTimerLabel.TextSize = 40
@@ -296,7 +296,7 @@ local function createGameLoopUI()
 	modalTitle.Name = "ModalTitle"
 	modalTitle.Size = UDim2.new(1, 0, 1, 0)
 	modalTitle.BackgroundTransparency = 1
-	modalTitle.FontFace = Font.fromName("Montserrat", Enum.FontWeight.ExtraBold, Enum.FontStyle.Normal)
+	modalTitle.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
 	modalTitle.Text = "SELECT NEXT MAP"
 	modalTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
 	modalTitle.TextSize = 32
@@ -313,7 +313,7 @@ local function createGameLoopUI()
 	closeBtn.Size = UDim2.new(0, 44, 0, 44)
 	closeBtn.Position = UDim2.new(1, -22, 0, -22)
 	closeBtn.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
-	closeBtn.FontFace = Font.fromName("Montserrat", Enum.FontWeight.ExtraBold, Enum.FontStyle.Normal)
+	closeBtn.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
 	closeBtn.Text = "X"
 	closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 	closeBtn.TextSize = 28
@@ -427,7 +427,7 @@ local function createGameLoopUI()
 		mapTitleLabel.Size = UDim2.new(1, -20, 0, 30)
 		mapTitleLabel.Position = UDim2.new(0, 10, 0, 145)
 		mapTitleLabel.BackgroundTransparency = 1
-		mapTitleLabel.FontFace = Font.fromName("Montserrat", Enum.FontWeight.ExtraBold, Enum.FontStyle.Normal)
+		mapTitleLabel.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
 		mapTitleLabel.Text = config.title
 		mapTitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 		mapTitleLabel.TextSize = 20
@@ -443,7 +443,7 @@ local function createGameLoopUI()
 		mapSubLabel.Size = UDim2.new(1, -20, 0, 20)
 		mapSubLabel.Position = UDim2.new(0, 10, 0, 180)
 		mapSubLabel.BackgroundTransparency = 1
-		mapSubLabel.FontFace = Font.fromName("Montserrat", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+		mapSubLabel.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
 		mapSubLabel.Text = config.sub
 		mapSubLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 		mapSubLabel.TextSize = 14
@@ -459,7 +459,7 @@ local function createGameLoopUI()
 		vLabel.Size = UDim2.new(1, -20, 0, 30)
 		vLabel.Position = UDim2.new(0, 10, 0, 215)
 		vLabel.BackgroundTransparency = 1
-		vLabel.FontFace = Font.fromName("Montserrat", Enum.FontWeight.ExtraBold, Enum.FontStyle.Normal)
+		vLabel.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
 		vLabel.Text = "🗳️ 0 Votes"
 		vLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
 		vLabel.TextSize = 18
@@ -546,7 +546,7 @@ local function createGameLoopUI()
 	loadingTitleLabel.Size = UDim2.new(1, -20, 0, 45)
 	loadingTitleLabel.Position = UDim2.new(0, 10, 0, 30)
 	loadingTitleLabel.BackgroundTransparency = 1
-	loadingTitleLabel.FontFace = Font.fromName("Montserrat", Enum.FontWeight.ExtraBold, Enum.FontStyle.Normal)
+	loadingTitleLabel.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
 	loadingTitleLabel.Text = "🏆 SELECTED MAP: Oval Speedway"
 	loadingTitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 	loadingTitleLabel.TextSize = 28
@@ -563,8 +563,8 @@ local function createGameLoopUI()
 	loadingSubLabel.Size = UDim2.new(1, -20, 0, 25)
 	loadingSubLabel.Position = UDim2.new(0, 10, 0, 75)
 	loadingSubLabel.BackgroundTransparency = 1
-	loadingSubLabel.FontFace = Font.fromName("Montserrat", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
-	loadingSubLabel.Text = "맵 불러오는 중 (5s)"
+	loadingSubLabel.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
+	loadingSubLabel.Text = "Loading Map (5s)"
 	loadingSubLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 	loadingSubLabel.TextSize = 18
 	loadingSubLabel.ZIndex = 51
@@ -610,7 +610,7 @@ local function createGameLoopUI()
 	loadingPercentLabel.Name = "LoadPercent"
 	loadingPercentLabel.Size = UDim2.new(1, 0, 1, 0)
 	loadingPercentLabel.BackgroundTransparency = 1
-	loadingPercentLabel.FontFace = Font.fromName("Montserrat", Enum.FontWeight.ExtraBold, Enum.FontStyle.Normal)
+	loadingPercentLabel.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
 	loadingPercentLabel.Text = "0%"
 	loadingPercentLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 	loadingPercentLabel.TextSize = 18
@@ -645,16 +645,7 @@ phaseRemote.OnClientEvent:Connect(function(phase: string, timeLeft: number, mapV
 	end
 	
 	if phase ~= currentPhase and (phase == "MAP_VOTING" or phase == "MAP_BUILDING") then
-		-- AFK 모드인 유저는 투표 화면에 구애받지 않도록 UI 강제 종료를 하지 않습니다.
-		if not LocalPlayer:GetAttribute("IsAFK") then
-			local uisToClose = {"HoverboardRouletteGui", "SkillStoreGui", "InventoryGui"}
-			for _, name in ipairs(uisToClose) do
-				local gui = playerGui:FindFirstChild(name)
-				if gui and gui:IsA("ScreenGui") then
-					gui.Enabled = false
-				end
-			end
-		end
+		-- 이전 숨김 로직 제거: 이제 UIManager.client.lua가 IsRacing 속성 등을 기반으로 일괄 관리합니다.
 	end
 	
 	currentPhase = phase

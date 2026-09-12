@@ -102,7 +102,7 @@ local function teleportAllToLounge()
 	local loungeCFrame = getLoungeCFrame()
 
 	for _, player in ipairs(Players:GetPlayers()) do
-		-- 레이스에 참여 중이었던 유저만 대기실로 복귀 처리합니다. (대기실/AFK 유저 보호)
+		-- Only return players who were participating in the race to the lounge.
 		if player:GetAttribute("IsRacing") then
 			local boardModel = player.Character and player.Character:FindFirstChild("EquippedHoverboard")
 			if boardModel then
@@ -270,7 +270,7 @@ end)
 -- New Player Joining Logic: Always spawn initial character at user's WaitingRoom!
 Players.PlayerAdded:Connect(function(player: Player)
 	player.CharacterAdded:Connect(function(character)
-		-- 레이스 중에는 대기실로 보내지 않음 (스킬 피격 등으로 리스폰 시 트랙 유지)
+		-- Do not return to lounge during a race (Keep on track if respawned by skill hit, etc)
 		-- Debug logging removed
 		-- Humanoid 사망 원인 추적
 		local hum = character:WaitForChild("Humanoid", 5)
@@ -360,7 +360,7 @@ task.spawn(function()
 		teleportAllToLounge()
 		setSignalLightsState(false, false, false)
 		
-		print("🛋️ [GameLoop] 30초 대기실(인터미션) 휴식 시간 시작...")
+		print("🛋️ [GameLoop] 30 seconds Intermission starting...")
 		while phaseTimeLeft > 0 do
 			broadcastPhaseUpdate()
 			task.wait(1)
@@ -379,7 +379,7 @@ task.spawn(function()
 			["Magma Ridge"] = {},
 		}
 
-		print("🗳️ [GameLoop] 대기실 3개 맵 동시 투표 시작 (15초)...")
+		print("🗳️ [GameLoop] 15 seconds Map Voting starting...")
 		while phaseTimeLeft > 0 do
 			broadcastPhaseUpdate()
 			task.wait(1)
@@ -399,7 +399,7 @@ task.spawn(function()
 			end
 		end
 		chosenMapName = winningMap
-		print("🏆 [GameLoop] 다수결 투표 완료! 당선된 맵:", chosenMapName, " (표수:", highestVotes, ")")
+		print("🏆 [GameLoop] Map Voting Finished! Winning Map:", chosenMapName, " (Votes:", highestVotes, ")")
 
 		-- ---------------------------------------------------------------------
 		-- STEP 3: MAP LOADING SCREEN & STRUCTURE BUILDING (5 Seconds)
@@ -421,7 +421,7 @@ task.spawn(function()
 		-- ---------------------------------------------------------------------
 		currentPhase = "RACE_MATCH"
 		phaseTimeLeft = DURATION_RACE
-		print("🏁 [GameLoop] 110초 메인 레이스 진행 시작!")
+		print("🏁 [GameLoop] 110 seconds Main Race Started!")
 
 		broadcastPhaseUpdate()
 		teleportAllToTrackAndMount()
@@ -449,7 +449,7 @@ task.spawn(function()
 			elseif count == 0 then
 				setSignalLightsState(true, true, true)
 				unlockAllPlayersMovement()
-				print("🏁 [Countdown] GO! 출발 신호 발사!")
+				print("🏁 [Countdown] GO! Race Started!")
 				LapManager.startTracking(chosenMapName, os.clock())
 			end
 
@@ -467,13 +467,13 @@ task.spawn(function()
 			local finishedPlayers = LapManager.getFinishedCount()
 			
 			if activePlayers > 0 and finishedPlayers >= activePlayers then
-				print("🏁 [GameLoop] 전원 완주! 레이스를 조기 종료합니다.")
+				print("🏁 [GameLoop] All active players finished! Ending race early.")
 				break
 			end
 			
 			if finishedPlayers > 0 and not suddenDeathStarted then
 				suddenDeathStarted = true
-				print("🚨 [GameLoop] 1등 골인! 서든데스 카운트다운 시작!")
+				print("🚨 [GameLoop] 1st Place Finished! Sudden Death Countdown started!")
 				suddenDeathRemote:FireAllClients(suddenDeathTimer)
 			end
 			
@@ -481,7 +481,7 @@ task.spawn(function()
 				suddenDeathTimer -= 1
 				suddenDeathRemote:FireAllClients(suddenDeathTimer)
 				if suddenDeathTimer <= 0 then
-					print("🚨 [GameLoop] 서든데스 종료! 미완주자 강제 리타이어.")
+					print("🚨 [GameLoop] Sudden Death Ended! Forcing retire for unfinished players.")
 					break
 				end
 			end
@@ -493,13 +493,13 @@ task.spawn(function()
 			end
 		end
 		
-		-- 제한 시간 초과 또는 서든데스 종료로 못 들어온 사람 리타이어 처리
+		-- Force retire players who didn't finish
 		LapManager.retireUnfinishedPlayers()
 
 		-- ---------------------------------------------------------------------
 		-- STEP 5: POST-RACE SCOREBOARD (10 Seconds)
 		-- ---------------------------------------------------------------------
-		print("🏆 [GameLoop] 레이스 종료! 3초 대기 후 결과창 표시 (7초)")
+		print("🏆 [GameLoop] Race Ended! Showing results in 3 seconds (7s display)")
 		currentPhase = "POST_RACE"
 		phaseTimeLeft = 10
 		broadcastPhaseUpdate()
@@ -514,7 +514,7 @@ task.spawn(function()
 		-- ---------------------------------------------------------------------
 		-- STEP 6: RETURN ALL PARTICIPANTS TO WAITINGROOM LOUNGE
 		-- ---------------------------------------------------------------------
-		print("🏁 [GameLoop] 대기실로 전원 복귀...")
+		print("🏁 [GameLoop] Returning all participants to Lounge...")
 		LapManager.stopTracking()
 		teleportAllToLounge()
 		MapManager.UnloadCurrentMap()
@@ -522,4 +522,4 @@ task.spawn(function()
 	end
 end)
 
-print("🏁 [GameLoopManager] 스튜디오 모델 맵 로더 & 라운지 직하단 자동 스폰 통합 완료!")
+print("🏁 [GameLoopManager] Game Loop and Map Loader Initialized!")

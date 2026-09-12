@@ -129,13 +129,13 @@ boardsTabBtn.Name = "BoardsTab"
 boardsTabBtn.Size = UDim2.new(1, 0, 1, 0)
 boardsTabBtn.BackgroundTransparency = 1
 boardsTabBtn.Font = Enum.Font.FredokaOne
-boardsTabBtn.Text = "호버보드"
+boardsTabBtn.Text = "HOVERBOARDS"
 boardsTabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-boardsTabBtn.TextSize = 28
+boardsTabBtn.TextSize = 24
 boardsTabBtn.ZIndex = 12
 addTextStroke(boardsTabBtn, 3)
 
--- 스킬 탭
+-- Skills Tab
 local skillsTabContainer = Instance.new("Frame", tabsFrame)
 skillsTabContainer.Name = "SkillsTabContainer"
 skillsTabContainer.Size = UDim2.new(0, 164, 0, 56)
@@ -178,9 +178,9 @@ skillsTabBtn.Name = "SkillsTab"
 skillsTabBtn.Size = UDim2.new(1, 0, 1, 0)
 skillsTabBtn.BackgroundTransparency = 1
 skillsTabBtn.Font = Enum.Font.FredokaOne
-skillsTabBtn.Text = "스킬"
+skillsTabBtn.Text = "SKILLS"
 skillsTabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-skillsTabBtn.TextSize = 28
+skillsTabBtn.TextSize = 24
 skillsTabBtn.ZIndex = 12
 addTextStroke(skillsTabBtn, 3)
 
@@ -267,7 +267,7 @@ rName.Size = UDim2.new(0.9, 0, 0, 60)
 rName.Position = UDim2.new(0.05, 0, 0.48, 0)
 rName.BackgroundTransparency = 1
 rName.Font = Enum.Font.FredokaOne
-rName.Text = "아이템을 선택하세요"
+rName.Text = "Select an Item"
 rName.TextColor3 = Color3.fromRGB(255, 255, 255)
 rName.TextSize = 56
 rName.TextScaled = true
@@ -279,8 +279,8 @@ rDesc.Name = "ItemDesc"
 rDesc.Size = UDim2.new(0.9, 0, 0.25, 0)
 rDesc.Position = UDim2.new(0.05, 0, 0.62, 0)
 rDesc.BackgroundTransparency = 1
-rDesc.Font = Enum.Font.GothamMedium
-rDesc.Text = ""
+rDesc.Font = Enum.Font.FredokaOne
+rDesc.Text = "Description text will appear here. Please select an item from the list on the left."
 rDesc.TextColor3 = Color3.fromRGB(40, 40, 40) -- 흰 배경이므로 어두운 텍스트가 잘 보임
 rDesc.TextSize = 22
 rDesc.TextWrapped = true
@@ -294,7 +294,7 @@ actionBtn.Size = UDim2.new(0.9, 0, 0, 50)
 actionBtn.Position = UDim2.new(0.05, 0, 1, -65)
 actionBtn.BackgroundColor3 = Color3.fromRGB(150, 150, 150)
 actionBtn.Font = Enum.Font.FredokaOne
-actionBtn.Text = "선택 안됨"
+actionBtn.Text = "NOT SELECTED"
 actionBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 actionBtn.TextSize = 28
 actionBtn.Visible = false
@@ -344,7 +344,7 @@ nameLabel2.Size = UDim2.new(1, 0, 0, 30)
 nameLabel2.Position = UDim2.new(0, 0, 0, 135)
 nameLabel2.BackgroundTransparency = 1
 nameLabel2.Font = Enum.Font.FredokaOne
-nameLabel2.Text = "아이템"
+nameLabel2.Text = "ITEM"
 nameLabel2.TextColor3 = Color3.fromRGB(255, 255, 255)
 nameLabel2.TextSize = 24
 nameLabel2.ZIndex = 9

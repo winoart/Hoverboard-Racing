@@ -105,6 +105,105 @@ local boosterTextLabel: TextLabel? = nil
 local speedLinesFrame: Frame? = nil
 local boosterGaugeStroke: UIStroke? = nil
 
+-- Gold Animation Helpers
+local function getGoldTarget(): GuiObject?
+	if not playerGui then return nil end
+	local hud = playerGui:FindFirstChild("GoldDisplayHUD")
+	if hud then
+		local frame = hud:FindFirstChild("GoldFrame")
+		if frame then
+			return frame:FindFirstChild("GoldIcon") or frame:FindFirstChild("GoldTextLabel")
+		end
+	end
+	return nil
+end
+
+local function spawnGoldEffect(startPos: Vector2, target: GuiObject?, rank: number)
+	if not target or not guiScreen then return end
+	
+	local targetPos = UDim2.new(0, target.AbsolutePosition.X + (target.AbsoluteSize.X / 2), 0, target.AbsolutePosition.Y + (target.AbsoluteSize.Y / 2))
+	
+	-- 순위에 따라 동전 개수 차등 지급 (1위: 15개, 2위: 10개, 3위: 7개, 4위 이하: 4개)
+	local coinCount = 4
+	if rank == 1 then
+		coinCount = 15
+	elseif rank == 2 then
+		coinCount = 10
+	elseif rank == 3 then
+		coinCount = 7
+	end
+	
+	for i = 1, coinCount do
+		local icon = Instance.new("ImageLabel")
+		icon.Size = UDim2.new(0, 50, 0, 50)
+		icon.Position = UDim2.new(0, startPos.X, 0, startPos.Y)
+		icon.AnchorPoint = Vector2.new(0.5, 0.5)
+		icon.BackgroundTransparency = 1
+		icon.Image = "rbxassetid://17368060122"
+		icon.ZIndex = 100
+		
+		icon.Parent = guiScreen
+		
+		-- 1단계: 주변으로 튀어나오기 (Pop-out)
+		local randomX = startPos.X + math.random(-60, 60)
+		local randomY = startPos.Y + math.random(-60, 60)
+		local popPos = UDim2.new(0, randomX, 0, randomY)
+		
+		local popTweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+		local popTween = TweenService:Create(icon, popTweenInfo, {
+			Position = popPos,
+			Size = UDim2.new(0, 60, 0, 60),
+			Rotation = math.random(-45, 45)
+		})
+		
+		-- 2단계: 타겟으로 가속하며 날아가기 (Fly-in)
+		local flyTweenInfo = TweenInfo.new(0.6, Enum.EasingStyle.Cubic, Enum.EasingDirection.In)
+		local flyTween = TweenService:Create(icon, flyTweenInfo, {
+			Position = targetPos,
+			Size = UDim2.new(0, 30, 0, 30),
+			Rotation = 0
+		})
+		
+		popTween.Completed:Connect(function()
+			flyTween:Play()
+		end)
+		
+		flyTween.Completed:Connect(function()
+			icon:Destroy()
+			
+			-- 타겟(골드 아이콘) 흔들림 효과 (무한 커짐 방지를 위해 UIScale 사용)
+			if target and target.Parent then
+				local uiScale = target:FindFirstChild("GoldBounceScale")
+				if not uiScale then
+					uiScale = Instance.new("UIScale")
+					uiScale.Name = "GoldBounceScale"
+					uiScale.Scale = 1.0
+					uiScale.Parent = target
+				end
+				
+				-- 이전 트윈이 진행 중이더라도 UIScale.Scale을 1.2로 목표로 설정하면 안전함
+				local shakeTween = TweenService:Create(uiScale, TweenInfo.new(0.1, Enum.EasingStyle.Sine, Enum.EasingDirection.Out, 0, true), {
+					Scale = 1.3
+				})
+				shakeTween:Play()
+				
+				-- 안전장치: 혹시 트윈 꼬임을 대비해 잠시 후 1.0으로 강제 복구
+				task.delay(0.25, function()
+					if uiScale then
+						uiScale.Scale = 1.0
+					end
+				end)
+			end
+		end)
+		
+		task.delay((i - 1) * 0.12, function()
+			if icon.Parent then
+				popTween:Play()
+			end
+		end)
+	end
+end
+
 -- Create Authentic Arcade Racing Layout HUD UI
 local function createHUDUI()
 	if guiScreen then guiScreen:Destroy() end
@@ -611,7 +710,6 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 	local hasBoard = character:FindFirstChild("EquippedHoverboard") ~= nil
 
 	if hasBoard and not isMounted then
-		-- Only stop leg flailing animations and bob for Treadmill Free Movement
 		local humanoid = character:FindFirstChildOfClass("Humanoid")
 		if humanoid then
 			local animator = humanoid:FindFirstChildOfClass("Animator")
@@ -662,23 +760,34 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 			lastSafeYaw = currentHeadingYaw
 		end
 
+		-- 공통적으로 사용할 RaycastParams 생성
+		local rayParams = RaycastParams.new()
+		rayParams.FilterDescendantsInstances = {character}
+		rayParams.FilterType = Enum.RaycastFilterType.Exclude
+
 		if hrp.Position.Y < lastSafePosition.Y - 30 then
-			print("[DEBUG-FR] 낙하 감지! 안전지대로 복구합니다. 낙하 깊이: " .. string.format("%.1f", lastSafePosition.Y - hrp.Position.Y))
-			hrp.CFrame = CFrame.new(lastSafePosition + Vector3.new(0, 5, 0))
-			hrp.AssemblyLinearVelocity = Vector3.zero
-			hrp.AssemblyAngularVelocity = Vector3.zero
-			currentHeadingYaw = lastSafeYaw
-			currentWalkSpeed = 0.0
-			isBoosting = false
+			-- 고저차가 심한 트랙(사막 등)에서 점프 후 떨어질 때를 대비하여,
+			-- 현재 위치에서 150 스터드 아래까지 트랙(땅)이 있는지 확인합니다.
+			local groundCheckRay = Workspace:Raycast(hrp.Position, Vector3.new(0, -150, 0), rayParams)
+			
+			if not groundCheckRay then
+				print("[DEBUG-FR] 트랙 이탈 감지! 아래에 트랙이 없습니다. 안전지대로 복구합니다. 낙하 깊이: " .. string.format("%.1f", lastSafePosition.Y - hrp.Position.Y))
+				hrp.CFrame = CFrame.new(lastSafePosition + Vector3.new(0, 5, 0))
+				hrp.AssemblyLinearVelocity = Vector3.zero
+				hrp.AssemblyAngularVelocity = Vector3.zero
+				currentHeadingYaw = lastSafeYaw
+				currentWalkSpeed = 0.0
+				isBoosting = false
+			else
+				-- 아래에 트랙이 있다면, 단순히 경사를 따라 내려가는 중이므로 기준점을 갱신합니다.
+				lastSafePosition = hrp.Position
+			end
 		else
 			fallCheckTimer += deltaTime
 			if fallCheckTimer >= 0.5 then
 				fallCheckTimer = 0.0
 				local rayOrigin = hrp.Position
 				local rayDirection = Vector3.new(0, -15, 0)
-				local rayParams = RaycastParams.new()
-				rayParams.FilterDescendantsInstances = {character}
-				rayParams.FilterType = Enum.RaycastFilterType.Exclude
 				local result = Workspace:Raycast(rayOrigin, rayDirection, rayParams)
 				if result then
 					lastSafePosition = hrp.Position
@@ -1555,6 +1664,33 @@ if showScoreboardRemote then
 			gStroke.Color = Color3.fromRGB(0, 0, 0)
 			gStroke.Thickness = 2
 			gStroke.Parent = gLabel
+			
+			-- 획득 골드가 있을 경우 본인이면 애니메이션 예약
+			if isMe and data.gold > 0 then
+				local hud = playerGui:FindFirstChild("GoldDisplayHUD")
+				if hud then
+					-- 즉시 업데이트를 막기 위해 일시정지 플래그 설정
+					hud:SetAttribute("PauseGoldUpdate", true)
+				end
+				
+				task.delay(1.5, function()
+					-- 결과창이 열리고 1.5초 뒤에 튀어나오기 시작
+					if gLabel and gLabel.Parent then
+						local goldTarget = getGoldTarget()
+						if goldTarget then
+							local startPos = Vector2.new(gLabel.AbsolutePosition.X + (gLabel.AbsoluteSize.X / 2), gLabel.AbsolutePosition.Y + (gLabel.AbsoluteSize.Y / 2))
+							spawnGoldEffect(startPos, goldTarget, data.rank)
+						end
+					end
+					
+					-- 튀어나온 뒤 날아가기 시작하는 타이밍(0.5초 후)에 골드 올라가는 애니메이션 시작 (언포즈)
+					task.delay(0.5, function()
+						if hud then
+							hud:SetAttribute("PauseGoldUpdate", false)
+						end
+					end)
+				end)
+			end
 		end
 		
 		scroll.CanvasSize = UDim2.new(0, 0, 0, #results * 45)

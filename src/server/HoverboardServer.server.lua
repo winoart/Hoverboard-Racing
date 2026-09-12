@@ -127,6 +127,7 @@ local function attachHoverboardToCharacter(player: Player, boardName: string?): 
 		if part:IsA("BasePart") then
 			part.Anchored = false
 			part.CanCollide = false
+			part.CanQuery = false
 			part.Massless = true
 		end
 	end

@@ -7,43 +7,43 @@ local SkillStoreConfig = {}
 SkillStoreConfig.Skills = {
 	{
 		id = "Skill_IceBomb",
-		name = "얼음 폭탄",
-		description = "내 바로 앞 순위의 유저 한 명을 잠시 얼려서 속도를 늦춥니다.",
+		name = "Ice Bomb",
+		description = "Temporarily freezes the player directly in front of you, slowing them down.",
 		imageId = "rbxassetid://81959011754721",
 		goldPrice = 2000
 	},
 	{
 		id = "Skill_Shield",
-		name = "방어막",
-		description = "다른 유저의 공격(얼음폭탄, 안개 등)을 1회 방어해줍니다.",
+		name = "Shield",
+		description = "Blocks one incoming attack (Ice Bomb, Blind Fog, etc.) from other players.",
 		imageId = "rbxassetid://90453361413919",
 		goldPrice = 3000
 	},
 	{
 		id = "Skill_OrbitalLaser",
-		name = "위성 타격",
-		description = "맵 상의 모든 상대방에게 위성 레이저를 발사하여 엔진을 일시 정지시킵니다.",
+		name = "Orbital Laser",
+		description = "Fires a satellite laser at all opponents on the map, temporarily stopping their engines.",
 		imageId = "rbxassetid://93503559614483",
 		goldPrice = 4000
 	},
 	{
 		id = "Skill_BlindFog",
-		name = "안개",
-		description = "상대방의 화면을 짙은 안개로 가려 시야를 방해합니다.",
+		name = "Blind Fog",
+		description = "Obscures opponents' screens with dense fog, blocking their vision.",
 		imageId = "rbxassetid://72092197321443",
 		goldPrice = 6000
 	},
 	{
 		id = "Skill_Ghost",
-		name = "유령화",
-		description = "일정 시간 투명해지며, 얼음폭탄, 위성 타격 등 타겟팅 공격의 대상에서 제외됩니다. (안개 제외)",
+		name = "Ghost",
+		description = "Become invisible for a duration, ignoring targeted attacks like Ice Bomb and Orbital Laser.",
 		imageId = "rbxassetid://114460588000783",
 		goldPrice = 8000
 	},
 	{
 		id = "Skill_EMP",
-		name = "EMP",
-		description = "주변 상대방의 호버보드를 해킹하여 조작키를 반대로 만듭니다.",
+		name = "EMP Hack",
+		description = "Hacks the hoverboards of nearby opponents, reversing their controls.",
 		imageId = "rbxassetid://99214302538101",
 		goldPrice = 10000
 	}
