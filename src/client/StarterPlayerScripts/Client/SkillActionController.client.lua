@@ -888,6 +888,14 @@ end)
 -- Initial refresh
 refreshSlots()
 
+LocalPlayer:GetAttributeChangedSignal("IsSpectating"):Connect(function()
+	if LocalPlayer:GetAttribute("IsSpectating") == true then
+		gui.Enabled = false
+	else
+		gui.Enabled = true
+	end
+end)
+
 -- EMP 해킹 효과 수신
 _G.isEMPHacked = false
 local currentEMPHackId = 0

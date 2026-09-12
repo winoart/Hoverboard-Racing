@@ -160,11 +160,24 @@ local function spawnLightningEffect(meterLabel: TextLabel?, hrp: BasePart)
 end
 
 RunService.RenderStepped:Connect(function(dt)
+	local isSpectating = LocalPlayer:GetAttribute("IsSpectating") == true
+	
+	local meterLabel = getMeterLabel()
+	if meterLabel then
+		local mGui = meterLabel:FindFirstAncestor("MeterDisplayHUD")
+		if mGui and mGui:IsA("ScreenGui") then
+			mGui.Enabled = not isSpectating
+		else
+			meterLabel.Visible = not isSpectating
+		end
+	end
+
+	if isSpectating then return end
+	
 	local character = LocalPlayer.Character
 	if not character then return end
 	
 	-- 1. UI는 호버보드 탑승 여부와 상관없이 항상 업데이트 합니다. (외곽선 추가 및 현재 거리 표시)
-	local meterLabel = getMeterLabel()
 	local currentDistance = 0
 	local leaderstats = LocalPlayer:FindFirstChild("leaderstats")
 	if leaderstats then

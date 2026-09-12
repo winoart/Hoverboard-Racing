@@ -327,8 +327,12 @@ productContainer.CanvasSize = UDim2.new(0, 0, 0, calculatedCanvasHeight)
 -- (기존에 레이싱 진입 시 골드창을 끄던 로직을 제거하여 항상 보이게 함)
 local gamePhaseRemote = ReplicatedStorage:WaitForChild("HoverboardRemotes"):WaitForChild("GamePhaseChanged") :: RemoteEvent
 gamePhaseRemote.OnClientEvent:Connect(function(phase: string)
-	-- 개발자님 요청에 의해 골드 UI(GoldDisplayHUD)는 레이싱 중에도 항상 표시됩니다!
-	screenGui.Enabled = true
+	-- 개발자님 요청에 의해 골드 UI(GoldDisplayHUD)는 레이싱 중에도 항상 표시되지만, 관전 모드일 땐 숨깁니다.
+	screenGui.Enabled = not LocalPlayer:GetAttribute("IsSpectating")
+end)
+
+LocalPlayer:GetAttributeChangedSignal("IsSpectating"):Connect(function()
+	screenGui.Enabled = not LocalPlayer:GetAttribute("IsSpectating")
 end)
 
 print("💰 [GoldUIController] Gold Display UI loaded.")

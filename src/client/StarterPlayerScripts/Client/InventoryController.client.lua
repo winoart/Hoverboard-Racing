@@ -503,11 +503,24 @@ phaseRemote.OnClientEvent:Connect(function(phase, timeLeft)
 	else
 		-- 레이스 중(RACE_MATCH 등)이라도, 늦게 접속해 대기실에 있는 유저나 트레드밀 훈련 중인 유저는 인벤토리가 보여야 합니다.
 		local isRacing = LocalPlayer:GetAttribute("IsRacing") == true
+		local isSpectating = LocalPlayer:GetAttribute("IsSpectating") == true
 		
-		if isRacing then
+		if isRacing or isSpectating then
 			hudGui.Enabled = false
 			invGui.Enabled = false
 		else
+			hudGui.Enabled = true
+		end
+	end
+end)
+
+LocalPlayer:GetAttributeChangedSignal("IsSpectating"):Connect(function()
+	if LocalPlayer:GetAttribute("IsSpectating") == true then
+		hudGui.Enabled = false
+		invGui.Enabled = false
+	else
+		local isRacing = LocalPlayer:GetAttribute("IsRacing") == true
+		if not isRacing then
 			hudGui.Enabled = true
 		end
 	end

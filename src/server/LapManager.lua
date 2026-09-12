@@ -60,19 +60,21 @@ function LapManager.startTracking(mapName: string, startTime: number)
 	table.clear(playerLaps)
 
 	for _, player in ipairs(Players:GetPlayers()) do
-		playerLaps[player.UserId] = {
-			currentLap = 0,
-			nextCheckpoint = 1,
-			finished = false,
-			finishTime = 0,
-		}
-		
-		if player.Character and player.Character.PrimaryPart then
-			playerStartPositions[player.UserId] = player.Character.PrimaryPart.Position
+		if player:GetAttribute("IsRacing") then
+			playerLaps[player.UserId] = {
+				currentLap = 0,
+				nextCheckpoint = 1,
+				finished = false,
+				finishTime = 0,
+			}
+			
+			if player.Character and player.Character.PrimaryPart then
+				playerStartPositions[player.UserId] = player.Character.PrimaryPart.Position
+			end
+			
+			-- Initialize UI
+			lapUpdatedRemote:FireClient(player, 0, totalLapsForMap)
 		end
-		
-		-- Initialize UI
-		lapUpdatedRemote:FireClient(player, 0, totalLapsForMap)
 	end
 
 	-- Hook up Checkpoints

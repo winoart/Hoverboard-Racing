@@ -560,7 +560,7 @@ end
 
 createHUDUI()
 
-local skaterJoints = {}
+local skaterJointsCache = {}
 
 -- Handle Server State Changes & Steering Initialization
 stateRemote.OnClientEvent:Connect(function(mounted: boolean, boardModel: Model?, savedPos: Vector3?, forceIsRacing: boolean?)
@@ -593,19 +593,6 @@ stateRemote.OnClientEvent:Connect(function(mounted: boolean, boardModel: Model?,
 		task.defer(function()
 			local char = LocalPlayer.Character
 			local hrp = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?
-			
-			-- Cache joints for procedural skater animation
-			if char then
-				skaterJoints.Waist = char:FindFirstChild("Waist", true)
-				skaterJoints.RightShoulder = char:FindFirstChild("RightShoulder", true)
-				skaterJoints.LeftShoulder = char:FindFirstChild("LeftShoulder", true)
-				skaterJoints.RightElbow = char:FindFirstChild("RightElbow", true)
-				skaterJoints.LeftElbow = char:FindFirstChild("LeftElbow", true)
-				skaterJoints.RightHip = char:FindFirstChild("RightHip", true)
-				skaterJoints.LeftHip = char:FindFirstChild("LeftHip", true)
-				skaterJoints.RightKnee = char:FindFirstChild("RightKnee", true)
-				skaterJoints.LeftKnee = char:FindFirstChild("LeftKnee", true)
-			end
 			
 			if hrp then
 				local currentPos = hrp.Position
@@ -682,25 +669,53 @@ end)
 
 -- 🛹 PROCEDURAL ANIMATION: Dynamic Skater Stance (Runs after Animator)
 RunService.Stepped:Connect(function(_, deltaTime)
-	local character = LocalPlayer.Character
-	if not character then return end
-	local hasBoard = character:FindFirstChild("EquippedHoverboard") ~= nil
-	if not isMounted and not hasBoard then return end
+	for _, player in ipairs(Players:GetPlayers()) do
+		local character = player.Character
+		if not character then continue end
+		
+		local hasBoard = character:FindFirstChild("EquippedHoverboard") ~= nil
+		if not hasBoard then continue end
+		
+		if player == LocalPlayer and not isMounted then continue end
 
-	-- Lean into turns dynamically based on steer rate
-	local leanFactor = currentSteerRate * 0.35 
+		local joints = skaterJointsCache[player.UserId]
+		if not joints or not joints.Waist or not joints.Waist.Parent then
+			joints = {
+				Waist = character:FindFirstChild("Waist", true),
+				RightShoulder = character:FindFirstChild("RightShoulder", true),
+				LeftShoulder = character:FindFirstChild("LeftShoulder", true),
+				RightElbow = character:FindFirstChild("RightElbow", true),
+				LeftElbow = character:FindFirstChild("LeftElbow", true),
+				RightHip = character:FindFirstChild("RightHip", true),
+				LeftHip = character:FindFirstChild("LeftHip", true),
+				RightKnee = character:FindFirstChild("RightKnee", true),
+				LeftKnee = character:FindFirstChild("LeftKnee", true),
+			}
+			skaterJointsCache[player.UserId] = joints
+		end
 
-	-- Apply custom Transform to joints to override Idle animation
-	if skaterJoints.Waist then skaterJoints.Waist.Transform = CFrame.Angles(math.rad(-18), leanFactor, leanFactor * 0.5) end
-	if skaterJoints.RightShoulder then skaterJoints.RightShoulder.Transform = CFrame.Angles(math.rad(45), 0, math.rad(20)) end
-	if skaterJoints.LeftShoulder then skaterJoints.LeftShoulder.Transform = CFrame.Angles(math.rad(45), 0, math.rad(-20)) end
-	if skaterJoints.RightElbow then skaterJoints.RightElbow.Transform = CFrame.Angles(math.rad(25), 0, 0) end
-	if skaterJoints.LeftElbow then skaterJoints.LeftElbow.Transform = CFrame.Angles(math.rad(25), 0, 0) end
-	
-	if skaterJoints.RightHip then skaterJoints.RightHip.Transform = CFrame.Angles(math.rad(35), 0, math.rad(12)) end
-	if skaterJoints.LeftHip then skaterJoints.LeftHip.Transform = CFrame.Angles(math.rad(35), 0, math.rad(-12)) end
-	if skaterJoints.RightKnee then skaterJoints.RightKnee.Transform = CFrame.Angles(math.rad(-65), 0, 0) end
-	if skaterJoints.LeftKnee then skaterJoints.LeftKnee.Transform = CFrame.Angles(math.rad(-65), 0, 0) end
+		local leanFactor = 0
+		if player == LocalPlayer then
+			leanFactor = currentSteerRate * 0.35 
+		else
+			local hrp = character:FindFirstChild("HumanoidRootPart")
+			if hrp then
+				leanFactor = math.clamp(hrp.AssemblyAngularVelocity.Y * -0.05, -0.35, 0.35)
+			end
+		end
+
+		-- Apply custom Transform to joints to override Idle animation
+		if joints.Waist then joints.Waist.Transform = CFrame.Angles(math.rad(-18), leanFactor, leanFactor * 0.5) end
+		if joints.RightShoulder then joints.RightShoulder.Transform = CFrame.Angles(math.rad(45), 0, math.rad(20)) end
+		if joints.LeftShoulder then joints.LeftShoulder.Transform = CFrame.Angles(math.rad(45), 0, math.rad(-20)) end
+		if joints.RightElbow then joints.RightElbow.Transform = CFrame.Angles(math.rad(25), 0, 0) end
+		if joints.LeftElbow then joints.LeftElbow.Transform = CFrame.Angles(math.rad(25), 0, 0) end
+		
+		if joints.RightHip then joints.RightHip.Transform = CFrame.Angles(math.rad(35), 0, math.rad(12)) end
+		if joints.LeftHip then joints.LeftHip.Transform = CFrame.Angles(math.rad(35), 0, math.rad(-12)) end
+		if joints.RightKnee then joints.RightKnee.Transform = CFrame.Angles(math.rad(-65), 0, 0) end
+		if joints.LeftKnee then joints.LeftKnee.Transform = CFrame.Angles(math.rad(-65), 0, 0) end
+	end
 end)
 
 -- Main Render Loop for Arcade Racing HUD, Hovering Physics, Speedometer, Booster Gauge & Wind FX

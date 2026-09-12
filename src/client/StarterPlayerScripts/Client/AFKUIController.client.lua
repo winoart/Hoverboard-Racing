@@ -306,22 +306,6 @@ task.spawn(function()
 end)
 
 
--- 3. Anti-Kick (Jump every 60s while AFK)
-task.spawn(function()
-	while true do
-		task.wait(60)
-		if isAFK and LocalPlayer.Character then
-			local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-			if hum and hum:GetState() ~= Enum.HumanoidStateType.Dead then
-				if not LocalPlayer:GetAttribute("OnTreadmill") then
-					hum.Jump = true
-				else
-					hum:Move(Vector3.new(0, 0, 0.1), false)
-				end
-			end
-		end
-	end
-end)
 
 -- 4. Dismount Treadmill with Spacebar
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
