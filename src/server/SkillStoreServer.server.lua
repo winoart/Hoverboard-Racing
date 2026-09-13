@@ -32,7 +32,7 @@ if not purchaseItemRemote then
 	purchaseItemRemote.Parent = remotesFolder
 end
 
--- 1. Setup SkillStore ClickDetector
+-- 1. Setup SkillStore & SkillKiosk Interaction (ClickDetector + ProximityPrompt)
 local function setupStorePart(storeObj: Instance)
 	if storeObj:FindFirstChildOfClass("ClickDetector") then return end
 	
@@ -44,22 +44,92 @@ local function setupStorePart(storeObj: Instance)
 	clickDetector.MouseClick:Connect(function(player)
 		openStoreRemote:FireClient(player)
 	end)
+
+	local prompt = storeObj:FindFirstChildOfClass("ProximityPrompt")
+	if not prompt then
+		prompt = Instance.new("ProximityPrompt")
+		prompt.ActionText = "상점 열기"
+		prompt.ObjectText = "스킬 상점"
+		prompt.KeyboardKeyCode = Enum.KeyCode.E
+		prompt.MaxActivationDistance = 10
+		prompt.RequiresLineOfSight = false
+		prompt.Parent = storeObj
+
+		prompt.Triggered:Connect(function(player)
+			openStoreRemote:FireClient(player)
+		end)
+	end
 	
 	if storeObj:IsA("BasePart") then
 		storeObj.CanQuery = true
 	end
 	
-	print("🔮 [SkillStoreServer] SkillStore ClickDetector successfully attached to:", storeObj.Name, "(", storeObj.ClassName, ")")
+	print("🔮 [SkillStoreServer] SkillStore ClickDetector & ProximityPrompt attached to:", storeObj.Name, "(", storeObj.ClassName, ")")
+end
+
+local function setupSkillKiosk(kioskObj: Instance)
+	-- If cloned from HoverboardKiosk, remove any old lingering effect boxes or prompts
+	for _, child in ipairs(kioskObj:GetChildren()) do
+		if child.Name == "KioskEffectBox" or child.Name == "SkillKioskEffectBox" then
+			child:Destroy()
+		end
+	end
+	
+	local cf, sz
+	if kioskObj:IsA("Model") then
+		cf, sz = kioskObj:GetBoundingBox()
+	elseif kioskObj:IsA("BasePart") then
+		cf, sz = kioskObj.CFrame, kioskObj.Size
+	else
+		return
+	end
+	
+	local effectPart = Instance.new("Part")
+	effectPart.Name = "SkillKioskEffectBox"
+	effectPart.Size = sz
+	effectPart.CFrame = cf
+	effectPart.Transparency = 1
+	effectPart.CanCollide = false
+	effectPart.Anchored = true
+	effectPart.CanQuery = true
+	effectPart.Parent = kioskObj
+	
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.ActionText = "상점 열기"
+	prompt.ObjectText = "스킬 상점"
+	prompt.KeyboardKeyCode = Enum.KeyCode.E
+	prompt.MaxActivationDistance = 10
+	prompt.RequiresLineOfSight = false
+	prompt.Parent = effectPart
+	
+	prompt.Triggered:Connect(function(player)
+		openStoreRemote:FireClient(player)
+	end)
+	
+	local clickDetector = Instance.new("ClickDetector")
+	clickDetector.MaxActivationDistance = 32
+	clickDetector.CursorIcon = "rbxasset://textures/DragCursor.png"
+	clickDetector.Parent = effectPart
+	clickDetector.MouseClick:Connect(function(player)
+		openStoreRemote:FireClient(player)
+	end)
+	
+	print("🔮 [SkillStoreServer] SkillKiosk ProximityPrompt & ClickDetector successfully attached to:", kioskObj.Name)
 end
 
 local function checkAndSetup(obj: Instance)
-	local function isTargetName(name)
-		return name:lower():gsub("%s+", "") == "skillstore"
+	local function cleanName(name: string)
+		return name:lower():gsub("%s+", "")
 	end
 	
-	if isTargetName(obj.Name) then
+	local cName = cleanName(obj.Name)
+	if cName == "skillstore" then
 		if obj:IsA("BasePart") or obj:IsA("Model") then
 			setupStorePart(obj)
+		end
+	elseif cName == "skillkiosk" then
+		if obj:IsA("BasePart") or obj:IsA("Model") then
+			setupSkillKiosk(obj)
 		end
 	end
 end
@@ -96,6 +166,14 @@ purchaseItemRemote.OnServerInvoke = function(player: Player, skillId: string, cu
 		if gold and gold.Value >= itemInfo.goldPrice then
 			gold.Value -= itemInfo.goldPrice
 			print("💸 [SkillStoreServer] " .. player.Name .. " bought " .. itemInfo.name .. " for " .. itemInfo.goldPrice .. " Gold!")
+			
+			-- Quest: Spend Gold
+			local ReplicatedStorage = game:GetService("ReplicatedStorage")
+			local QuestBindables = ReplicatedStorage:FindFirstChild("QuestBindables")
+			local addProgress = QuestBindables and QuestBindables:FindFirstChild("AddQuestProgress")
+			if addProgress then
+				addProgress:Fire(player.UserId, "_spend", itemInfo.goldPrice)
+			end
 			
 			local owned = Instance.new("StringValue")
 			owned.Name = skillId

@@ -29,6 +29,7 @@ local blindEffectRemote = hoverRemotes:WaitForChild("BlindEffect") :: RemoteEven
 local empEffectRemote = hoverRemotes:WaitForChild("EMPEffect") :: RemoteEvent
 local frostEffectRemote = hoverRemotes:WaitForChild("FrostEffect") :: RemoteEvent
 local empHackRemote = hoverRemotes:WaitForChild("EMPHackEffect") :: RemoteEvent
+local globalSkillCastRemote = hoverRemotes:WaitForChild("GlobalSkillCast") :: RemoteEvent
 
 -- Temporary Product IDs for unlocking slots
 local MonetizationConfig = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("MonetizationConfig"))
@@ -56,7 +57,17 @@ local slots = {}
 local hotkeys = { Enum.KeyCode.Q, Enum.KeyCode.E, Enum.KeyCode.R, Enum.KeyCode.T }
 local hotkeyStrs = { "Q", "E", "R", "T" }
 
-local glitchOverlay = gui:FindFirstChild("EMPGlitchOverlay")
+local fullScreenGui = playerGui:FindFirstChild("FullScreenEffectsGui")
+if not fullScreenGui then
+	fullScreenGui = Instance.new("ScreenGui")
+	fullScreenGui.Name = "FullScreenEffectsGui"
+	fullScreenGui.IgnoreGuiInset = true
+	fullScreenGui.ResetOnSpawn = false
+	fullScreenGui.DisplayOrder = 100
+	fullScreenGui.Parent = playerGui
+end
+
+local glitchOverlay = fullScreenGui:FindFirstChild("EMPGlitchOverlay")
 if not glitchOverlay then
 	glitchOverlay = Instance.new("Frame")
 	glitchOverlay.Name = "EMPGlitchOverlay"
@@ -65,7 +76,7 @@ if not glitchOverlay then
 	glitchOverlay.BackgroundTransparency = 1
 	glitchOverlay.ZIndex = 99
 	glitchOverlay.Visible = false
-	glitchOverlay.Parent = gui
+	glitchOverlay.Parent = fullScreenGui
 end
 
 local hoverboardDisplay = gui:FindFirstChild("HoverboardDisplay")
@@ -137,8 +148,8 @@ equippedBoardId.Changed:Connect(updateHoverboardDisplay)
 
 -- [클라이언트 사이드 시각화 (KartRider 방식 표준)]
 -- 투사체 스킬을 쓸 때 핑 지연 없이 내 화면에 즉시 발사되는 연출을 만듭니다.
-local function spawnLocalProjectileVisual(skillId: string)
-	local casterChar = LocalPlayer.Character
+local function spawnLocalProjectileVisual(skillId: string, overrideChar: Model?)
+	local casterChar = overrideChar or LocalPlayer.Character
 	local rootPart = casterChar and (casterChar.PrimaryPart or casterChar:FindFirstChild("HumanoidRootPart"))
 	if not rootPart then 
 		warn("❌ [Client] No RootPart found! Cannot spawn Ice Bomb visual.")
@@ -322,7 +333,7 @@ local function showSkillToast(skillName: string)
 	toast.Text = SkillMessages:Format("MySkillActivated", {skillName = skillName})
 	toast.TextColor3 = config.TextColor
 	toast.TextSize = config.TextSize
-	toast.Parent = gui
+	toast.Parent = fullScreenGui
 	
 	local corner = Instance.new("UICorner")
 	corner.CornerRadius = UDim.new(0, 15)
@@ -365,7 +376,7 @@ local function showWarningToast(message: string)
 	toast.Text = message
 	toast.TextColor3 = config.TextColor
 	toast.TextSize = config.TextSize
-	toast.Parent = gui
+	toast.Parent = fullScreenGui
 	
 	local corner = Instance.new("UICorner")
 	corner.CornerRadius = UDim.new(0, 15)
@@ -781,6 +792,19 @@ phaseRemote.OnClientEvent:Connect(function(phase, timeLeft)
 	if phase ~= "RACE_MATCH" then
 		isRaceStarted = false
 		refreshSlots()
+		
+		-- Force clear EMP effects
+		_G.isEMPHacked = false
+		if glitchOverlay then
+			glitchOverlay.Visible = false
+		end
+		if fullScreenGui then
+			for _, child in ipairs(fullScreenGui:GetChildren()) do
+				if child.Name == "EMPHackText" then
+					child:Destroy()
+				end
+			end
+		end
 	end
 end)
 
@@ -791,7 +815,25 @@ countdownRemote.OnClientEvent:Connect(function(count)
 	end
 end)
 
-skillWarningRemote.OnClientEvent:Connect(function(casterName: string, skillId: string)
+skillWarningRemote.OnClientEvent:Connect(function(targetName: string, casterName: string, skillId: string)
+	print("[DEBUG-SkillWarning] Received for target:", targetName, "from:", casterName, "skillId:", skillId)
+	local isMe = (targetName == LocalPlayer.Name)
+	local isSpectatingThem = false
+	if LocalPlayer:GetAttribute("IsSpectating") then
+		local Camera = workspace.CurrentCamera
+		local subject = Camera.CameraSubject
+		if subject and subject.Parent and subject.Parent.Name == targetName then
+			isSpectatingThem = true
+		end
+		print("[DEBUG-SkillWarning] I am spectating target:", subject and subject.Parent and subject.Parent.Name, "Result:", isSpectatingThem)
+	end
+	
+	if not isMe and not isSpectatingThem then 
+		print("[DEBUG-SkillWarning] Ignored. Not me and not spectating the target.")
+		return 
+	end
+
+	print("[DEBUG-SkillWarning] SkillActionController - Passed checks, processing skillId:", skillId)
 	if skillId == "Skill_Shield_Break" then
 		if casterName == "SYSTEM" then
 			showWarningToast(SkillMessages.Messages.ShieldBroken)
@@ -819,7 +861,20 @@ blindEffectRemote.OnClientEvent:Connect(function(active: boolean)
 end)
 
 empEffectRemote.OnClientEvent:Connect(function(casterName: string)
-	if Players.LocalPlayer.Name == casterName then
+	print("[DEBUG-EMP] empEffectRemote received! casterName:", casterName)
+	local isMe = (LocalPlayer.Name == casterName)
+	local isSpectatingThem = false
+	if LocalPlayer:GetAttribute("IsSpectating") then
+		local Camera = workspace.CurrentCamera
+		local subject = Camera.CameraSubject
+		if subject and subject.Parent and subject.Parent.Name == casterName then
+			isSpectatingThem = true
+		end
+		print("[DEBUG-EMP] I am spectating subject:", subject and subject.Parent and subject.Parent.Name, "Result:", isSpectatingThem)
+	end
+
+	if isMe or isSpectatingThem then
+		print("[DEBUG-EMP] Condition met! Showing EMPReady toast to screen.")
 		showWarningToast(SkillMessages.Messages.EMPReady)
 		local zapSound = Instance.new("Sound")
 		zapSound.SoundId = "rbxassetid://138084050" -- Glitch/zap
@@ -893,6 +948,14 @@ LocalPlayer:GetAttributeChangedSignal("IsSpectating"):Connect(function()
 		gui.Enabled = false
 	else
 		gui.Enabled = true
+		-- 관전 종료 시 효과 초기화
+		_G.isEMPHacked = false
+		if glitchOverlay then glitchOverlay.Visible = false end
+		if fullScreenGui then
+			for _, child in ipairs(fullScreenGui:GetChildren()) do
+				if child.Name == "EMPHackText" then child:Destroy() end
+			end
+		end
 	end
 end)
 
@@ -918,13 +981,13 @@ empHackRemote.OnClientEvent:Connect(function()
 	hackText.Font = config.Font
 	
 	-- 기존 hackText 삭제 방지 (gui 안에 여러 개 쌓이는 것 방지)
-	for _, child in ipairs(gui:GetChildren()) do
+	for _, child in ipairs(fullScreenGui:GetChildren()) do
 		if child.Name == "EMPHackText" then
 			child:Destroy()
 		end
 	end
 	
-	hackText.Parent = gui
+	hackText.Parent = fullScreenGui
 	
 	-- 카메라 스파크 이펙트 (간단 구현)
 	if glitchOverlay then
@@ -949,4 +1012,86 @@ empHackRemote.OnClientEvent:Connect(function()
 			end
 		end
 	end)
+end)
+
+-- 📡 Global Skill Cast Listener (For Spectators)
+globalSkillCastRemote.OnClientEvent:Connect(function(casterUserId: number, skillId: string)
+	if LocalPlayer:GetAttribute("IsSpectating") == true then
+		local Camera = workspace.CurrentCamera
+		local subject = Camera.CameraSubject
+		local targetChar = nil
+		if subject and subject:IsA("Humanoid") and subject.Parent then
+			targetChar = subject.Parent
+		end
+		
+		if targetChar then
+			local targetPlayer = Players:GetPlayerFromCharacter(targetChar)
+			if targetPlayer and targetPlayer.UserId == casterUserId then
+				local sInfo = getSkillInfo(skillId)
+				local sName = sInfo and sInfo.name or skillId
+				showSkillToast(sName)
+				if skillId == "Skill_IceBomb" then
+					spawnLocalProjectileVisual(skillId, targetChar)
+				end
+			end
+		end
+	end
+end)
+
+-- 📡 Spectator Status Effect Sync Loop
+game:GetService("RunService").Heartbeat:Connect(function()
+	if LocalPlayer:GetAttribute("IsSpectating") ~= true then
+		return
+	end
+	
+	local Camera = workspace.CurrentCamera
+	local subject = Camera.CameraSubject
+	local targetChar = nil
+	if subject and subject:IsA("Humanoid") and subject.Parent then
+		targetChar = subject.Parent
+	end
+	
+	if not targetChar then return end
+	
+	-- EMP SYNC
+	local isEmped = targetChar:GetAttribute("StatusEffect_EMP")
+	if isEmped and not _G.isEMPHacked then
+		-- Trigger EMP visual for spectator
+		_G.isEMPHacked = true
+		
+		local config = SkillMessages.Design.EMPHackToast
+		local hackText = Instance.new("TextLabel")
+		hackText.Name = "EMPHackText"
+		hackText.Text = SkillMessages.Messages.EMPHackText
+		hackText.Size = UDim2.new(1, 0, 0.2, 0)
+		hackText.Position = UDim2.new(0, 0, config.PosY, 0)
+		hackText.BackgroundTransparency = 1
+		hackText.TextColor3 = config.TextColor
+		hackText.TextStrokeTransparency = 0
+		hackText.TextScaled = true
+		hackText.Font = config.Font
+		
+		for _, child in ipairs(fullScreenGui:GetChildren()) do
+			if child.Name == "EMPHackText" then child:Destroy() end
+		end
+		hackText.Parent = fullScreenGui
+		
+		if glitchOverlay then
+			glitchOverlay.Visible = true
+			task.spawn(function()
+				while _G.isEMPHacked do
+					glitchOverlay.BackgroundTransparency = math.random() * 0.5 + 0.5
+					task.wait(0.2)
+				end
+				glitchOverlay.Visible = false
+			end)
+		end
+	elseif not isEmped and _G.isEMPHacked then
+		-- Turn off EMP visual
+		_G.isEMPHacked = false
+		for _, child in ipairs(fullScreenGui:GetChildren()) do
+			if child.Name == "EMPHackText" then child:Destroy() end
+		end
+		if glitchOverlay then glitchOverlay.Visible = false end
+	end
 end)

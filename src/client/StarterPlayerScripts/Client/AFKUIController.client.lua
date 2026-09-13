@@ -70,9 +70,11 @@ specBtnStroke.Parent = startSpectateBtn
 
 -- Spectator Controls ( < , > , X )
 local specControlsFrame = Instance.new("Frame")
+specControlsFrame.Name = "SpecControlsFrame"
 specControlsFrame.Size = UDim2.new(0, 200, 0, 60)
-specControlsFrame.Position = UDim2.new(0.5, -100, 1, -80)
+specControlsFrame.Position = UDim2.new(0.5, -100, 1, -135)
 specControlsFrame.BackgroundTransparency = 1
+specControlsFrame.ZIndex = 2000
 specControlsFrame.Visible = false
 specControlsFrame.Parent = afkGui
 
@@ -84,6 +86,7 @@ prevBtn.TextSize = 24
 prevBtn.Font = Enum.Font.GothamBlack
 prevBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 prevBtn.TextColor3 = Color3.new(1, 1, 1)
+prevBtn.ZIndex = 2001
 prevBtn.Parent = specControlsFrame
 
 local nextBtn = Instance.new("TextButton")
@@ -94,6 +97,7 @@ nextBtn.TextSize = 24
 nextBtn.Font = Enum.Font.GothamBlack
 nextBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 nextBtn.TextColor3 = Color3.new(1, 1, 1)
+nextBtn.ZIndex = 2001
 nextBtn.Parent = specControlsFrame
 
 local exitSpecBtn = Instance.new("TextButton")
@@ -104,26 +108,27 @@ exitSpecBtn.TextSize = 24
 exitSpecBtn.Font = Enum.Font.GothamBlack
 exitSpecBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
 exitSpecBtn.TextColor3 = Color3.new(1, 1, 1)
+exitSpecBtn.ZIndex = 2001
 exitSpecBtn.Parent = specControlsFrame
 
 -- Central Watermark UI
 local watermark = Instance.new("TextLabel")
 watermark.Name = "AFKWatermark"
-watermark.Size = UDim2.new(1, 0, 0, 100)
+watermark.Size = UDim2.new(1, 0, 0, 50)
 watermark.Position = UDim2.new(0, 0, 0, 120)
 watermark.BackgroundTransparency = 1
 watermark.Font = Enum.Font.GothamBlack
 watermark.Text = "A.F.K"
 watermark.TextColor3 = Color3.fromRGB(255, 255, 255)
 watermark.TextTransparency = 1
-watermark.TextSize = 120
+watermark.TextSize = 60
 watermark.ZIndex = 10
 watermark.Visible = false
 watermark.Parent = afkGui
 
 local wmStroke = Instance.new("UIStroke")
 wmStroke.Color = Color3.fromRGB(0, 0, 0)
-wmStroke.Thickness = 6
+wmStroke.Thickness = 3
 wmStroke.Transparency = 1
 wmStroke.Parent = watermark
 
@@ -236,15 +241,19 @@ local function applyCameraToTarget()
 end
 
 local function stopSpectating()
+	print("[Spectator] stopSpectating called! Exiting spectator mode.")
 	LocalPlayer:SetAttribute("IsSpectating", false)
 	specControlsFrame.Visible = false
 	specText.Visible = false
 	startSpectateBtn.Visible = isAFK and (currentPhase == "RACE_MATCH")
 	
-	if Workspace.CurrentCamera and LocalPlayer.Character then
-		local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-		if hum then
-			Workspace.CurrentCamera.CameraSubject = hum
+	if Workspace.CurrentCamera then
+		Workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
+		if LocalPlayer.Character then
+			local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+			if hum then
+				Workspace.CurrentCamera.CameraSubject = hum
+			end
 		end
 	end
 end
@@ -264,8 +273,14 @@ local function startSpectating()
 end
 
 startSpectateBtn.MouseButton1Click:Connect(startSpectating)
+startSpectateBtn.Activated:Connect(startSpectating)
 
 prevBtn.MouseButton1Click:Connect(function()
+	refreshRacersList()
+	currentSpectateIndex -= 1
+	applyCameraToTarget()
+end)
+prevBtn.Activated:Connect(function()
 	refreshRacersList()
 	currentSpectateIndex -= 1
 	applyCameraToTarget()
@@ -276,8 +291,14 @@ nextBtn.MouseButton1Click:Connect(function()
 	currentSpectateIndex += 1
 	applyCameraToTarget()
 end)
+nextBtn.Activated:Connect(function()
+	refreshRacersList()
+	currentSpectateIndex += 1
+	applyCameraToTarget()
+end)
 
 exitSpecBtn.MouseButton1Click:Connect(stopSpectating)
+exitSpecBtn.Activated:Connect(stopSpectating)
 
 phaseRemote.OnClientEvent:Connect(function(phase, timeLeft)
 	currentPhase = phase

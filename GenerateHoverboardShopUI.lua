@@ -12,8 +12,8 @@ screenGui.Parent = StarterGui
 
 local bgFrame = Instance.new("Frame")
 bgFrame.Name = "Background"
-bgFrame.Size = UDim2.new(0, 800, 0, 500)
-bgFrame.Position = UDim2.new(0.5, -400, 0.5, -250)
+bgFrame.Size = UDim2.new(0, 800, 0, 520)
+bgFrame.Position = UDim2.new(0.5, -400, 0.5, -260)
 bgFrame.BackgroundColor3 = Color3.fromRGB(150, 240, 255)
 bgFrame.BackgroundTransparency = 0.5
 bgFrame.Parent = screenGui
@@ -89,7 +89,7 @@ refreshTimerLabel.Size = UDim2.new(1, 0, 0, 30)
 refreshTimerLabel.Position = UDim2.new(0, 0, 0, 85)
 refreshTimerLabel.BackgroundTransparency = 1
 refreshTimerLabel.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
-refreshTimerLabel.Text = "Next Refresh: --:--"
+refreshTimerLabel.Text = "NEXT RESTOCK IN: --:--"
 refreshTimerLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 refreshTimerLabel.TextSize = 20
 refreshTimerLabel.Parent = bgFrame
@@ -101,7 +101,7 @@ refreshStroke.Parent = refreshTimerLabel
 
 local scrollFrame = Instance.new("ScrollingFrame")
 scrollFrame.Name = "ScrollFrame"
-scrollFrame.Size = UDim2.new(1, -40, 1, -125)
+scrollFrame.Size = UDim2.new(1, -40, 0, 335)
 scrollFrame.Position = UDim2.new(0, 20, 0, 115)
 scrollFrame.BackgroundTransparency = 1
 scrollFrame.ScrollBarThickness = 8
@@ -229,5 +229,79 @@ local btnTextStroke = Instance.new("UIStroke")
 btnTextStroke.Color = Color3.fromRGB(0, 0, 0)
 btnTextStroke.Thickness = 2
 btnTextStroke.Parent = buyBtn
+
+-- 🏷️ Bottom Rarity Legend Indicator
+local legendFrame = Instance.new("Frame")
+legendFrame.Name = "RarityLegendFrame"
+legendFrame.Size = UDim2.new(1, -40, 0, 42)
+legendFrame.Position = UDim2.new(0.5, 0, 1, -28)
+legendFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+legendFrame.BackgroundTransparency = 1
+legendFrame.ZIndex = 5
+legendFrame.Parent = bgFrame
+
+local listLayout = Instance.new("UIListLayout")
+listLayout.FillDirection = Enum.FillDirection.Horizontal
+listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+listLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+listLayout.Padding = UDim.new(0, 24)
+listLayout.Parent = legendFrame
+
+local rarities = {
+	{ name = "Common", color = Color3.fromRGB(255, 255, 0) },
+	{ name = "Uncommon", color = Color3.fromRGB(0, 120, 255) },
+	{ name = "Rare", color = Color3.fromRGB(128, 0, 128) },
+	{ name = "Super Rare", color = Color3.fromRGB(30, 30, 30) },
+}
+
+for idx, rData in ipairs(rarities) do
+	local itemContainer = Instance.new("Frame")
+	itemContainer.Name = rData.name .. "Legend"
+	itemContainer.LayoutOrder = idx
+	itemContainer.Size = UDim2.new(0, 0, 1, 0)
+	itemContainer.AutomaticSize = Enum.AutomaticSize.X
+	itemContainer.BackgroundTransparency = 1
+	itemContainer.Parent = legendFrame
+	
+	local cLayout = Instance.new("UIListLayout")
+	cLayout.FillDirection = Enum.FillDirection.Horizontal
+	cLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+	cLayout.Padding = UDim.new(0, 10)
+	cLayout.Parent = itemContainer
+	
+	local colorBox = Instance.new("Frame")
+	colorBox.Name = "ColorBox"
+	colorBox.Size = UDim2.new(0, 24, 0, 24)
+	colorBox.BackgroundColor3 = rData.color
+	colorBox.BorderSizePixel = 0
+	colorBox.Parent = itemContainer
+	
+	local cCorner = Instance.new("UICorner")
+	cCorner.CornerRadius = UDim.new(0, 6)
+	cCorner.Parent = colorBox
+	
+	local cStroke = Instance.new("UIStroke")
+	cStroke.Color = Color3.fromRGB(0, 0, 0)
+	cStroke.Thickness = 3
+	cStroke.Parent = colorBox
+	
+	local textLbl = Instance.new("TextLabel")
+	textLbl.Name = "RarityText"
+	textLbl.Size = UDim2.new(0, 0, 1, 0)
+	textLbl.AutomaticSize = Enum.AutomaticSize.X
+	textLbl.BackgroundTransparency = 1
+	textLbl.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
+	textLbl.Text = rData.name
+	textLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
+	textLbl.TextSize = 22
+	textLbl.TextXAlignment = Enum.TextXAlignment.Left
+	textLbl.Parent = itemContainer
+	
+	local tStroke = Instance.new("UIStroke")
+	tStroke.Color = Color3.fromRGB(0, 0, 0)
+	tStroke.Thickness = 3
+	tStroke.Parent = textLbl
+end
 
 print("HoverboardShopHUD generated in StarterGui!")

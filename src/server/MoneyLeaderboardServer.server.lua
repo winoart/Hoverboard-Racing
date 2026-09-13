@@ -5,10 +5,65 @@
 local Players = game:GetService("Players")
 local DataStoreService = game:GetService("DataStoreService")
 local Workspace = game:GetService("Workspace")
+local LocalizationService = game:GetService("LocalizationService")
 
 local GoldOrderedStore = DataStoreService:GetOrderedDataStore("HoverboardGold_Ordered_v1")
 
 local UPDATE_INTERVAL = 60
+
+local SAMPLE_COUNTRIES = {
+	"KR", "US", "JP", "GB", "CA", "DE", "FR", "BR", "AU", "VN",
+	"TH", "ID", "PH", "MX", "ES", "IT", "TW", "SG", "MY", "NL"
+}
+
+local playerCountryCache: { [number]: string } = {}
+
+local function getPlayerCountry(player: Player): string
+	local cached = playerCountryCache[player.UserId]
+	if cached then return cached end
+	local s, code = pcall(function()
+		return LocalizationService:GetCountryRegionForPlayerAsync(player)
+	end)
+	if s and code and #code == 2 then
+		playerCountryCache[player.UserId] = code:upper()
+		return code:upper()
+	end
+	return "KR"
+end
+
+local function getCountryForUserId(userId: number): string
+	if playerCountryCache[userId] then
+		return playerCountryCache[userId]
+	end
+	local player = Players:GetPlayerByUserId(userId)
+	if player then
+		return getPlayerCountry(player)
+	end
+	if userId > 0 then
+		local idx = (math.abs(userId) % #SAMPLE_COUNTRIES) + 1
+		return SAMPLE_COUNTRIES[idx]
+	end
+	return "KR"
+end
+
+local function getCountryFlagEmoji(countryCode: string?): string
+	if not countryCode or #countryCode ~= 2 then
+		return "🌐"
+	end
+	local c1 = string.byte(countryCode:sub(1, 1):upper())
+	local c2 = string.byte(countryCode:sub(2, 2):upper())
+	if c1 >= 65 and c1 <= 90 and c2 >= 65 and c2 <= 90 then
+		return utf8.char(0x1F1E6 + c1 - 65) .. utf8.char(0x1F1E6 + c2 - 65)
+	end
+	return "🌐"
+end
+
+Players.PlayerAdded:Connect(function(player)
+	getPlayerCountry(player)
+end)
+for _, player in ipairs(Players:GetPlayers()) do
+	getPlayerCountry(player)
+end
 
 local function formatAbbreviation(number: number): string
 	if number >= 1000000000 then
@@ -22,7 +77,46 @@ local function formatAbbreviation(number: number): string
 	end
 end
 
-local function createRow(rank: number, username: string, gold: number, userId: number)
+local function ensureScrollContainer(container: Instance): ScrollingFrame
+	if container:IsA("ScrollingFrame") then
+		local scroll = container :: ScrollingFrame
+		scroll.ScrollBarThickness = 14
+		scroll.ScrollBarImageColor3 = Color3.fromRGB(40, 180, 255)
+		scroll.ScrollingDirection = Enum.ScrollingDirection.Y
+		scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+		scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+		scroll.BorderSizePixel = 0
+		scroll.ClipsDescendants = true
+		return scroll
+	end
+
+	local oldContainer = container :: Frame
+	local scrollFrame = Instance.new("ScrollingFrame")
+	scrollFrame.Name = oldContainer.Name
+	scrollFrame.Size = oldContainer.Size
+	scrollFrame.Position = oldContainer.Position
+	scrollFrame.AnchorPoint = oldContainer.AnchorPoint
+	scrollFrame.BackgroundTransparency = oldContainer.BackgroundTransparency
+	scrollFrame.BackgroundColor3 = oldContainer.BackgroundColor3
+	scrollFrame.BorderSizePixel = 0
+	scrollFrame.ScrollBarThickness = 14
+	scrollFrame.ScrollBarImageColor3 = Color3.fromRGB(40, 180, 255)
+	scrollFrame.ScrollingDirection = Enum.ScrollingDirection.Y
+	scrollFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+	scrollFrame.ClipsDescendants = true
+	scrollFrame.ZIndex = oldContainer.ZIndex
+	scrollFrame.Parent = oldContainer.Parent
+
+	for _, child in ipairs(oldContainer:GetChildren()) do
+		child.Parent = scrollFrame
+	end
+
+	oldContainer:Destroy()
+	return scrollFrame
+end
+
+local function createRow(rank: number, username: string, gold: number, userId: number, countryCode: string)
 	local row = Instance.new("Frame")
 	row.Size = UDim2.new(1, -40, 0, 70)
 	row.BorderSizePixel = 0
@@ -32,27 +126,24 @@ local function createRow(rank: number, username: string, gold: number, userId: n
 	uiCorner.CornerRadius = UDim.new(0, 15)
 	uiCorner.Parent = row
 	
-	-- Styling for Top 3
+	-- Styling for Ranks
 	local rankText = tostring(rank)
-	local iconSize = UDim2.new(0, 50, 0, 50)
 	
 	if rank == 1 then
-		row.BackgroundColor3 = Color3.fromRGB(255, 215, 0) -- Gold
-		rankText = "🏆 1"
+		row.BackgroundColor3 = Color3.fromRGB(255, 200, 50) -- Vibrant Gold
 	elseif rank == 2 then
-		row.BackgroundColor3 = Color3.fromRGB(192, 192, 192) -- Silver
-		rankText = "🥈 2"
+		row.BackgroundColor3 = Color3.fromRGB(210, 220, 230) -- Cool Silver
 	elseif rank == 3 then
-		row.BackgroundColor3 = Color3.fromRGB(205, 127, 50) -- Bronze
-		rankText = "🥉 3"
+		row.BackgroundColor3 = Color3.fromRGB(220, 140, 90) -- Warm Bronze
+	elseif rank <= 10 then
+		row.BackgroundColor3 = Color3.fromRGB(150, 240, 255) -- Bright Cyan
 	else
-		-- Gradient for 4-10
-		local uiGradient = Instance.new("UIGradient")
-		uiGradient.Color = ColorSequence.new{
-			ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
-			ColorSequenceKeypoint.new(1, Color3.fromRGB(220, 240, 255))
-		}
-		uiGradient.Parent = row
+		-- 11~100위 번갈아가는 깔끔한 색상
+		if rank % 2 == 1 then
+			row.BackgroundColor3 = Color3.fromRGB(230, 243, 255)
+		else
+			row.BackgroundColor3 = Color3.fromRGB(245, 250, 255)
+		end
 	end
 	
 	local stroke = Instance.new("UIStroke")
@@ -62,48 +153,42 @@ local function createRow(rank: number, username: string, gold: number, userId: n
 	
 	-- Rank Label
 	local rankLabel = Instance.new("TextLabel")
+	rankLabel.Name = "Rank"
 	rankLabel.Size = UDim2.new(0, 80, 1, 0)
 	rankLabel.Position = UDim2.new(0, 20, 0, 0)
 	rankLabel.BackgroundTransparency = 1
 	rankLabel.Text = rankText
 	rankLabel.Font = Enum.Font.GothamBlack
-	rankLabel.TextSize = 35
+	rankLabel.TextSize = rank < 10 and 35 or (rank < 100 and 30 or 26)
 	rankLabel.TextColor3 = Color3.fromRGB(30, 30, 30)
 	rankLabel.TextXAlignment = Enum.TextXAlignment.Center
 	rankLabel.Parent = row
 	
-	-- Profile Pic
-	local profilePic = Instance.new("ImageLabel")
-	profilePic.Size = iconSize
-	profilePic.Position = UDim2.new(0, 110, 0.5, -25)
-	profilePic.BackgroundTransparency = 1
-	
-	local success, thumb = pcall(function()
-		return Players:GetUserThumbnailAsync(userId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100)
-	end)
-	if success then
-		profilePic.Image = thumb
-	else
-		profilePic.Image = "rbxassetid://0" -- Placeholder
-	end
-	
-	local picCorner = Instance.new("UICorner")
-	picCorner.CornerRadius = UDim.new(1, 0)
-	picCorner.Parent = profilePic
-	
-	local picStroke = Instance.new("UIStroke")
-	picStroke.Color = Color3.fromRGB(50, 50, 50)
-	picStroke.Thickness = 2
-	picStroke.Parent = profilePic
-	
-	profilePic.Parent = row
+	-- Flag Label (국기)
+	local flagLabel = Instance.new("TextLabel")
+	flagLabel.Name = "Flag"
+	flagLabel.Size = UDim2.new(0, 50, 0, 50)
+	flagLabel.Position = UDim2.new(0, 110, 0.5, -25)
+	flagLabel.BackgroundTransparency = 1
+	flagLabel.Font = Enum.Font.GothamBold
+	flagLabel.Text = getCountryFlagEmoji(countryCode)
+	flagLabel.TextScaled = true
+	flagLabel.TextXAlignment = Enum.TextXAlignment.Center
+	flagLabel.TextYAlignment = Enum.TextYAlignment.Center
+	flagLabel.Parent = row
 	
 	-- Name Label
+	local displayName = username
+	if string.len(displayName) > 12 then
+		displayName = string.sub(displayName, 1, 12) .. "..."
+	end
+	
 	local nameLabel = Instance.new("TextLabel")
+	nameLabel.Name = "PlayerName"
 	nameLabel.Size = UDim2.new(0, 500, 1, 0)
 	nameLabel.Position = UDim2.new(0.5, -250, 0, 0)
 	nameLabel.BackgroundTransparency = 1
-	nameLabel.Text = username
+	nameLabel.Text = displayName
 	nameLabel.Font = Enum.Font.GothamBlack
 	nameLabel.TextSize = 30
 	nameLabel.TextColor3 = Color3.fromRGB(30, 30, 30)
@@ -112,6 +197,7 @@ local function createRow(rank: number, username: string, gold: number, userId: n
 	
 	-- Money Label
 	local moneyLabel = Instance.new("TextLabel")
+	moneyLabel.Name = "Money"
 	moneyLabel.Size = UDim2.new(0, 150, 1, 0)
 	moneyLabel.Position = UDim2.new(1, -200, 0, 0)
 	moneyLabel.BackgroundTransparency = 1
@@ -125,8 +211,6 @@ local function createRow(rank: number, username: string, gold: number, userId: n
 	return row
 end
 
--- generateHeader 함수는 삭제되었습니다. (GenerateThickCartoonLeaderboard가 UI를 전담합니다)
-
 local function updateLeaderboard()
 	local board = Workspace:FindFirstChild("MoneyLeaderboard", true) or Workspace:FindFirstChild("MoneyBoard", true)
 	if not board then return end
@@ -137,45 +221,84 @@ local function updateLeaderboard()
 	local root = surfaceGui:FindFirstChild("Root", true)
 	if not root then return end
 	
-	local container = root:FindFirstChild("Container") or root
+	local rawContainer = root:FindFirstChild("Container") or root
+	local container = ensureScrollContainer(rawContainer)
 	local rowTemplate = container:FindFirstChild("RowTemplate") or root:FindFirstChild("RowTemplate")
 	
-	-- Fetch Data
-	local success, pages = pcall(function()
-		return GoldOrderedStore:GetSortedAsync(false, 10)
-	end)
-	
-	if not success then
-		warn("🚨 [MoneyLeaderboardServer] Failed to fetch OrderedDataStore! (Make sure Studio API Access is enabled)")
-		return
-	end
-	
-	-- Fetch current page data
-	local currentPage = pages and pages:GetCurrentPage() or {}
-	
-	-- 테스트/프리뷰 용도: 데이터가 아예 없을 경우 가짜 데이터 10개 생성
-	if #currentPage == 0 then
-		for i = 1, 10 do
-			table.insert(currentPage, {
-				key = "1", -- 로블록스 기본 계정 (Roblox)
-				value = 1000 - (i * 50)
-			})
+	-- 상금액 표기를 영문 'Gold'로 일괄 자동 변경 및 기존 헤더 '프로필' 숨김 처리
+	for _, desc in ipairs(board:GetDescendants()) do
+		if desc:IsA("TextLabel") or desc:IsA("TextButton") then
+			local noSpace = desc.Text:gsub("%s+", ""):lower()
+			if noSpace == "상금액" or noSpace == "상금" or desc.Name == "MoneyTitle" then
+				desc.Text = "Gold"
+			elseif noSpace:find("프로필") or desc.Name:lower():find("profile") then
+				desc.Text = ""
+			end
 		end
 	end
 	
-	-- Clear old UI rows (only dynamic rows, keep layout, corners, headers, and template)
+	local colHeader = container:FindFirstChild("ColumnHeader") or root:FindFirstChild("ColumnHeader")
+	if colHeader then
+		local flagHeader = colHeader:FindFirstChild("FlagTitle")
+		if not flagHeader then
+			flagHeader = Instance.new("TextLabel")
+			flagHeader.Name = "FlagTitle"
+			flagHeader.Size = UDim2.new(0, 80, 1, 0)
+			flagHeader.Position = UDim2.new(0, 160, 0, 0)
+			flagHeader.BackgroundTransparency = 1
+			flagHeader.Text = ""
+			flagHeader.Font = Enum.Font.GothamBlack
+			flagHeader.TextSize = 65
+			flagHeader.TextColor3 = Color3.fromRGB(30, 30, 30)
+			flagHeader.TextXAlignment = Enum.TextXAlignment.Center
+			flagHeader.Parent = colHeader
+		else
+			flagHeader.Text = ""
+		end
+	end
+	
+	-- Clear old UI rows (only dynamic rows, keep layout, corners, headers, and template) early to hide dummy data
 	for _, child in ipairs(container:GetChildren()) do
 		if child:IsA("Frame") and child.Name ~= "ColumnHeader" and child.Name ~= "RowTemplate" and not child.Name:match("Spacer") then
 			child:Destroy()
 		end
 	end
 	
-	for rank, data in ipairs(currentPage) do
+	-- Fetch Data (최대 100위까지 수집)
+	local allEntries = {}
+	local success, pages = pcall(function()
+		return GoldOrderedStore:GetSortedAsync(false, 100)
+	end)
+	
+	if success and pages then
+		while #allEntries < 100 do
+			local pageData = pages:GetCurrentPage()
+			for _, entry in ipairs(pageData) do
+				table.insert(allEntries, entry)
+				if #allEntries >= 100 then break end
+			end
+			if #allEntries >= 100 or pages.IsFinished then
+				break
+			end
+			local advOk = pcall(function()
+				pages:AdvanceToNextPageAsync()
+			end)
+			if not advOk then break end
+		end
+	else
+		warn("🚨 [MoneyLeaderboardServer] Failed to fetch OrderedDataStore! (Make sure Studio API Access is enabled)")
+	end
+	
+	-- (프리뷰용 가짜 데이터 채움 로직 제거: 실데이터만 표시되도록 함)
+	
+	for rank, data in ipairs(allEntries) do
 		local userId = tonumber(data.key) or 0
 		local gold = data.value
+		local countryCode = getCountryForUserId(userId)
+		local flagEmoji = getCountryFlagEmoji(countryCode)
 		
 		-- Try to get username
-		local username = "Unknown"
+		local username = "Player" .. tostring(userId)
 		pcall(function()
 			username = Players:GetNameFromUserIdAsync(userId)
 		end)
@@ -187,99 +310,109 @@ local function updateLeaderboard()
 			row.Name = "Row_" .. rank
 			row.Visible = true
 			
-			-- Update Rank
+			-- 1. Update Rank (메달 아이콘 제거, 가운데 정렬, 가시성 확보)
 			local rankLabel = row:FindFirstChild("Rank")
 			if rankLabel and rankLabel:IsA("TextLabel") then
-				-- RichText 해제 및 기존 텍스트 설정
 				rankLabel.RichText = false
 				rankLabel.Text = tostring(rank)
+				rankLabel.TextXAlignment = Enum.TextXAlignment.Center
 				
-				if rank <= 3 then
-					local medal = rankLabel:FindFirstChild("MedalIcon")
-					if not medal then
-						medal = Instance.new("ImageLabel")
-						medal.Name = "MedalIcon"
-						medal.Size = UDim2.new(0, 100, 0, 100) -- 크기 2배(100x100)로 확대
-						medal.Position = UDim2.new(0, -35, 0.5, -50) -- 정중앙에 맞게 오프셋 재조정
-						medal.BackgroundTransparency = 1
-						medal.Parent = rankLabel
-					end
-					
-					if rank == 1 then medal.Image = "rbxassetid://102696561952500"
-					elseif rank == 2 then medal.Image = "rbxassetid://137047702047745"
-					elseif rank == 3 then medal.Image = "rbxassetid://72852436278944"
-					end
-					
-					rankLabel.TextXAlignment = Enum.TextXAlignment.Right
+				-- 이전 메달 아이콘이 있다면 완전히 제거하여 순위 텍스트가 가려지지 않게 함
+				local medal = rankLabel:FindFirstChild("MedalIcon")
+				if medal then medal:Destroy() end
+				
+				-- 100위까지 글자 크기 유동 조정
+				if rank < 10 then
+					rankLabel.TextSize = 55
+				elseif rank < 100 then
+					rankLabel.TextSize = 46
 				else
-					rankLabel.TextXAlignment = Enum.TextXAlignment.Center
-					local medal = rankLabel:FindFirstChild("MedalIcon")
-					if medal then medal:Destroy() end
+					rankLabel.TextSize = 38
 				end
 				
-				-- 텍스트를 흰색으로, 테두리를 검정색으로 설정하여 가시성 극대화
-				rankLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+				-- 텍스트를 검정색으로 설정하고 외곽선 제거
+				rankLabel.TextColor3 = Color3.fromRGB(30, 30, 30)
 				local rankStroke = rankLabel:FindFirstChild("UIStroke")
-				if not rankStroke then
-					rankStroke = Instance.new("UIStroke")
-					rankStroke.Parent = rankLabel
+				if rankStroke then
+					rankStroke:Destroy()
 				end
-				rankStroke.Color = Color3.fromRGB(0, 0, 0)
-				rankStroke.Thickness = 4
 			end
 			
-			-- Coloring based on rank (Cartoon Simulator Style)
+			-- 2. Coloring based on rank (1~3위 금/은/동, 4~10위 하늘색, 11~100위 부드러운 교차색)
 			local bg = row
-			
-			-- 카툰 스타일에 맞춘 플랫(Flat) 색상 적용
 			if rank == 1 then 
 				bg.BackgroundColor3 = Color3.fromRGB(255, 200, 50) -- Vibrant Gold
 			elseif rank == 2 then 
 				bg.BackgroundColor3 = Color3.fromRGB(210, 220, 230) -- Cool Silver
 			elseif rank == 3 then 
 				bg.BackgroundColor3 = Color3.fromRGB(220, 140, 90) -- Warm Bronze
-			else 
-				bg.BackgroundColor3 = Color3.fromRGB(150, 240, 255) -- Bright Cyan (4th~10th)
+			elseif rank <= 10 then 
+				bg.BackgroundColor3 = Color3.fromRGB(150, 240, 255) -- Bright Cyan
+			else
+				if rank % 2 == 1 then
+					bg.BackgroundColor3 = Color3.fromRGB(230, 243, 255)
+				else
+					bg.BackgroundColor3 = Color3.fromRGB(245, 250, 255)
+				end
 			end
 			
-			-- 닉네임 12자 제한 및 '...' 생략 로직
+			-- 3. Flag (국기): 프로필 이미지를 국기로 교체
+			local profilePic = bg:FindFirstChild("ProfilePic") or row:FindFirstChild("ProfilePic")
+			if profilePic then
+				profilePic.Visible = false
+			end
+			
+			local flagLabel = bg:FindFirstChild("Flag") or row:FindFirstChild("Flag")
+			if not flagLabel then
+				flagLabel = Instance.new("TextLabel")
+				flagLabel.Name = "Flag"
+				flagLabel.Size = profilePic and profilePic.Size or UDim2.new(0, 60, 0, 60)
+				flagLabel.Position = profilePic and profilePic.Position or UDim2.new(0, 170, 0.5, -30)
+				flagLabel.AnchorPoint = profilePic and profilePic.AnchorPoint or Vector2.new(0, 0)
+				flagLabel.BackgroundTransparency = 1
+				flagLabel.Font = Enum.Font.GothamBold
+				flagLabel.TextScaled = true
+				flagLabel.TextXAlignment = Enum.TextXAlignment.Center
+				flagLabel.TextYAlignment = Enum.TextYAlignment.Center
+				flagLabel.ZIndex = (profilePic and profilePic.ZIndex or 5) + 1
+				flagLabel.Parent = bg
+			end
+			if flagLabel:IsA("TextLabel") then
+				flagLabel.Text = flagEmoji
+			end
+			
+			-- 4. 닉네임 12자 제한 및 '...' 생략 로직
 			local displayName = username
 			if string.len(displayName) > 12 then
 				displayName = string.sub(displayName, 1, 12) .. "..."
 			end
 			
-			-- Update Username
 			local nameLabel = bg:FindFirstChild("PlayerName")
 			if nameLabel and nameLabel:IsA("TextLabel") then
 				nameLabel.Text = displayName
+				nameLabel.TextColor3 = Color3.fromRGB(30, 30, 30)
+				local stroke = nameLabel:FindFirstChild("UIStroke")
+				if stroke then stroke:Destroy() end
 			end
 			
-			-- Update Money
+			-- 5. Update Money
 			local moneyLabel = bg:FindFirstChild("Money") or row:FindFirstChild("Money") or bg:FindFirstChild("Wins") or row:FindFirstChild("Wins")
 			if moneyLabel and moneyLabel:IsA("TextLabel") then
 				moneyLabel.Text = formatAbbreviation(gold)
-			end
-			
-			-- Update Profile Pic
-			local profilePic = bg:FindFirstChild("ProfilePic") or row:FindFirstChild("ProfilePic")
-			if profilePic and profilePic:IsA("ImageLabel") then
-				local s, thumb = pcall(function()
-					return Players:GetUserThumbnailAsync(userId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100)
-				end)
-				if s then
-					profilePic.Image = thumb
-				end
+				moneyLabel.TextColor3 = Color3.fromRGB(30, 30, 30)
+				local stroke = moneyLabel:FindFirstChild("UIStroke")
+				if stroke then stroke:Destroy() end
 			end
 		else
 			-- Fallback to script generated row
-			row = createRow(rank, username, gold, userId)
+			row = createRow(rank, username, gold, userId, countryCode)
 		end
 		
 		row.LayoutOrder = rank + 1
 		row.Parent = container
 	end
 	
-	print("✅ [MoneyLeaderboardServer] 글로벌 머니 리더보드 갱신 완료!")
+	print("✅ [MoneyLeaderboardServer] 글로벌 머니 리더보드 100위 갱신 완료!")
 end
 
 local function getSurfaceGui()
@@ -315,8 +448,12 @@ local function updateRefreshCounter(timeLeft: number)
 end
 
 task.spawn(function()
-	-- Give LoungeGenerator some time to spawn the board
-	task.wait(10)
+	-- Wait for the board to be spawned by LoungeGenerator
+	for i = 1, 40 do
+		if getSurfaceGui() then break end
+		task.wait(0.25)
+	end
+	
 	updateLeaderboard()
 	
 	local timeLeft = UPDATE_INTERVAL

@@ -149,6 +149,7 @@ local function teleportAllToTrackAndMount()
 	for _, player in ipairs(Players:GetPlayers()) do
 		print("[DEBUG-GLM] Checking player: " .. player.Name .. " | IsAFK: " .. tostring(player:GetAttribute("IsAFK")) .. " | OnTreadmill: " .. tostring(player:GetAttribute("OnTreadmill")))
 		if player:GetAttribute("IsAFK") then
+			player:SetAttribute("IsRacing", false)
 			print("[DEBUG-GLM] Skipped " .. player.Name .. " due to IsAFK")
 			continue
 		end
@@ -267,29 +268,77 @@ voteRemote.OnServerEvent:Connect(function(player: Player, mapName: string)
 	broadcastPhaseUpdate()
 end)
 
--- New Player Joining Logic: Always spawn initial character at user's WaitingRoom!
-Players.PlayerAdded:Connect(function(player: Player)
+-- New Player Joining & Character Lifecycle Logic:
+local function setupPlayer(player: Player)
 	player.CharacterAdded:Connect(function(character)
-		-- Do not return to lounge during a race (Keep on track if respawned by skill hit, etc)
-		-- Debug logging removed
-		-- Humanoid 사망 원인 추적
 		local hum = character:WaitForChild("Humanoid", 5)
 		if hum then
 			hum.Died:Connect(function()
 				print(string.format("[DEATH_DEBUG] %s Humanoid.Died | Health=%.1f | Phase=%s", player.Name, hum.Health, currentPhase))
+				if currentPhase == "RACE_MATCH" and player:GetAttribute("IsRacing") then
+					print(string.format("🏁 [GameLoop] %s died during race! Marking DNF.", player.Name))
+					player:SetAttribute("IsRacing", false)
+					player:SetAttribute("IsHoverboarding", false)
+					LapManager.retirePlayer(player.UserId)
+					dismountRemote:FireClient(player)
+					stateRemote:FireClient(player, false, nil)
+				end
 			end)
 		end
+
 		if currentPhase == "RACE_MATCH" then
-			-- Debug logging removed
+			if player:GetAttribute("IsRacing") then
+				print(string.format("🏁 [GameLoop] %s died/respawned during race! Transitioning to DNF Lounge mode.", player.Name))
+				player:SetAttribute("IsRacing", false)
+				player:SetAttribute("IsHoverboarding", false)
+				LapManager.retirePlayer(player.UserId)
+			end
+
+			local boardModel = character:FindFirstChild("EquippedHoverboard")
+			if boardModel then
+				boardModel:Destroy()
+			end
+
+			dismountRemote:FireClient(player)
+			stateRemote:FireClient(player, false, nil)
+
+			task.wait(0.3)
+			local loungeCFrame = getLoungeCFrame()
+			teleportPlayer(player, loungeCFrame)
+			task.wait(0.1)
+			phaseRemote:FireClient(player, currentPhase, phaseTimeLeft, mapVoteData, chosenMapName)
 			return
 		end
+
 		task.wait(0.3)
 		local loungeCFrame = getLoungeCFrame()
 		teleportPlayer(player, loungeCFrame)
 		task.wait(0.1)
 		phaseRemote:FireClient(player, currentPhase, phaseTimeLeft, mapVoteData, chosenMapName)
 	end)
-end)
+
+	if player.Character then
+		local hum = player.Character:FindFirstChildOfClass("Humanoid")
+		if hum then
+			hum.Died:Connect(function()
+				print(string.format("[DEATH_DEBUG] %s Humanoid.Died | Health=%.1f | Phase=%s", player.Name, hum.Health, currentPhase))
+				if currentPhase == "RACE_MATCH" and player:GetAttribute("IsRacing") then
+					print(string.format("🏁 [GameLoop] %s died during race! Marking DNF.", player.Name))
+					player:SetAttribute("IsRacing", false)
+					player:SetAttribute("IsHoverboarding", false)
+					LapManager.retirePlayer(player.UserId)
+					dismountRemote:FireClient(player)
+					stateRemote:FireClient(player, false, nil)
+				end
+			end)
+		end
+	end
+end
+
+Players.PlayerAdded:Connect(setupPlayer)
+for _, player in ipairs(Players:GetPlayers()) do
+	setupPlayer(player)
+end
 
 local countdownRemote = getOrCreateRemote("StartCountdownSignal")
 

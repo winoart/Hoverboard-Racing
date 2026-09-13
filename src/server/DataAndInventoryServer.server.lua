@@ -89,6 +89,11 @@ Players.PlayerAdded:Connect(function(player)
 	dataLoaded.Value = false
 	dataLoaded.Parent = player
 	
+	local questDataJSON = Instance.new("StringValue")
+	questDataJSON.Name = "QuestDataJSON"
+	questDataJSON.Value = "{}"
+	questDataJSON.Parent = player
+	
 	-- Load Data
 	local success, data = pcall(function()
 		return PlayerDataStore:GetAsync(tostring(player.UserId))
@@ -145,6 +150,14 @@ Players.PlayerAdded:Connect(function(player)
 		local eqSkills = data.EquippedSkills or {}
 		if data.EquippedSkillId and data.EquippedSkillId ~= "" and #eqSkills == 0 then
 			table.insert(eqSkills, data.EquippedSkillId)
+		end
+		
+		if data.QuestData then
+			local HttpService = game:GetService("HttpService")
+			local s, encoded = pcall(function() return HttpService:JSONEncode(data.QuestData) end)
+			if s and encoded then
+				questDataJSON.Value = encoded
+			end
 		end
 		
 		local SkillStoreConfig = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("SkillStoreConfig"))
@@ -257,6 +270,15 @@ Players.PlayerRemoving:Connect(function(player)
 			LastAttendanceDate = lastDate and lastDate.Value or "",
 			AttendanceStreak = streak and streak.Value or 0
 		}
+		
+		local HttpService = game:GetService("HttpService")
+		local questDataStr = player:FindFirstChild("QuestDataJSON")
+		if questDataStr then
+			local s, decoded = pcall(function() return HttpService:JSONDecode(questDataStr.Value) end)
+			if s and decoded then
+				dataToSave.QuestData = decoded
+			end
+		end
 
 		local success, err = pcall(function()
 			PlayerDataStore:SetAsync(tostring(player.UserId), dataToSave)
@@ -473,6 +495,13 @@ addDistanceRemote.OnServerEvent:Connect(function(player: Player, dist: number)
 		local distanceVal = leaderstats:FindFirstChild("Distance")
 		if distanceVal then
 			distanceVal.Value += math.floor(dist)
+			
+			-- Quest: Distance
+			local QuestBindables = ReplicatedStorage:FindFirstChild("QuestBindables")
+			local addProgress = QuestBindables and QuestBindables:FindFirstChild("AddQuestProgress")
+			if addProgress then
+				addProgress:Fire(player.UserId, "_dist", math.floor(dist))
+			end
 		end
 	end
 end)

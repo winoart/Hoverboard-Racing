@@ -126,26 +126,23 @@ local function refreshDisplays()
 
 		-- Top Header Banner
 		if headerStatusLabel and headerTimerLabel then
+			headerStatusLabel.TextColor3 = Color3.fromRGB(40, 180, 255) -- Title Blue per user request
+			headerTimerLabel.TextColor3 = Color3.fromRGB(255, 255, 255) -- White per user request
+
 			if currentPhase == "INTERMISSION" then
 				headerStatusLabel.Text = "INTERMISSION"
-				headerStatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-				headerTimerLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 				headerTimerLabel.Text = string.format("%d", math.max(0, phaseTimeLeft))
 			elseif currentPhase == "MAP_VOTING" then
 				headerStatusLabel.Text = "MAP VOTING"
-				headerStatusLabel.TextColor3 = Color3.fromRGB(255, 220, 80)
 				headerTimerLabel.Text = string.format("%ds", math.max(0, phaseTimeLeft))
 			elseif currentPhase == "MAP_BUILDING" then
 				headerStatusLabel.Text = "LOADING MAP..."
-				headerStatusLabel.TextColor3 = Color3.fromRGB(80, 220, 255)
 				headerTimerLabel.Text = string.format("%ds", math.max(0, phaseTimeLeft))
 			elseif currentPhase == "RACE_MATCH" then
 				if isPlayerInRace then
 					headerStatusLabel.Text = "ROUND ENDS IN"
-					headerStatusLabel.TextColor3 = Color3.fromRGB(0, 240, 255)
 				else
 					headerStatusLabel.Text = "ROUND ENDS IN (LOUNGE)"
-					headerStatusLabel.TextColor3 = Color3.fromRGB(255, 190, 80)
 				end
 
 				local mins = math.floor(math.max(0, phaseTimeLeft) / 60)
@@ -196,61 +193,63 @@ local function createGameLoopUI()
 	mainGuiScreen.DisplayOrder = 20
 	mainGuiScreen.Parent = playerGui
 
-	-- [1] TOP CENTER COUNTDOWN HEADER BANNER
+	-- [1] TOP CENTER COUNTDOWN HEADER BANNER (Perfect Center Alignment)
 	headerBannerFrame = Instance.new("Frame")
 	headerBannerFrame.Name = "HeaderBanner"
-	headerBannerFrame.Size = UDim2.new(0, 380, 0, 42)
-	headerBannerFrame.Position = UDim2.new(0.5, -190, 0.02, 0)
-	headerBannerFrame.BackgroundColor3 = Color3.fromRGB(12, 16, 26)
+	headerBannerFrame.Size = UDim2.new(1, 0, 0, 50)
+	headerBannerFrame.Position = UDim2.new(0, 0, 0.02, 0)
 	headerBannerFrame.BackgroundTransparency = 1
 	headerBannerFrame.BorderSizePixel = 0
 	headerBannerFrame.ZIndex = 30
 	headerBannerFrame.Parent = mainGuiScreen
 
-	local bannerCorner = Instance.new("UICorner")
-	bannerCorner.CornerRadius = UDim.new(0, 10)
-	bannerCorner.Parent = headerBannerFrame
-
-	local bannerStroke = Instance.new("UIStroke")
-	bannerStroke.Color = Color3.fromRGB(0, 230, 255)
-	bannerStroke.Thickness = 2.0
-	bannerStroke.Transparency = 1
-	bannerStroke.Parent = headerBannerFrame
+	local bannerLayout = Instance.new("UIListLayout")
+	bannerLayout.Name = "BannerLayout"
+	bannerLayout.FillDirection = Enum.FillDirection.Horizontal
+	bannerLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	bannerLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+	bannerLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	bannerLayout.Padding = UDim.new(0, 14)
+	bannerLayout.Parent = headerBannerFrame
 
 	headerStatusLabel = Instance.new("TextLabel")
 	headerStatusLabel.Name = "StatusText"
-	headerStatusLabel.Size = UDim2.new(0.5, -10, 1, 0)
-	headerStatusLabel.Position = UDim2.new(0, 0, 0, 0)
+	headerStatusLabel.Size = UDim2.new(0, 0, 1, 0)
+	headerStatusLabel.AutomaticSize = Enum.AutomaticSize.X
 	headerStatusLabel.BackgroundTransparency = 1
 	headerStatusLabel.Font = Enum.Font.FredokaOne
 	headerStatusLabel.Text = "INTERMISSION"
 	headerStatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-	headerStatusLabel.TextSize = 40
-	headerStatusLabel.TextXAlignment = Enum.TextXAlignment.Right
+	headerStatusLabel.TextSize = 38
+	headerStatusLabel.TextXAlignment = Enum.TextXAlignment.Center
+	headerStatusLabel.TextYAlignment = Enum.TextYAlignment.Center
+	headerStatusLabel.LayoutOrder = 1
 	headerStatusLabel.ZIndex = 31
 	headerStatusLabel.Parent = headerBannerFrame
 
 	local statusStroke = Instance.new("UIStroke")
 	statusStroke.Color = Color3.fromRGB(0, 0, 0)
-	statusStroke.Thickness = 6
+	statusStroke.Thickness = 5
 	statusStroke.Parent = headerStatusLabel
 
 	headerTimerLabel = Instance.new("TextLabel")
 	headerTimerLabel.Name = "TimerText"
-	headerTimerLabel.Size = UDim2.new(0.5, -10, 1, 0)
-	headerTimerLabel.Position = UDim2.new(0.5, 10, 0, 0)
+	headerTimerLabel.Size = UDim2.new(0, 0, 1, 0)
+	headerTimerLabel.AutomaticSize = Enum.AutomaticSize.X
 	headerTimerLabel.BackgroundTransparency = 1
 	headerTimerLabel.Font = Enum.Font.FredokaOne
 	headerTimerLabel.Text = "15"
 	headerTimerLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-	headerTimerLabel.TextSize = 40
-	headerTimerLabel.TextXAlignment = Enum.TextXAlignment.Left
+	headerTimerLabel.TextSize = 38
+	headerTimerLabel.TextXAlignment = Enum.TextXAlignment.Center
+	headerTimerLabel.TextYAlignment = Enum.TextYAlignment.Center
+	headerTimerLabel.LayoutOrder = 2
 	headerTimerLabel.ZIndex = 31
 	headerTimerLabel.Parent = headerBannerFrame
 
 	local timerStroke = Instance.new("UIStroke")
 	timerStroke.Color = Color3.fromRGB(0, 0, 0)
-	timerStroke.Thickness = 6
+	timerStroke.Thickness = 5
 	timerStroke.Parent = headerTimerLabel
 
 	-- [2] 3-CARD MAP VOTING MODAL UI (15s)

@@ -5,6 +5,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
+local SoundService = game:GetService("SoundService")
 
 local LocalPlayer = Players.LocalPlayer
 local playerGui = LocalPlayer:WaitForChild("PlayerGui")
@@ -13,6 +14,7 @@ local remotesFolder = ReplicatedStorage:WaitForChild("HoverboardRemotes")
 local openShopRemote = remotesFolder:WaitForChild("OpenHoverboardShop") :: RemoteEvent
 local buyRemote = remotesFolder:WaitForChild("BuyHoverboard") :: RemoteFunction
 local getKioskItemsRemote = remotesFolder:WaitForChild("GetKioskItems") :: RemoteFunction
+local restockRemote = remotesFolder:WaitForChild("ShopRestocked") :: RemoteEvent
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local StoreConfig = require(Shared:WaitForChild("StoreConfig") :: ModuleScript)
@@ -27,6 +29,98 @@ local cardTemplate = scrollFrame:WaitForChild("CardTemplate")
 cardTemplate.Visible = false
 
 local gridLayout = scrollFrame:FindFirstChildOfClass("UIGridLayout")
+
+-- 🌐 Title & Layout English/Size Enforcement
+local titleFrame = bgFrame:FindFirstChild("TitleFrame")
+if titleFrame then
+	local titleLabel = titleFrame:FindFirstChild("Title")
+	if titleLabel and titleLabel:IsA("TextLabel") then
+		titleLabel.Text = "HOVERBOARD SHOP"
+	end
+end
+
+-- Adjust frame sizes to ensure bottom legend fits cleanly
+bgFrame.Size = UDim2.new(0, 800, 0, 535)
+bgFrame.Position = UDim2.new(0.5, -400, 0.5, -267)
+scrollFrame.Size = UDim2.new(1, -40, 0, 335)
+scrollFrame.Position = UDim2.new(0, 20, 0, 115)
+
+-- 🏷️ Bottom Rarity Legend Indicator (Always refresh & enlarge)
+local oldLegend = bgFrame:FindFirstChild("RarityLegendFrame")
+if oldLegend then oldLegend:Destroy() end
+
+local legendFrame = Instance.new("Frame")
+legendFrame.Name = "RarityLegendFrame"
+legendFrame.Size = UDim2.new(1, -40, 0, 42)
+legendFrame.Position = UDim2.new(0.5, 0, 1, -28)
+legendFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+legendFrame.BackgroundTransparency = 1
+legendFrame.ZIndex = 5
+legendFrame.Parent = bgFrame
+
+local listLayout = Instance.new("UIListLayout")
+listLayout.FillDirection = Enum.FillDirection.Horizontal
+listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+listLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+listLayout.Padding = UDim.new(0, 24)
+listLayout.Parent = legendFrame
+
+local rarities = {
+	{ name = "Common", color = StoreConfig.RarityColors["Common"] or Color3.fromRGB(255, 255, 0) },
+	{ name = "Uncommon", color = StoreConfig.RarityColors["Uncommon"] or Color3.fromRGB(0, 120, 255) },
+	{ name = "Rare", color = StoreConfig.RarityColors["Rare"] or Color3.fromRGB(128, 0, 128) },
+	{ name = "Super Rare", color = StoreConfig.RarityColors["Super Rare"] or Color3.fromRGB(30, 30, 30) },
+}
+
+for idx, rData in ipairs(rarities) do
+	local itemContainer = Instance.new("Frame")
+	itemContainer.Name = rData.name .. "Legend"
+	itemContainer.LayoutOrder = idx
+	itemContainer.Size = UDim2.new(0, 0, 1, 0)
+	itemContainer.AutomaticSize = Enum.AutomaticSize.X
+	itemContainer.BackgroundTransparency = 1
+	itemContainer.Parent = legendFrame
+	
+	local cLayout = Instance.new("UIListLayout")
+	cLayout.FillDirection = Enum.FillDirection.Horizontal
+	cLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+	cLayout.Padding = UDim.new(0, 10)
+	cLayout.Parent = itemContainer
+	
+	local colorBox = Instance.new("Frame")
+	colorBox.Name = "ColorBox"
+	colorBox.Size = UDim2.new(0, 24, 0, 24)
+	colorBox.BackgroundColor3 = rData.color
+	colorBox.BorderSizePixel = 0
+	colorBox.Parent = itemContainer
+	
+	local cCorner = Instance.new("UICorner")
+	cCorner.CornerRadius = UDim.new(0, 6)
+	cCorner.Parent = colorBox
+	
+	local cStroke = Instance.new("UIStroke")
+	cStroke.Color = Color3.fromRGB(0, 0, 0)
+	cStroke.Thickness = 3
+	cStroke.Parent = colorBox
+	
+	local textLbl = Instance.new("TextLabel")
+	textLbl.Name = "RarityText"
+	textLbl.Size = UDim2.new(0, 0, 1, 0)
+	textLbl.AutomaticSize = Enum.AutomaticSize.X
+	textLbl.BackgroundTransparency = 1
+	textLbl.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
+	textLbl.Text = rData.name
+	textLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
+	textLbl.TextSize = 22
+	textLbl.TextXAlignment = Enum.TextXAlignment.Left
+	textLbl.Parent = itemContainer
+	
+	local tStroke = Instance.new("UIStroke")
+	tStroke.Color = Color3.fromRGB(0, 0, 0)
+	tStroke.Thickness = 3
+	tStroke.Parent = textLbl
+end
 
 -- 보유중인지 확인하는 함수
 local function checkOwned(boardId: string)
@@ -89,13 +183,17 @@ local function updateButtons()
 	for id, data in pairs(itemCards) do
 		local btn = data.button
 		if checkOwned(id) then
-			btn.Text = "보유중"
-			btn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+			btn.Text = "✓ OWNED"
+			btn.TextSize = 20
+			btn.BackgroundColor3 = Color3.fromRGB(210, 220, 230)
+			btn.TextColor3 = Color3.fromRGB(255, 255, 255)
 			btn.Active = false
 			btn.AutoButtonColor = false
 		else
-			btn.Text = "구매"
+			btn.Text = "BUY"
+			btn.TextSize = 22
 			btn.BackgroundColor3 = Color3.fromRGB(100, 220, 110)
+			btn.TextColor3 = Color3.fromRGB(255, 255, 255)
 			btn.Active = true
 			btn.AutoButtonColor = true
 		end
@@ -133,9 +231,9 @@ task.spawn(function()
 	while true do
 		if isShopOpen and remainingTime > 0 then
 			remainingTime -= 1
-			refreshTimerLabel.Text = "다음 갱신까지: " .. formatTime(remainingTime)
+			refreshTimerLabel.Text = "NEXT RESTOCK IN: " .. formatTime(remainingTime)
 			if remainingTime <= 0 then
-				refreshTimerLabel.Text = "갱신 중..."
+				refreshTimerLabel.Text = "RESTOCKING..."
 				-- Fetch new items
 				local newItems, newRemaining = getKioskItemsRemote:InvokeServer()
 				remainingTime = newRemaining
@@ -156,7 +254,7 @@ end)
 openShopRemote.OnClientEvent:Connect(function()
 	local items, remaining = getKioskItemsRemote:InvokeServer()
 	remainingTime = remaining
-	refreshTimerLabel.Text = "다음 갱신까지: " .. formatTime(remainingTime)
+	refreshTimerLabel.Text = "NEXT RESTOCK IN: " .. formatTime(remainingTime)
 	
 	generateItems(items)
 	updateButtons()
@@ -164,4 +262,214 @@ openShopRemote.OnClientEvent:Connect(function()
 	
 	isShopOpen = true
 	screenGui.Enabled = true
+end)
+
+-- 📢 15-Minute Shop Restock Banner Notification
+local toastGui = playerGui:FindFirstChild("ShopRestockToastGui")
+if not toastGui then
+	toastGui = Instance.new("ScreenGui")
+	toastGui.Name = "ShopRestockToastGui"
+	toastGui.DisplayOrder = 150
+	toastGui.ResetOnSpawn = false
+	toastGui.Parent = playerGui
+end
+
+local function showRestockBanner(newItems: {string})
+	-- Remove any existing banner
+	local existingBanner = toastGui:FindFirstChild("RestockBanner")
+	if existingBanner then existingBanner:Destroy() end
+
+	-- Find highest rarity item among newly arrived items
+	local highestItem = nil
+	local rarityRanks = { ["Common"] = 1, ["Uncommon"] = 2, ["Rare"] = 3, ["Super Rare"] = 4 }
+	local highestRank = 0
+	
+	if newItems and typeof(newItems) == "table" then
+		for _, id in ipairs(newItems) do
+			for _, item in ipairs(StoreConfig.Items) do
+				if item.id == id then
+					local r = rarityRanks[item.rarity] or 1
+					if r > highestRank then
+						highestRank = r
+						highestItem = item
+					end
+				end
+			end
+		end
+	end
+
+	-- 🎨 Banner Frame (Strict adherence to HoverboardRacing_UI_Design_Guide.md: Glass Sky Blue + 6px Black Stroke)
+	local banner = Instance.new("Frame")
+	banner.Name = "RestockBanner"
+	banner.Size = UDim2.new(0, 550, 0, 86)
+	banner.Position = UDim2.new(0.5, -275, 0, -120) -- Starts hidden off-screen above
+	banner.BackgroundColor3 = Color3.fromRGB(150, 240, 255) -- Main Glass Color
+	banner.BackgroundTransparency = 0.15 -- Glass translucency
+	banner.ZIndex = 100
+	banner.Parent = toastGui
+
+	local bCorner = Instance.new("UICorner")
+	bCorner.CornerRadius = UDim.new(0, 24)
+	bCorner.Parent = banner
+
+	local bStroke = Instance.new("UIStroke")
+	bStroke.Color = Color3.fromRGB(0, 0, 0) -- Thick Cartoon Black Border
+	bStroke.Thickness = 6
+	bStroke.Parent = banner
+
+	-- 5.1 Diagonal Stripes Pattern (UIGradient Keypoint rendering)
+	local patternBg = Instance.new("Frame")
+	patternBg.Name = "PatternBg"
+	patternBg.Size = UDim2.new(1, 0, 1, 0)
+	patternBg.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	patternBg.BorderSizePixel = 0
+	patternBg.ZIndex = 101
+	patternBg.Parent = banner
+	Instance.new("UICorner", patternBg).CornerRadius = UDim.new(0, 24)
+
+	local grad = Instance.new("UIGradient", patternBg)
+	grad.Rotation = 45
+	local keypoints = { NumberSequenceKeypoint.new(0, 0.88) }
+	for i = 1, 9 do
+		local p = i / 10
+		if i % 2 == 1 then
+			table.insert(keypoints, NumberSequenceKeypoint.new(p, 0.88))
+			table.insert(keypoints, NumberSequenceKeypoint.new(p + 0.001, 1))
+		else
+			table.insert(keypoints, NumberSequenceKeypoint.new(p, 1))
+			table.insert(keypoints, NumberSequenceKeypoint.new(p + 0.001, 0.88))
+		end
+	end
+	table.insert(keypoints, NumberSequenceKeypoint.new(1, 1))
+	grad.Transparency = NumberSequence.new(keypoints)
+
+	-- Left Hoverboard Icon Box (Gold Color #1: 255, 200, 50)
+	local iconBox = Instance.new("Frame")
+	iconBox.Name = "IconBox"
+	iconBox.Size = UDim2.new(0, 56, 0, 56)
+	iconBox.Position = UDim2.new(0, 16, 0.5, -28)
+	iconBox.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
+	iconBox.BorderSizePixel = 0
+	iconBox.ZIndex = 102
+	iconBox.Parent = banner
+
+	local iconCorner = Instance.new("UICorner")
+	iconCorner.CornerRadius = UDim.new(0, 16)
+	iconCorner.Parent = iconBox
+
+	local iconStroke = Instance.new("UIStroke")
+	iconStroke.Color = Color3.fromRGB(0, 0, 0)
+	iconStroke.Thickness = 3
+	iconStroke.Parent = iconBox
+
+	local iconEmoji = Instance.new("TextLabel")
+	iconEmoji.Size = UDim2.new(1, 0, 1, 0)
+	iconEmoji.BackgroundTransparency = 1
+	iconEmoji.Text = "🛹"
+	iconEmoji.TextSize = 34
+	iconEmoji.ZIndex = 103
+	iconEmoji.Parent = iconBox
+
+	-- Header Pill (Title Header Blue: 40, 180, 255)
+	local titlePill = Instance.new("Frame")
+	titlePill.Name = "TitlePill"
+	titlePill.Size = UDim2.new(1, -95, 0, 32)
+	titlePill.Position = UDim2.new(0, 84, 0, 12)
+	titlePill.BackgroundColor3 = Color3.fromRGB(40, 180, 255)
+	titlePill.BorderSizePixel = 0
+	titlePill.ZIndex = 102
+	titlePill.Parent = banner
+
+	local titlePillCorner = Instance.new("UICorner")
+	titlePillCorner.CornerRadius = UDim.new(0.5, 0)
+	titlePillCorner.Parent = titlePill
+
+	local titlePillStroke = Instance.new("UIStroke")
+	titlePillStroke.Color = Color3.fromRGB(0, 0, 0)
+	titlePillStroke.Thickness = 3
+	titlePillStroke.Parent = titlePill
+
+	local titleLbl = Instance.new("TextLabel")
+	titleLbl.Name = "TitleLabel"
+	titleLbl.Size = UDim2.new(1, 0, 1, 0)
+	titleLbl.BackgroundTransparency = 1
+	titleLbl.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
+	titleLbl.Text = "✨ HOVERBOARD SHOP RESTOCKED! ✨"
+	titleLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
+	titleLbl.TextSize = 18
+	titleLbl.ZIndex = 103
+	titleLbl.Parent = titlePill
+
+	local tStroke = Instance.new("UIStroke")
+	tStroke.Color = Color3.fromRGB(0, 0, 0)
+	tStroke.Thickness = 3
+	tStroke.Parent = titleLbl
+
+	-- Subtitle / Featured Item Label (White text with thick black stroke for maximum cartoon pop)
+	local subLbl = Instance.new("TextLabel")
+	subLbl.Name = "SubLabel"
+	subLbl.Size = UDim2.new(1, -95, 0, 28)
+	subLbl.Position = UDim2.new(0, 84, 0, 48)
+	subLbl.BackgroundTransparency = 1
+	subLbl.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
+	subLbl.TextSize = 16
+	subLbl.TextXAlignment = Enum.TextXAlignment.Center
+	subLbl.ZIndex = 103
+	subLbl.Parent = banner
+
+	local sStroke = Instance.new("UIStroke")
+	sStroke.Color = Color3.fromRGB(0, 0, 0)
+	sStroke.Thickness = 3
+	sStroke.Parent = subLbl
+
+	if highestItem and (highestItem.rarity == "Rare" or highestItem.rarity == "Super Rare") then
+		subLbl.Text = "★ Featured: [" .. highestItem.rarity .. "] " .. highestItem.name .. " is now in stock!"
+		subLbl.TextColor3 = Color3.fromRGB(255, 230, 80) -- Gold accent text
+	else
+		subLbl.Text = "New hoverboards have arrived! Visit the Kiosk now."
+		subLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
+	end
+
+	-- Sound Effect: Pleasant notification chime
+	pcall(function()
+		local chimeSound = Instance.new("Sound")
+		chimeSound.SoundId = "rbxassetid://9069609268"
+		chimeSound.Volume = 0.8
+		chimeSound.Parent = SoundService
+		chimeSound:Play()
+		chimeSound.Ended:Connect(function() chimeSound:Destroy() end)
+	end)
+
+	-- Animate In (Bounce Drop down to Y = 75 so it sits cleanly BELOW the Intermission bar)
+	TweenService:Create(banner, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+		Position = UDim2.new(0.5, -275, 0, 75)
+	}):Play()
+
+	-- Hold for 4.5 seconds then slide up smoothly
+	task.delay(4.5, function()
+		if not banner.Parent then return end
+		local tweenOut = TweenService:Create(banner, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+			Position = UDim2.new(0.5, -275, 0, -120)
+		})
+		tweenOut:Play()
+		tweenOut.Completed:Connect(function()
+			banner:Destroy()
+		end)
+	end)
+end
+
+-- Listen to server 15-minute restock broadcast
+restockRemote.OnClientEvent:Connect(function(newItems)
+	print("📢 [HoverboardShop] 15-Minute Restock broadcast received!")
+	-- If the player currently has the shop UI open, instantly refresh items & timer
+	if isShopOpen then
+		remainingTime = 60 -- 테스트용 1분 (완료 후 15 * 60으로 복구)
+		refreshTimerLabel.Text = "NEXT RESTOCK IN: " .. formatTime(remainingTime)
+		generateItems(newItems)
+		updateButtons()
+		bindButtons()
+	end
+
+	-- Display Top Banner Toast to all players
+	showRestockBanner(newItems)
 end)

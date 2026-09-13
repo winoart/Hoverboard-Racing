@@ -217,6 +217,14 @@ spinRouletteRemote.OnServerInvoke = function(player: Player)
 	-- Deduct Gold
 	gold.Value -= StoreConfig.RouletteCost
 	
+	-- Quest: Spend Gold
+	local ReplicatedStorage = game:GetService("ReplicatedStorage")
+	local QuestBindables = ReplicatedStorage:FindFirstChild("QuestBindables")
+	local addProgress = QuestBindables and QuestBindables:FindFirstChild("AddQuestProgress")
+	if addProgress then
+		addProgress:Fire(player.UserId, "_spend", StoreConfig.RouletteCost)
+	end
+	
 	local isDuplicate = (ownedFolder:FindFirstChild(wonItem.id) ~= nil)
 	
 	if isDuplicate then
@@ -268,6 +276,14 @@ buyHoverboardRemote.OnServerInvoke = function(player: Player, boardId: string)
 	-- Deduct Gold
 	gold.Value -= price
 	
+	-- Quest: Spend Gold
+	local ReplicatedStorage = game:GetService("ReplicatedStorage")
+	local QuestBindables = ReplicatedStorage:FindFirstChild("QuestBindables")
+	local addProgress = QuestBindables and QuestBindables:FindFirstChild("AddQuestProgress")
+	if addProgress then
+		addProgress:Fire(player.UserId, "_spend", price)
+	end
+	
 	-- Add to inventory
 	local owned = Instance.new("StringValue")
 	owned.Name = targetItem.id
@@ -280,9 +296,16 @@ end
 -- 4. Hoverboard Kiosk Rotation Logic
 local currentKioskItems = {}
 local nextRefreshTime = 0
-local REFRESH_INTERVAL = 15 * 60 -- 15 minutes
+local REFRESH_INTERVAL = 60 -- 1 minute (테스트용: 60초, 완료 후 15 * 60으로 복구)
 
-local function refreshKioskItems()
+local restockRemote = remotesFolder:FindFirstChild("ShopRestocked") :: RemoteEvent?
+if not restockRemote then
+	restockRemote = Instance.new("RemoteEvent")
+	restockRemote.Name = "ShopRestocked"
+	restockRemote.Parent = remotesFolder
+end
+
+local function refreshKioskItems(isInitial: boolean?)
 	currentKioskItems = {}
 	
 	local function pickRarity()
@@ -325,16 +348,20 @@ local function refreshKioskItems()
 	
 	nextRefreshTime = os.time() + REFRESH_INTERVAL
 	print("🔄 [StoreServer] Hoverboard Kiosk items refreshed:", table.concat(currentKioskItems, ", "))
+	
+	if not isInitial and restockRemote then
+		restockRemote:FireAllClients(currentKioskItems)
+	end
 end
 
 -- Initialize first rotation
-refreshKioskItems()
+refreshKioskItems(true)
 
 task.spawn(function()
 	while true do
 		local waitTime = nextRefreshTime - os.time()
 		if waitTime <= 0 then
-			refreshKioskItems()
+			refreshKioskItems(false)
 		else
 			task.wait(1)
 		end

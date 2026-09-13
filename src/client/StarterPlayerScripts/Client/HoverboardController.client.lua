@@ -33,6 +33,7 @@ local remotesFolder = ReplicatedStorage:WaitForChild("HoverboardRemotes")
 local mountRemote = remotesFolder:WaitForChild("MountRequest") :: RemoteEvent
 local dismountRemote = remotesFolder:WaitForChild("DismountRequest") :: RemoteEvent
 local stateRemote = remotesFolder:WaitForChild("StateChanged") :: RemoteEvent
+local syncSpectatorRemote = remotesFolder:WaitForChild("SyncSpectatorState") :: any
 
 local isMounted = false
 local isRaceStarted = false
@@ -720,11 +721,12 @@ end)
 
 -- Main Render Loop for Arcade Racing HUD, Hovering Physics, Speedometer, Booster Gauge & Wind FX
 RunService.RenderStepped:Connect(function(deltaTime: number)
+	local isSpectating = LocalPlayer:GetAttribute("IsSpectating") or false
 	local character = LocalPlayer.Character
 	if not character then return end
 	local hasBoard = character:FindFirstChild("EquippedHoverboard") ~= nil
 
-	if hasBoard and not isMounted then
+	if hasBoard and not isMounted and not isSpectating then
 		local humanoid = character:FindFirstChildOfClass("Humanoid")
 		if humanoid then
 			local animator = humanoid:FindFirstChildOfClass("Animator")
@@ -748,7 +750,7 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 		return
 	end
 
-	if not hasBoard then
+	if not hasBoard and not isSpectating then
 		local humanoid = character:FindFirstChildOfClass("Humanoid")
 		if humanoid and humanoid.HipHeight > 2.5 then
 			humanoid.HipHeight = 2.0
@@ -759,323 +761,386 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 		end
 	end
 
-	if not isMounted then return end
+	if not isMounted and not isSpectating then return end
 
 	local hrp = character:FindFirstChild("HumanoidRootPart") :: BasePart?
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	if not hrp or not humanoid then return end
 
-	humanoid.AutoRotate = false
+	if not isSpectating then
+		humanoid.AutoRotate = false
 
-	-- 🛡️ Fall Recovery Logic (레이스 중 트랙 이탈 즉시 복구)
-	if isRaceStarted then
-		if not lastSafePosition then
-			-- Initialize if not set
-			lastSafePosition = hrp.Position
-			lastSafeYaw = currentHeadingYaw
-		end
-
-		-- 공통적으로 사용할 RaycastParams 생성
-		local rayParams = RaycastParams.new()
-		rayParams.FilterDescendantsInstances = {character}
-		rayParams.FilterType = Enum.RaycastFilterType.Exclude
-
-		if hrp.Position.Y < lastSafePosition.Y - 30 then
-			-- 고저차가 심한 트랙(사막 등)에서 점프 후 떨어질 때를 대비하여,
-			-- 현재 위치에서 150 스터드 아래까지 트랙(땅)이 있는지 확인합니다.
-			local groundCheckRay = Workspace:Raycast(hrp.Position, Vector3.new(0, -150, 0), rayParams)
-			
-			if not groundCheckRay then
-				print("[DEBUG-FR] 트랙 이탈 감지! 아래에 트랙이 없습니다. 안전지대로 복구합니다. 낙하 깊이: " .. string.format("%.1f", lastSafePosition.Y - hrp.Position.Y))
-				hrp.CFrame = CFrame.new(lastSafePosition + Vector3.new(0, 5, 0))
-				hrp.AssemblyLinearVelocity = Vector3.zero
-				hrp.AssemblyAngularVelocity = Vector3.zero
-				currentHeadingYaw = lastSafeYaw
-				currentWalkSpeed = 0.0
-				isBoosting = false
-			else
-				-- 아래에 트랙이 있다면, 단순히 경사를 따라 내려가는 중이므로 기준점을 갱신합니다.
+		-- 🛡️ Fall Recovery Logic (레이스 중 트랙 이탈 즉시 복구)
+		if isRaceStarted then
+			if not lastSafePosition then
+				-- Initialize if not set
 				lastSafePosition = hrp.Position
+				lastSafeYaw = currentHeadingYaw
 			end
-		else
-			fallCheckTimer += deltaTime
-			if fallCheckTimer >= 0.5 then
-				fallCheckTimer = 0.0
-				local rayOrigin = hrp.Position
-				local rayDirection = Vector3.new(0, -15, 0)
-				local result = Workspace:Raycast(rayOrigin, rayDirection, rayParams)
-				if result then
+
+			-- 공통적으로 사용할 RaycastParams 생성
+			local rayParams = RaycastParams.new()
+			rayParams.FilterDescendantsInstances = {character}
+			rayParams.FilterType = Enum.RaycastFilterType.Exclude
+
+			if hrp.Position.Y < lastSafePosition.Y - 30 then
+				-- 고저차가 심한 트랙(사막 등)에서 점프 후 떨어질 때를 대비하여,
+				-- 현재 위치에서 150 스터드 아래까지 트랙(땅)이 있는지 확인합니다.
+				local groundCheckRay = Workspace:Raycast(hrp.Position, Vector3.new(0, -150, 0), rayParams)
+				
+				if not groundCheckRay then
+					print("[DEBUG-FR] 트랙 이탈 감지! 아래에 트랙이 없습니다. 안전지대로 복구합니다. 낙하 깊이: " .. string.format("%.1f", lastSafePosition.Y - hrp.Position.Y))
+					hrp.CFrame = CFrame.new(lastSafePosition + Vector3.new(0, 5, 0))
+					hrp.AssemblyLinearVelocity = Vector3.zero
+					hrp.AssemblyAngularVelocity = Vector3.zero
+					currentHeadingYaw = lastSafeYaw
+					currentWalkSpeed = 0.0
+					isBoosting = false
+				else
+					-- 아래에 트랙이 있다면, 단순히 경사를 따라 내려가는 중이므로 기준점을 갱신합니다.
 					lastSafePosition = hrp.Position
-					lastSafeYaw = currentHeadingYaw
 				end
-			end
-		end
-	end
-
-	-- Stop leg flailing animations
-	local hasBoard = character:FindFirstChild("EquippedHoverboard") ~= nil
-	local animator = humanoid:FindFirstChildOfClass("Animator")
-	if animator then
-		for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
-			if track.Name:lower():find("run") or track.Name:lower():find("walk") then
-				if hasBoard then
-					track:Stop()
-				end
-			end
-		end
-	end
-
-	local velocity = hrp.AssemblyLinearVelocity
-	local horizontalVelocity = Vector3.new(velocity.X, 0, velocity.Z)
-	local currentSpeed = horizontalVelocity.Magnitude
-
-	-- Prevent Movement & Steering during Start Countdown
-	if not isRaceStarted then
-		humanoid.WalkSpeed = 0
-		humanoid:Move(Vector3.zero, false)
-		currentWalkSpeed = 0.0
-		isBoosting = false
-	else
-		-- Movement Inputs
-		local isW = UserInputService:IsKeyDown(Enum.KeyCode.W) or UserInputService:IsKeyDown(Enum.KeyCode.Up)
-		local isS = UserInputService:IsKeyDown(Enum.KeyCode.S) or UserInputService:IsKeyDown(Enum.KeyCode.Down)
-		local isBoostKey = UserInputService:IsKeyDown(HoverboardConfig.BOOSTER_KEY) or UserInputService:IsKeyDown(Enum.KeyCode.Space)
-		
-		if isStunned then
-			stunTimer -= deltaTime
-			if stunTimer <= 0 then
-				isStunned = false
-			end
-			-- 강제로 조작 불가 상태 및 급정거
-			isW = false
-			isS = false
-			isBoostKey = false
-			isBoosting = false
-			currentWalkSpeed = math.max(0, currentWalkSpeed - (200 * deltaTime)) -- 급격한 감속
-			
-			-- 🛰️ 빙글빙글 돌며 공중에 뜨는 기절 연출
-			currentHeadingYaw += math.rad(720) * deltaTime -- 1초에 2바퀴 회전
-			stunLiftOffset = math.min(6, stunLiftOffset + (30 * deltaTime)) -- 위로 6스터드까지 상승
-		else
-			stunLiftOffset = math.max(0, stunLiftOffset - (40 * deltaTime)) -- 스턴 종료 시 부드럽게 착지
-			
-			-- Steering Controls
-			local isA = UserInputService:IsKeyDown(Enum.KeyCode.A) or UserInputService:IsKeyDown(Enum.KeyCode.Left)
-			local isD = UserInputService:IsKeyDown(Enum.KeyCode.D) or UserInputService:IsKeyDown(Enum.KeyCode.Right)
-
-			local targetSteerRate = 0.0
-			
-			-- EMP 해킹 시 조작 방향 반전
-			if _G.isEMPHacked then
-				local temp = isA
-				isA = isD
-				isD = temp
-			end
-			
-			if isA then
-				targetSteerRate = isBoosting and math.rad(115) or math.rad(85)
-			elseif isD then
-				targetSteerRate = isBoosting and -math.rad(115) or -math.rad(85)
-			end
-
-			local dampFactor = (targetSteerRate == 0) and 25.0 or 15.0
-			currentSteerRate += (targetSteerRate - currentSteerRate) * math.clamp(deltaTime * dampFactor, 0, 1)
-			currentHeadingYaw += currentSteerRate * deltaTime
-		end
-
-		local currentRebirths = 0
-		local leaderstats = LocalPlayer:FindFirstChild("leaderstats")
-		if leaderstats then
-			local rebirthsVal = leaderstats:FindFirstChild("Rebirths") :: IntValue
-			if rebirthsVal then
-				currentRebirths = rebirthsVal.Value
-			end
-		end
-		local rebirthData = RebirthConfig.GetRebirthData(currentRebirths)
-		
-		if rebirthEffectLabel then
-			rebirthEffectLabel.Text = string.format("환생효과 +%d%%", currentRebirths)
-		end
-		
-		local currentMaxBoosterSpeed = HoverboardConfig.BOOSTER_WALKSPEED + rebirthData.BoostSpeedBonus
-
-		local gyro = hrp:FindFirstChild("SteeringGyro") :: BodyGyro?
-		if not gyro then
-			gyro = Instance.new("BodyGyro")
-			gyro.Name = "SteeringGyro"
-			gyro.MaxTorque = Vector3.new(0, 400000, 0)
-			gyro.P = 50000
-			gyro.D = 500
-			gyro.Parent = hrp
-		end
-		gyro.CFrame = CFrame.Angles(0, currentHeadingYaw, 0)
-
-		if isBoosting then
-			boosterGauge = math.max(0, boosterGauge - (HoverboardConfig.BOOSTER_DRAIN_RATE * deltaTime))
-			currentWalkSpeed = currentMaxBoosterSpeed
-			if boosterGauge <= 0 then
-				isBoosting = false
-			end
-		else
-			local targetSpeed = (isW or isS) and HoverboardConfig.RIDE_WALKSPEED or 0
-
-			if currentWalkSpeed < targetSpeed then
-				local accelRate = 36
-				currentWalkSpeed = math.min(targetSpeed, currentWalkSpeed + (accelRate * deltaTime))
-			elseif currentWalkSpeed > targetSpeed then
-				local decelRate = 48
-				currentWalkSpeed = math.max(targetSpeed, currentWalkSpeed - (decelRate * deltaTime))
-			end
-
-			if (isW or isS) or currentSpeed > 1 then
-				boosterGauge = math.min(HoverboardConfig.BOOSTER_MAX_GAUGE, boosterGauge + (HoverboardConfig.BOOSTER_CHARGE_RATE * deltaTime))
-			end
-		end
-
-		humanoid.WalkSpeed = currentWalkSpeed
-
-		-- Execute Movement
-		local boardModel = character:FindFirstChild("EquippedHoverboard") :: Model?
-		local rootPart = boardModel and boardModel.PrimaryPart
-		local frontLED = boardModel and boardModel:FindFirstChild("FrontLED") :: BasePart?
-		local rearLED = boardModel and boardModel:FindFirstChild("RearLED") :: BasePart?
-
-		if rootPart and (isW or isS) then
-			local wDir = hrp.CFrame.RightVector
-
-			local moveVector = Vector3.zero
-			if isW then
-				moveVector = wDir
-			elseif isS then
-				moveVector = -wDir
-			end
-
-			if moveVector.Magnitude > 0 then
-				humanoid:Move(moveVector, false)
-			end
-		else
-			humanoid:Move(Vector3.zero, false)
-		end
-	end
-
-	-- 1. Sine wave bobbing (Re-enabled!) + Stun Lift FX
-	local clockTime = os.clock()
-	local bobOffset = math.sin(clockTime * HoverboardConfig.BOB_FREQUENCY) * HoverboardConfig.BOB_AMPLITUDE
-	humanoid.HipHeight = HoverboardConfig.HOVER_HEIGHT + bobOffset + stunLiftOffset
-	
-	local treadmillSwayOffset = 0
-	local treadmillBankSway = 0
-	if LocalPlayer:GetAttribute("OnTreadmill") then
-		treadmillSwayOffset = math.sin(clockTime * HoverboardConfig.BOB_FREQUENCY * 0.5) * 1.5
-		treadmillBankSway = math.cos(clockTime * HoverboardConfig.BOB_FREQUENCY * 0.5) * 10
-		
-		if not _G.treadmillBaseCFrame then
-			_G.treadmillBaseCFrame = hrp.CFrame
-		end
-		
-		-- 플레이어 캐릭터 기준의 좌우(RightVector) 방향으로 흔들리게 수정
-		local swayWorld = _G.treadmillBaseCFrame.RightVector * treadmillSwayOffset
-		
-		-- 다른 플레이어에게도 무빙이 보이도록 물리 제어기(AlignPosition)를 사용합니다.
-		local alignPos = hrp:FindFirstChild("TreadmillSwayPos") :: AlignPosition?
-		local targetAttach = Workspace.Terrain:FindFirstChild("TreadmillSwayTarget") :: Attachment?
-		
-		if not alignPos or not targetAttach then
-			-- 기존 찌꺼기 제거
-			if hrp:FindFirstChild("TreadmillSwayPos") then hrp.TreadmillSwayPos:Destroy() end
-			if hrp:FindFirstChild("TreadmillSwayOri") then hrp.TreadmillSwayOri:Destroy() end
-			if hrp:FindFirstChild("SwayAttach0") then hrp.SwayAttach0:Destroy() end
-			if Workspace.Terrain:FindFirstChild("TreadmillSwayTarget") then Workspace.Terrain.TreadmillSwayTarget:Destroy() end
-			
-			local attach0 = Instance.new("Attachment")
-			attach0.Name = "SwayAttach0"
-			attach0.Parent = hrp
-			
-			targetAttach = Instance.new("Attachment")
-			targetAttach.Name = "TreadmillSwayTarget"
-			targetAttach.Parent = Workspace.Terrain
-			
-			alignPos = Instance.new("AlignPosition")
-			alignPos.Name = "TreadmillSwayPos"
-			alignPos.Attachment0 = attach0
-			alignPos.Attachment1 = targetAttach
-			alignPos.Mode = Enum.PositionAlignmentMode.TwoAttachment
-			alignPos.ForceLimitMode = Enum.ForceLimitMode.PerAxis
-			-- Y축(위아래)은 힘을 0으로 줘서 HipHeight 바운스를 방해하지 않게 합니다.
-			alignPos.MaxAxesForce = Vector3.new(10000000, 0, 10000000) 
-			alignPos.Responsiveness = 200
-			alignPos.Parent = hrp
-			
-			local alignOri = Instance.new("AlignOrientation")
-			alignOri.Name = "TreadmillSwayOri"
-			alignOri.Attachment0 = attach0
-			alignOri.Attachment1 = targetAttach
-			alignOri.Mode = Enum.OrientationAlignmentMode.TwoAttachment
-			alignOri.MaxTorque = 10000000
-			alignOri.Responsiveness = 200
-			alignOri.Parent = hrp
-		end
-		
-		targetAttach.WorldCFrame = _G.treadmillBaseCFrame + swayWorld
-		hrp.Anchored = false -- 물리 엔진이 타 유저에게 동기화되도록 반드시 언앵커!
-	else
-		if _G.treadmillBaseCFrame then
-			hrp.Anchored = false
-			_G.treadmillBaseCFrame = nil
-			if hrp:FindFirstChild("TreadmillSwayPos") then hrp.TreadmillSwayPos:Destroy() end
-			if hrp:FindFirstChild("TreadmillSwayOri") then hrp.TreadmillSwayOri:Destroy() end
-			if hrp:FindFirstChild("SwayAttach0") then hrp.SwayAttach0:Destroy() end
-			if Workspace.Terrain:FindFirstChild("TreadmillSwayTarget") then Workspace.Terrain.TreadmillSwayTarget:Destroy() end
-		end
-	end
-
-	-- 2. Banking physics
-	local localVel = hrp.CFrame:VectorToObjectSpace(horizontalVelocity)
-	local sideSpeed = localVel.X
-	local forwardSpeed = -localVel.Z
-
-	local targetBank = -(sideSpeed / HoverboardConfig.RIDE_WALKSPEED) * HoverboardConfig.MAX_BANK_ANGLE
-	targetBank = math.clamp(targetBank, -HoverboardConfig.MAX_BANK_ANGLE, HoverboardConfig.MAX_BANK_ANGLE)
-	currentBankAngle += (targetBank - currentBankAngle) * math.clamp(deltaTime * HoverboardConfig.BANK_SMOOTHNESS, 0, 1)
-
-	local pitchAngleDeg = (forwardSpeed / HoverboardConfig.RIDE_WALKSPEED) * HoverboardConfig.PITCH_ANGLE
-	pitchAngleDeg = math.clamp(pitchAngleDeg, -HoverboardConfig.PITCH_ANGLE, HoverboardConfig.PITCH_ANGLE)
-
-	-- Apply Synchronized Feet Weld C0 Offset & Pitch/Bank Dynamic Lean Physics
-	if boardModel and rootPart then
-		local weld = rootPart:FindFirstChild("HoverWeld") :: Weld?
-		
-		if weld then
-			local pitchRad = math.rad(-pitchAngleDeg)
-			local bankRad = math.rad(currentBankAngle + treadmillBankSway)
-			local baseStanceCFrame = CFrame.new(0, -2.5, 0) 
-			weld.C0 = baseStanceCFrame * CFrame.Angles(pitchRad, 0, bankRad)
-		end
-		
-		-- Aerodynamic Wind Breaking Particles Control
-		local windAttachment = rootPart:FindFirstChild("WindAttachment") :: Attachment?
-		local windParticles = windAttachment and windAttachment:FindFirstChild("WindParticles") :: ParticleEmitter?
-		if windParticles then
-			if isBoosting then
-				windParticles.Rate = 110
-				windParticles.Speed = NumberRange.new(40, 65)
 			else
-				windParticles.Rate = 0
+				fallCheckTimer += deltaTime
+				if fallCheckTimer >= 0.5 then
+					fallCheckTimer = 0.0
+					local rayOrigin = hrp.Position
+					local rayDirection = Vector3.new(0, -15, 0)
+					local result = Workspace:Raycast(rayOrigin, rayDirection, rayParams)
+					if result then
+						lastSafePosition = hrp.Position
+						lastSafeYaw = currentHeadingYaw
+					end
+				end
 			end
 		end
 
-		-- Steady non-flashing thruster lighting
-		for _, desc in ipairs(boardModel:GetDescendants()) do
-			if desc:IsA("PointLight") then
-				desc.Brightness = 2.5
-				desc.Range = 8
+		-- Stop leg flailing animations
+		local hasBoard = character:FindFirstChild("EquippedHoverboard") ~= nil
+		local animator = humanoid:FindFirstChildOfClass("Animator")
+		if animator then
+			for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+				if track.Name:lower():find("run") or track.Name:lower():find("walk") then
+					if hasBoard then
+						track:Stop()
+					end
+				end
 			end
+		end
+
+		local velocity = hrp.AssemblyLinearVelocity
+		local horizontalVelocity = Vector3.new(velocity.X, 0, velocity.Z)
+		local currentSpeed = horizontalVelocity.Magnitude
+
+		-- Prevent Movement & Steering during Start Countdown
+		if not isRaceStarted then
+			humanoid.WalkSpeed = 0
+			humanoid:Move(Vector3.zero, false)
+			currentWalkSpeed = 0.0
+			isBoosting = false
+		else
+			-- Movement Inputs
+			local isW = UserInputService:IsKeyDown(Enum.KeyCode.W) or UserInputService:IsKeyDown(Enum.KeyCode.Up)
+			local isS = UserInputService:IsKeyDown(Enum.KeyCode.S) or UserInputService:IsKeyDown(Enum.KeyCode.Down)
+			local isBoostKey = UserInputService:IsKeyDown(HoverboardConfig.BOOSTER_KEY) or UserInputService:IsKeyDown(Enum.KeyCode.Space)
+			
+			if isStunned then
+				stunTimer -= deltaTime
+				if stunTimer <= 0 then
+					isStunned = false
+				end
+				-- 강제로 조작 불가 상태 및 급정거
+				isW = false
+				isS = false
+				isBoostKey = false
+				isBoosting = false
+				currentWalkSpeed = math.max(0, currentWalkSpeed - (200 * deltaTime)) -- 급격한 감속
+				
+				-- 🛰️ 빙글빙글 돌며 공중에 뜨는 기절 연출
+				currentHeadingYaw += math.rad(720) * deltaTime -- 1초에 2바퀴 회전
+				stunLiftOffset = math.min(6, stunLiftOffset + (30 * deltaTime)) -- 위로 6스터드까지 상승
+			else
+				stunLiftOffset = math.max(0, stunLiftOffset - (40 * deltaTime)) -- 스턴 종료 시 부드럽게 착지
+				
+				-- Steering Controls
+				local isA = UserInputService:IsKeyDown(Enum.KeyCode.A) or UserInputService:IsKeyDown(Enum.KeyCode.Left)
+				local isD = UserInputService:IsKeyDown(Enum.KeyCode.D) or UserInputService:IsKeyDown(Enum.KeyCode.Right)
+
+				local targetSteerRate = 0.0
+				
+				-- EMP 해킹 시 조작 방향 반전
+				if _G.isEMPHacked then
+					local temp = isA
+					isA = isD
+					isD = temp
+				end
+				
+				if isA then
+					targetSteerRate = isBoosting and math.rad(115) or math.rad(85)
+				elseif isD then
+					targetSteerRate = isBoosting and -math.rad(115) or -math.rad(85)
+				end
+
+				local dampFactor = (targetSteerRate == 0) and 25.0 or 15.0
+				currentSteerRate += (targetSteerRate - currentSteerRate) * math.clamp(deltaTime * dampFactor, 0, 1)
+				currentHeadingYaw += currentSteerRate * deltaTime
+			end
+
+			local currentRebirths = 0
+			local leaderstats = LocalPlayer:FindFirstChild("leaderstats")
+			if leaderstats then
+				local rebirthsVal = leaderstats:FindFirstChild("Rebirths") :: IntValue
+				if rebirthsVal then
+					currentRebirths = rebirthsVal.Value
+				end
+			end
+			local rebirthData = RebirthConfig.GetRebirthData(currentRebirths)
+			
+			if rebirthEffectLabel then
+				rebirthEffectLabel.Text = string.format("환생효과 +%d%%", currentRebirths)
+			end
+			
+			local currentMaxBoosterSpeed = HoverboardConfig.BOOSTER_WALKSPEED + rebirthData.BoostSpeedBonus
+
+			local gyro = hrp:FindFirstChild("SteeringGyro") :: BodyGyro?
+			if not gyro then
+				gyro = Instance.new("BodyGyro")
+				gyro.Name = "SteeringGyro"
+				gyro.MaxTorque = Vector3.new(0, 400000, 0)
+				gyro.P = 50000
+				gyro.D = 500
+				gyro.Parent = hrp
+			end
+			gyro.CFrame = CFrame.Angles(0, currentHeadingYaw, 0)
+
+			if isBoosting then
+				boosterGauge = math.max(0, boosterGauge - (HoverboardConfig.BOOSTER_DRAIN_RATE * deltaTime))
+				currentWalkSpeed = currentMaxBoosterSpeed
+				if boosterGauge <= 0 then
+					isBoosting = false
+				end
+			else
+				local targetSpeed = (isW or isS) and HoverboardConfig.RIDE_WALKSPEED or 0
+
+				if currentWalkSpeed < targetSpeed then
+					local accelRate = 36
+					currentWalkSpeed = math.min(targetSpeed, currentWalkSpeed + (accelRate * deltaTime))
+				elseif currentWalkSpeed > targetSpeed then
+					local decelRate = 48
+					currentWalkSpeed = math.max(targetSpeed, currentWalkSpeed - (decelRate * deltaTime))
+				end
+
+				if (isW or isS) or currentSpeed > 1 then
+					boosterGauge = math.min(HoverboardConfig.BOOSTER_MAX_GAUGE, boosterGauge + (HoverboardConfig.BOOSTER_CHARGE_RATE * deltaTime))
+				end
+			end
+
+			humanoid.WalkSpeed = currentWalkSpeed
+
+			-- Execute Movement
+			local boardModel = character:FindFirstChild("EquippedHoverboard") :: Model?
+			local rootPart = boardModel and boardModel.PrimaryPart
+			local frontLED = boardModel and boardModel:FindFirstChild("FrontLED") :: BasePart?
+			local rearLED = boardModel and boardModel:FindFirstChild("RearLED") :: BasePart?
+
+			if rootPart and (isW or isS) then
+				local wDir = hrp.CFrame.RightVector
+
+				local moveVector = Vector3.zero
+				if isW then
+					moveVector = wDir
+				elseif isS then
+					moveVector = -wDir
+				end
+
+				if moveVector.Magnitude > 0 then
+					humanoid:Move(moveVector, false)
+				end
+			else
+				humanoid:Move(Vector3.zero, false)
+			end
+		end
+
+		-- 1. Sine wave bobbing (Re-enabled!) + Stun Lift FX
+		local clockTime = os.clock()
+		local bobOffset = math.sin(clockTime * HoverboardConfig.BOB_FREQUENCY) * HoverboardConfig.BOB_AMPLITUDE
+		humanoid.HipHeight = HoverboardConfig.HOVER_HEIGHT + bobOffset + stunLiftOffset
+		
+		local treadmillSwayOffset = 0
+		local treadmillBankSway = 0
+		if LocalPlayer:GetAttribute("OnTreadmill") then
+			treadmillSwayOffset = math.sin(clockTime * HoverboardConfig.BOB_FREQUENCY * 0.5) * 1.5
+			treadmillBankSway = math.cos(clockTime * HoverboardConfig.BOB_FREQUENCY * 0.5) * 10
+			
+			if not _G.treadmillBaseCFrame then
+				_G.treadmillBaseCFrame = hrp.CFrame
+			end
+			
+			-- 플레이어 캐릭터 기준의 좌우(RightVector) 방향으로 흔들리게 수정
+			local swayWorld = _G.treadmillBaseCFrame.RightVector * treadmillSwayOffset
+			
+			-- 다른 플레이어에게도 무빙이 보이도록 물리 제어기(AlignPosition)를 사용합니다.
+			local alignPos = hrp:FindFirstChild("TreadmillSwayPos") :: AlignPosition?
+			local targetAttach = Workspace.Terrain:FindFirstChild("TreadmillSwayTarget") :: Attachment?
+			
+			if not alignPos or not targetAttach then
+				-- 기존 찌꺼기 제거
+				if hrp:FindFirstChild("TreadmillSwayPos") then hrp.TreadmillSwayPos:Destroy() end
+				if hrp:FindFirstChild("TreadmillSwayOri") then hrp.TreadmillSwayOri:Destroy() end
+				if hrp:FindFirstChild("SwayAttach0") then hrp.SwayAttach0:Destroy() end
+				if Workspace.Terrain:FindFirstChild("TreadmillSwayTarget") then Workspace.Terrain.TreadmillSwayTarget:Destroy() end
+				
+				local attach0 = Instance.new("Attachment")
+				attach0.Name = "SwayAttach0"
+				attach0.Parent = hrp
+				
+				targetAttach = Instance.new("Attachment")
+				targetAttach.Name = "TreadmillSwayTarget"
+				targetAttach.Parent = Workspace.Terrain
+				
+				alignPos = Instance.new("AlignPosition")
+				alignPos.Name = "TreadmillSwayPos"
+				alignPos.Attachment0 = attach0
+				alignPos.Attachment1 = targetAttach
+				alignPos.Mode = Enum.PositionAlignmentMode.TwoAttachment
+				alignPos.ForceLimitMode = Enum.ForceLimitMode.PerAxis
+				-- Y축(위아래)은 힘을 0으로 줘서 HipHeight 바운스를 방해하지 않게 합니다.
+				alignPos.MaxAxesForce = Vector3.new(10000000, 0, 10000000) 
+				alignPos.Responsiveness = 200
+				alignPos.Parent = hrp
+				
+				local alignOri = Instance.new("AlignOrientation")
+				alignOri.Name = "TreadmillSwayOri"
+				alignOri.Attachment0 = attach0
+				alignOri.Attachment1 = targetAttach
+				alignOri.Mode = Enum.OrientationAlignmentMode.TwoAttachment
+				alignOri.MaxTorque = 10000000
+				alignOri.Responsiveness = 200
+				alignOri.Parent = hrp
+			end
+			
+			targetAttach.WorldCFrame = _G.treadmillBaseCFrame + swayWorld
+			hrp.Anchored = false -- 물리 엔진이 타 유저에게 동기화되도록 반드시 언앵커!
+		else
+			if _G.treadmillBaseCFrame then
+				hrp.Anchored = false
+				_G.treadmillBaseCFrame = nil
+				if hrp:FindFirstChild("TreadmillSwayPos") then hrp.TreadmillSwayPos:Destroy() end
+				if hrp:FindFirstChild("TreadmillSwayOri") then hrp.TreadmillSwayOri:Destroy() end
+				if hrp:FindFirstChild("SwayAttach0") then hrp.SwayAttach0:Destroy() end
+				if Workspace.Terrain:FindFirstChild("TreadmillSwayTarget") then Workspace.Terrain.TreadmillSwayTarget:Destroy() end
+			end
+		end
+
+		-- 2. Banking physics
+		local localVel = hrp.CFrame:VectorToObjectSpace(horizontalVelocity)
+		local sideSpeed = localVel.X
+		local forwardSpeed = -localVel.Z
+
+		local targetBank = -(sideSpeed / HoverboardConfig.RIDE_WALKSPEED) * HoverboardConfig.MAX_BANK_ANGLE
+		targetBank = math.clamp(targetBank, -HoverboardConfig.MAX_BANK_ANGLE, HoverboardConfig.MAX_BANK_ANGLE)
+		currentBankAngle += (targetBank - currentBankAngle) * math.clamp(deltaTime * HoverboardConfig.BANK_SMOOTHNESS, 0, 1)
+
+		local pitchAngleDeg = (forwardSpeed / HoverboardConfig.RIDE_WALKSPEED) * HoverboardConfig.PITCH_ANGLE
+		pitchAngleDeg = math.clamp(pitchAngleDeg, -HoverboardConfig.PITCH_ANGLE, HoverboardConfig.PITCH_ANGLE)
+
+		-- Apply Synchronized Feet Weld C0 Offset & Pitch/Bank Dynamic Lean Physics
+		if boardModel and rootPart then
+			local weld = rootPart:FindFirstChild("HoverWeld") :: Weld?
+			
+			if weld then
+				local pitchRad = math.rad(-pitchAngleDeg)
+				local bankRad = math.rad(currentBankAngle + treadmillBankSway)
+				local baseStanceCFrame = CFrame.new(0, -2.5, 0) 
+				weld.C0 = baseStanceCFrame * CFrame.Angles(pitchRad, 0, bankRad)
+			end
+			
+			-- Aerodynamic Wind Breaking Particles Control
+			local windAttachment = rootPart:FindFirstChild("WindAttachment") :: Attachment?
+			local windParticles = windAttachment and windAttachment:FindFirstChild("WindParticles") :: ParticleEmitter?
+			if windParticles then
+				if isBoosting then
+					windParticles.Rate = 110
+					windParticles.Speed = NumberRange.new(40, 65)
+				else
+					windParticles.Rate = 0
+				end
+			end
+
+			-- Steady non-flashing thruster lighting
+			for _, desc in ipairs(boardModel:GetDescendants()) do
+				if desc:IsA("PointLight") then
+					desc.Brightness = 2.5
+					desc.Range = 8
+				end
+			end
+		end
+	end
+
+	local targetChar = nil
+	if isSpectating then
+		if Camera and Camera.CameraSubject then
+			local subj = Camera.CameraSubject
+			if subj:IsA("Humanoid") and subj.Parent then
+				targetChar = subj.Parent
+			elseif subj:IsA("BasePart") and subj.Parent then
+				targetChar = subj.Parent
+			end
+		end
+	else
+		targetChar = Character
+	end
+
+	local displaySpeed = currentSpeed or 0
+	local displayBoost = isBoosting
+	local displayGauge = boosterGauge
+	
+	if isSpectating and targetChar then
+		local tHrp = targetChar:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if tHrp then
+			hrp = tHrp
+			local vel = tHrp.AssemblyLinearVelocity
+			displaySpeed = Vector3.new(vel.X, 0, vel.Z).Magnitude
+		end
+		displayBoost = targetChar:GetAttribute("IsBoosting") or false
+		displayGauge = targetChar:GetAttribute("BoosterGauge") or 0
+		
+		-- Synchronize target's hoverboard wind particle emitter
+		local targetWind = targetChar:FindFirstChild("WindParticles", true) :: ParticleEmitter?
+		if targetWind then
+			if displayBoost then
+				targetWind.Rate = 110
+				targetWind.Speed = NumberRange.new(40, 65)
+			else
+				targetWind.Rate = 0
+			end
+		end
+
+		if guiScreen then
+			guiScreen.Enabled = true
+		end
+	else
+		-- Sync our local state to server
+		if isMounted and syncSpectatorRemote then
+			pcall(function()
+				syncSpectatorRemote:FireServer(isBoosting, boosterGauge, currentSpeed)
+			end)
 		end
 	end
 
 	-- 3. Dynamic Arcade Chase Camera facing forward down track towards Signal Lights Arch
 	if Camera then
-		if LocalPlayer:GetAttribute("OnTreadmill") then
+		local targetOnTreadmill = false
+		if isSpectating and targetChar then
+			local tPlayer = Players:GetPlayerFromCharacter(targetChar)
+			if tPlayer then
+				targetOnTreadmill = tPlayer:GetAttribute("OnTreadmill")
+			end
+		else
+			targetOnTreadmill = LocalPlayer:GetAttribute("OnTreadmill")
+		end
+
+		if targetOnTreadmill then
 			if not _G.wasOnTreadmill then
 				_G.wasOnTreadmill = true
 				Camera.CameraType = Enum.CameraType.Custom
@@ -1090,15 +1155,19 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 		else
 			_G.wasOnTreadmill = false
 			Camera.CameraType = Enum.CameraType.Scriptable
-			local targetCameraFOV = isBoosting and HoverboardConfig.BOOSTER_FOV or defaultFOV + (math.clamp(currentSpeed / HoverboardConfig.RIDE_WALKSPEED, 0, 1) * 10)
+			local targetCameraFOV = displayBoost and HoverboardConfig.BOOSTER_FOV or defaultFOV + (math.clamp(displaySpeed / HoverboardConfig.RIDE_WALKSPEED, 0, 1) * 10)
 			Camera.FieldOfView += (targetCameraFOV - Camera.FieldOfView) * math.clamp(deltaTime * 8, 0, 1)
 
 		-- 카메라와 캐릭터의 위치가 어긋나면서 발생하는 시각적 떨림(Lerp Jitter) 해결
 		-- 위치는 정확히 고정하고, 바라보는 방향(wDir)만 부드럽게 보간(Lerp)합니다.
 		local targetWDir = hrp.CFrame.RightVector
+		if isSpectating then
+			-- Spectators just use the target's raw look direction to avoid getting stuck if physics replicates weirdly
+			targetWDir = hrp.CFrame.LookVector:Cross(Vector3.new(0,1,0)).Unit
+		end
 		
 		-- 스턴 상태일 때는 캐릭터가 회전하더라도 시점이 같이 돌아가지 않도록 고정
-		if isStunned then
+		if isStunned and not isSpectating then
 			if not _G.stunCamDir then _G.stunCamDir = _G.smoothCamDir or targetWDir end
 			targetWDir = _G.stunCamDir
 		else
@@ -1149,11 +1218,11 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 	-- ----------------------------------------------------
 	-- 🏎️ 5. UPDATE BOTTOM-CENTER SPEEDOMETER
 	-- ----------------------------------------------------
-	local displayKmh = currentSpeed
+	local displayKmh = displaySpeed
 
 	if speedNumLabel then
 		speedNumLabel.Text = string.format("%.1f", displayKmh)
-		if isBoosting then
+		if displayBoost then
 			speedNumLabel.TextColor3 = Color3.fromRGB(255, 215, 0) -- Gold Number during Boost!
 		else
 			speedNumLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -1169,11 +1238,11 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 	end
 
 	if speedModeLabel then
-		if isBoosting then
+		if displayBoost then
 			speedModeLabel.Text = "🔥 BOOSTING! 🔥"
 			speedModeLabel.TextColor3 = Color3.fromRGB(255, 100, 50)
 			if boosterGaugeStroke then boosterGaugeStroke.Color = Color3.fromRGB(255, 100, 50) end
-		elseif boosterGauge >= HoverboardConfig.BOOSTER_MAX_GAUGE then
+		elseif displayGauge >= HoverboardConfig.BOOSTER_MAX_GAUGE then
 			-- Flash effect
 			local flash = (math.floor(clockTime * 8) % 2 == 0)
 			if flash then
@@ -1193,9 +1262,29 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 	
 	-- 7. "wind force 3" Camera VFX Toggle
 	local cameraVFX = Camera:FindFirstChild("CameraBoostVFX")
+	if not cameraVFX and (isMounted or isSpectating) then
+		local vfxSource = ReplicatedStorage:FindFirstChild("wind force 3")
+		if vfxSource and vfxSource:IsA("BasePart") then
+			local vfxClone = vfxSource:Clone()
+			vfxClone.Name = "CameraBoostVFX"
+			vfxClone.Massless = true
+			vfxClone.CanCollide = false
+			vfxClone.Anchored = true
+			vfxClone:SetAttribute("OriginalRotation", vfxSource.CFrame - vfxSource.Position)
+			vfxClone.Transparency = 1
+			for _, desc in ipairs(vfxClone:GetDescendants()) do
+				if desc:IsA("ParticleEmitter") or desc:IsA("Trail") or desc:IsA("Beam") then
+					desc.Enabled = false
+				end
+			end
+			vfxClone.Parent = Camera
+			cameraVFX = vfxClone
+		end
+	end
+
 	if cameraVFX then
-		if isBoosting then
-			-- 원본 에셋의 회전값을 그대로 카메라에 적용합니다. (사용자가 워크스페이스에서 본 그대로 렌더링됨)
+		local activeBoost = displayBoost
+		if activeBoost then
 			local origRot = cameraVFX:GetAttribute("OriginalRotation")
 			if origRot then
 				cameraVFX.CFrame = Camera.CFrame * origRot
@@ -1204,11 +1293,11 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 			end
 		end
 		
-		if isBoosting ~= _G.lastBoostingState then
-			_G.lastBoostingState = isBoosting
+		if activeBoost ~= _G.lastBoostingState then
+			_G.lastBoostingState = activeBoost
 			for _, desc in ipairs(cameraVFX:GetDescendants()) do
 				if desc:IsA("ParticleEmitter") or desc:IsA("Beam") or desc:IsA("Trail") then
-					desc.Enabled = isBoosting
+					desc.Enabled = activeBoost
 				end
 			end
 		end
@@ -1224,6 +1313,107 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 	-- Jitter logging removed
 	
 	_G.lastVel = vel
+end)
+
+-- 📡 Handle spectator mode exit: restore Camera and disable HUD
+LocalPlayer:GetAttributeChangedSignal("IsSpectating"):Connect(function()
+	local isSpec = LocalPlayer:GetAttribute("IsSpectating") == true
+	if not isSpec and not isMounted then
+		if Camera then
+			Camera.CameraType = Enum.CameraType.Custom
+			local char = LocalPlayer.Character
+			local hum = char and char:FindFirstChildOfClass("Humanoid")
+			if hum then
+				Camera.CameraSubject = hum
+			end
+			local cameraVFX = Camera:FindFirstChild("CameraBoostVFX")
+			if cameraVFX then
+				for _, desc in ipairs(cameraVFX:GetDescendants()) do
+					if desc:IsA("ParticleEmitter") or desc:IsA("Beam") or desc:IsA("Trail") then
+						desc.Enabled = false
+					end
+				end
+			end
+		end
+		if guiScreen then
+			guiScreen.Enabled = false
+		end
+	end
+end)
+
+-- 📡 Handle IsRacing attribute changes: if race ends or player retired (DNF), return to Lounge mode cleanly
+LocalPlayer:GetAttributeChangedSignal("IsRacing"):Connect(function()
+	local isRacing = LocalPlayer:GetAttribute("IsRacing") == true
+	if not isRacing then
+		isMounted = false
+		isBoosting = false
+		isRaceStarted = false
+		currentBoardModel = nil
+		if guiScreen then
+			guiScreen.Enabled = false
+		end
+		if Camera then
+			Camera.CameraType = Enum.CameraType.Custom
+			local char = LocalPlayer.Character
+			local hum = char and char:FindFirstChildOfClass("Humanoid")
+			if hum then
+				Camera.CameraSubject = hum
+				hum.AutoRotate = true
+				hum.WalkSpeed = 16
+				hum.HipHeight = 2.0
+				hum:SetStateEnabled(Enum.HumanoidStateType.Jumping, true)
+			end
+			local hrp = char and char:FindFirstChild("HumanoidRootPart")
+			if hrp then
+				local gyro = hrp:FindFirstChild("SteeringGyro")
+				if gyro then gyro:Destroy() end
+			end
+			local cameraVFX = Camera:FindFirstChild("CameraBoostVFX")
+			if cameraVFX then
+				for _, desc in ipairs(cameraVFX:GetDescendants()) do
+					if desc:IsA("ParticleEmitter") or desc:IsA("Beam") or desc:IsA("Trail") then
+						desc.Enabled = false
+					end
+				end
+			end
+			TweenService:Create(Camera, TweenInfo.new(0.3), { FieldOfView = defaultFOV }):Play()
+		end
+		if playerControls and playerControls.Enable then
+			playerControls:Enable()
+		end
+	end
+end)
+
+LocalPlayer.CharacterAdded:Connect(function(newChar)
+	if not LocalPlayer:GetAttribute("IsRacing") then
+		isMounted = false
+		isBoosting = false
+		isRaceStarted = false
+		currentBoardModel = nil
+		if guiScreen then
+			guiScreen.Enabled = false
+		end
+		if Camera then
+			Camera.CameraType = Enum.CameraType.Custom
+			local hum = newChar:WaitForChild("Humanoid", 5) :: Humanoid?
+			if hum then
+				Camera.CameraSubject = hum
+				hum.AutoRotate = true
+				hum.WalkSpeed = 16
+				hum.HipHeight = 2.0
+				hum:SetStateEnabled(Enum.HumanoidStateType.Jumping, true)
+			end
+			local hrp = newChar:WaitForChild("HumanoidRootPart", 5) :: BasePart?
+			if hrp then
+				local gyro = hrp:FindFirstChild("SteeringGyro")
+				if gyro then gyro:Destroy() end
+			end
+			TweenService:Create(Camera, TweenInfo.new(0.3), { FieldOfView = defaultFOV }):Play()
+		end
+		if playerControls and playerControls.Enable then
+			playerControls:Enable()
+		end
+	end
 end)
 
 local function showBoosterToast()
@@ -1411,7 +1601,7 @@ if raceFinishedRemote then
 		myRankLabel.Font = Enum.Font.GothamBlack
 		
 		if finalRank == 999 then
-			myRankLabel.Text = "RETIRED"
+			myRankLabel.Text = "DNF"
 			myRankLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
 		else
 			local rankStr = finalRank .. "st"
@@ -1451,8 +1641,8 @@ if raceFinishedRemote then
 				end)
 			end
 		end)		
-		-- Stop movement by dismounting and locking ONLY for racers
-		if LocalPlayer:GetAttribute("IsRacing") then
+		-- Stop movement by dismounting and locking ONLY for active racers finishing on track
+		if LocalPlayer:GetAttribute("IsRacing") and finalRank ~= 999 then
 			dismountRemote:FireServer()
 			local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
 			if hum then
@@ -1582,7 +1772,7 @@ if showScoreboardRemote then
 			itemStroke.Thickness = 2
 			itemStroke.Parent = item
 			
-			local rankText = "RETIRE"
+			local rankText = "DNF"
 			local rankColor = Color3.fromRGB(150, 150, 150)
 			if data.rank ~= 999 then
 				rankText = data.rank .. "st"
@@ -1668,7 +1858,7 @@ if showScoreboardRemote then
 			gLabel.Position = UDim2.new(0, 390, 0, 0)
 			gLabel.BackgroundTransparency = 1
 			gLabel.Font = Enum.Font.GothamBold
-			gLabel.Text = "+" .. data.gold .. "G"
+			gLabel.Text = (data.gold > 0) and ("+" .. data.gold .. "G") or "-"
 			gLabel.TextColor3 = Color3.fromRGB(255, 200, 50)
 			gLabel.TextSize = 20
 			gLabel.TextXAlignment = Enum.TextXAlignment.Right

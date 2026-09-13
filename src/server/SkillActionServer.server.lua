@@ -59,6 +59,13 @@ if not empHackRemote then
 	empHackRemote.Parent = remotesFolder
 end
 
+local globalSkillCastRemote = remotesFolder:FindFirstChild("GlobalSkillCast") :: RemoteEvent?
+if not globalSkillCastRemote then
+	globalSkillCastRemote = Instance.new("RemoteEvent")
+	globalSkillCastRemote.Name = "GlobalSkillCast"
+	globalSkillCastRemote.Parent = remotesFolder
+end
+
 -- Skill Cooldown Tracking (Server side)
 local playerCooldowns: { [number]: { [string]: number } } = {}
 local SKILL_COOLDOWNS = {
@@ -111,7 +118,7 @@ local function fireIceBomb(caster: Player, target: Player?)
 	print("❄️ [SkillServer] Ice Bomb fired by " .. caster.Name .. " at " .. target.Name .. " (Will hit in 2 seconds)")
 	
 	if skillWarningRemote then
-		skillWarningRemote:FireClient(target, caster.Name, "Skill_IceBomb")
+		skillWarningRemote:FireAllClients(target.Name, caster.Name, "Skill_IceBomb")
 	end
 	
 	-- 서버는 타겟을 찾아 2초 뒤에 꽂히는 판정만 수행합니다.
@@ -178,7 +185,7 @@ local function fireIceBomb(caster: Player, target: Player?)
 				activeShields[target.UserId] = false
 				
 				if skillWarningRemote then
-					skillWarningRemote:FireClient(caster, target.Name, "Skill_Shield_Break")
+					skillWarningRemote:FireAllClients(caster.Name, target.Name, "Skill_Shield_Break")
 				end
 				return
 			end
@@ -200,6 +207,8 @@ local function fireIceBomb(caster: Player, target: Player?)
 			
 			-- FREEZE TARGET
 			print("❄️ [SkillServer] " .. target.Name .. " is FROZEN by " .. caster.Name .. "!")
+				
+				targetChar:SetAttribute("StatusEffect_Frozen", true)
 				
 				local hoverboard = targetChar:FindFirstChild("Hoverboard")
 				if hoverboard and hoverboard:IsA("Model") and hoverboard.PrimaryPart then
@@ -237,6 +246,9 @@ local function fireIceBomb(caster: Player, target: Player?)
 				end
 				
 				task.delay(2, function()
+					if targetChar and targetChar.Parent then
+						targetChar:SetAttribute("StatusEffect_Frozen", false)
+					end
 					if hoverboard and hoverboard:IsA("Model") and hoverboard.PrimaryPart then
 						hoverboard.PrimaryPart.Anchored = false
 					elseif targetRoot and targetRoot.Parent then
@@ -299,6 +311,8 @@ local function fireShield(player: Player)
 	
 	print("🛡️ [SkillServer] " .. player.Name .. " activated Shield!")
 	
+	char:SetAttribute("HasShield", true)
+	
 	local root = char.PrimaryPart
 	
 	local shieldPart = Instance.new("Part")
@@ -341,6 +355,9 @@ local function fireShield(player: Player)
 		if activeShields[player.UserId] then
 			activeShields[player.UserId] = false
 			print("🛡️ [SkillServer] " .. player.Name .. "'s Shield expired naturally.")
+			if char and char.Parent then
+				char:SetAttribute("HasShield", false)
+			end
 			
 			if shieldPart.Parent then
 				pulseTween:Cancel()
@@ -358,10 +375,13 @@ local function fireShield(player: Player)
 		while shieldPart.Parent do
 			if not activeShields[player.UserId] then
 				-- Broken!
+				if char and char.Parent then
+					char:SetAttribute("HasShield", false)
+				end
 				pulseTween:Cancel()
 				
 				if skillWarningRemote then
-					skillWarningRemote:FireClient(player, "SYSTEM", "Skill_Shield_Break")
+					skillWarningRemote:FireAllClients(player.Name, "SYSTEM", "Skill_Shield_Break")
 				end
 				-- 방어 성공(무력화) 사운드
 				local breakSound = Instance.new("Sound")
@@ -407,7 +427,7 @@ local function fireOrbitalLaser(player: Player)
 		
 		-- 1. 2초 경고 연출
 		if skillWarningRemote then
-			skillWarningRemote:FireClient(targetPlayer, player.Name, "Skill_OrbitalLaser")
+			skillWarningRemote:FireAllClients(targetPlayer.Name, player.Name, "Skill_OrbitalLaser")
 		end
 		
 		-- 서버 측 경고 이펙트 (빨간 기둥)
@@ -454,7 +474,7 @@ local function fireOrbitalLaser(player: Player)
 				print("🛡️ [SkillServer] " .. targetPlayer.Name .. " BLOCKED Orbital Laser with a Shield!")
 				activeShields[targetPlayer.UserId] = false
 				if skillWarningRemote then
-					skillWarningRemote:FireClient(player, targetPlayer.Name, "Skill_Shield_Break")
+					skillWarningRemote:FireAllClients(player.Name, targetPlayer.Name, "Skill_Shield_Break")
 				end
 				return
 			end
@@ -482,8 +502,15 @@ local function fireOrbitalLaser(player: Player)
 			
 			-- 기절 효과 명령을 클라이언트로 전송
 			if skillWarningRemote then
-				skillWarningRemote:FireClient(targetPlayer, "SYSTEM", "OrbitalStun")
+				skillWarningRemote:FireAllClients(targetPlayer.Name, "SYSTEM", "OrbitalStun")
 			end
+			
+			char:SetAttribute("StatusEffect_Stun", true)
+			task.delay(1.5, function()
+				if char and char.Parent then
+					char:SetAttribute("StatusEffect_Stun", false)
+				end
+			end)
 			
 			-- 레이저 서서히 사라짐
 			local ts = TweenService:Create(laserPillar, TweenInfo.new(1.0), {Transparency = 1, Size = Vector3.new(500, 0, 0)})
@@ -572,6 +599,7 @@ local function fireBlindFog(player: Player)
 		-- Blind them! (Shield does NOT block this)
 		if not activePlayersInFog[targetPlayer.UserId] then
 			activePlayersInFog[targetPlayer.UserId] = targetPlayer
+			targetChar:SetAttribute("StatusEffect_Blind", true)
 			if blindEffectRemote then
 				blindEffectRemote:FireClient(targetPlayer, true)
 			end
@@ -589,6 +617,7 @@ local function fireBlindFog(player: Player)
 		-- Simple touch ended check. (For complex shapes, magnitude checks can be safer, but this works for basic rectangular zones)
 		if activePlayersInFog[targetPlayer.UserId] then
 			activePlayersInFog[targetPlayer.UserId] = nil
+			targetChar:SetAttribute("StatusEffect_Blind", false)
 			if blindEffectRemote then
 				blindEffectRemote:FireClient(targetPlayer, false)
 			end
@@ -601,6 +630,9 @@ local function fireBlindFog(player: Player)
 		
 		-- Clear everyone currently in fog
 		for userId, p in pairs(activePlayersInFog) do
+			if p.Character then
+				p.Character:SetAttribute("StatusEffect_Blind", false)
+			end
 			if blindEffectRemote then
 				blindEffectRemote:FireClient(p, false)
 			end
@@ -620,6 +652,7 @@ local function fireGhost(player: Player)
 	
 	setCooldown(player, "Skill_Ghost")
 	activeGhosts[player.UserId] = true
+	char:SetAttribute("IsGhost", true)
 	
 	print("👻 [SkillServer] " .. player.Name .. " activated Ghost mode!")
 	
@@ -647,6 +680,7 @@ local function fireGhost(player: Player)
 		activeGhosts[player.UserId] = false
 		print("👻 [SkillServer] " .. player.Name .. "'s Ghost mode expired.")
 		if char and char.Parent then
+			char:SetAttribute("IsGhost", false)
 			setTransparency(char, 0)
 		end
 	end)
@@ -691,7 +725,7 @@ local function fireEMP(player: Player)
 						game.Debris:AddItem(shieldBreakSound, 2)
 						
 						if skillWarningRemote then
-							skillWarningRemote:FireClient(player, target.Name, "Skill_Shield_Break")
+							skillWarningRemote:FireAllClients(player.Name, target.Name, "Skill_Shield_Break")
 						end
 						continue
 					end
@@ -716,6 +750,13 @@ local function fireEMP(player: Player)
 					bg.Parent = head
 					game.Debris:AddItem(bg, 4)
 					
+					tChar:SetAttribute("StatusEffect_EMP", true)
+					task.delay(4, function()
+						if tChar and tChar.Parent then
+							tChar:SetAttribute("StatusEffect_EMP", false)
+						end
+					end)
+					
 					if empHackRemote then
 						empHackRemote:FireClient(target)
 					end
@@ -730,6 +771,10 @@ if useSkillRemote then
 		if not canUseSkill(player, skillId) then
 			print("⏳ [SkillServer] " .. player.Name .. " tried to use " .. skillId .. " but it's on cooldown.")
 			return
+		end
+		
+		if globalSkillCastRemote then
+			globalSkillCastRemote:FireAllClients(player.UserId, skillId)
 		end
 		
 		if skillId == "Skill_IceBomb" then

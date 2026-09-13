@@ -182,6 +182,13 @@ function LapManager.startTracking(mapName: string, startTime: number)
 										if winEvent then
 											winEvent:Fire(player)
 										end
+										
+										-- Quest: Win
+										local QuestBindables = ReplicatedStorage:FindFirstChild("QuestBindables")
+										local addProgress = QuestBindables and QuestBindables:FindFirstChild("AddQuestProgress")
+										if addProgress then
+											addProgress:Fire(player.UserId, "_win", 1)
+										end
 									elseif data.finalRank == 2 then 
 										reward = 600
 									elseif data.finalRank == 3 then 
@@ -189,6 +196,15 @@ function LapManager.startTracking(mapName: string, startTime: number)
 									end
 									gold.Value += reward
 									print("💰 Awarded " .. reward .. " Gold to " .. player.Name)
+									
+									-- Quest: Play, Gold
+									local ReplicatedStorage = game:GetService("ReplicatedStorage")
+									local QuestBindables = ReplicatedStorage:FindFirstChild("QuestBindables")
+									local addProgress = QuestBindables and QuestBindables:FindFirstChild("AddQuestProgress")
+									if addProgress then
+										addProgress:Fire(player.UserId, "_play", 1)
+										addProgress:Fire(player.UserId, "_gold", reward)
+									end
 								end
 							end
 						else
@@ -315,24 +331,33 @@ function LapManager.getActivePlayersCount()
 	return count
 end
 
+function LapManager.retirePlayer(userId: number)
+	local data = playerLaps[userId]
+	if data and not data.finished then
+		data.finished = true
+		data.finalRank = 999
+		data.finishTime = 0
+		finishedCount += 1
+		local p = Players:GetPlayerByUserId(userId)
+		if p then
+			raceFinishedRemote:FireClient(p, 0, data.currentLap, totalLapsForMap, data.finalRank)
+		end
+		print(string.format("🏁 Player %d retired (DNF) without gold.", userId))
+	end
+end
+
 function LapManager.retireUnfinishedPlayers()
 	for userId, data in pairs(playerLaps) do
 		if not data.finished then
 			data.finished = true
 			data.finalRank = 999
+			data.finishTime = 0
+			finishedCount += 1
 			local p = Players:GetPlayerByUserId(userId)
 			if p then
 				raceFinishedRemote:FireClient(p, 0, data.currentLap, totalLapsForMap, data.finalRank)
-				
-				local leaderstats = p:FindFirstChild("leaderstats")
-				if leaderstats then
-					local gold = leaderstats:FindFirstChild("Gold")
-					if gold then
-						gold.Value += 10
-						print("💰 Awarded 10 Gold (Retire) to " .. p.Name)
-					end
-				end
 			end
+			print(string.format("🏁 Player %d retired (DNF at end) without gold.", userId))
 		end
 	end
 end
@@ -342,11 +367,11 @@ function LapManager.getFinalScoreboardData()
 	for userId, data in pairs(playerLaps) do
 		local p = Players:GetPlayerByUserId(userId)
 		if p then
-			local timeStr = "RETIRE"
+			local timeStr = "DNF"
 			if data.finalRank ~= 999 then
 				timeStr = string.format("%.2fs", data.finishTime)
 			end
-			local reward = 10
+			local reward = 0
 			if data.finalRank == 1 then reward = 1000
 			elseif data.finalRank == 2 then reward = 600
 			elseif data.finalRank == 3 then reward = 300
