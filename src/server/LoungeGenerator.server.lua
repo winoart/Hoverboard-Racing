@@ -84,10 +84,17 @@ local function findUserWaitingRoom(): (Instance?, CFrame?, CFrame?, Vector3?)
 			if child:IsA("BasePart") then
 				return child, child.CFrame * CFrame.new(0, (child.Size.Y / 2) + 1.5, 0), child.CFrame, child.Size
 			elseif child:IsA("Model") or child:IsA("Folder") then
+				local wallCFrame, wallSize = getContainerBoundingBox(child)
+				
+				-- 1. 우선적으로 폴더 안의 SpawnLocation을 찾음
+				local spawnLoc = child:FindFirstChildWhichIsA("SpawnLocation", true)
+				if spawnLoc then
+					return child, spawnLoc.CFrame, wallCFrame, wallSize
+				end
+
+				-- 2. 없으면 기존처럼 가장 넓은 바닥 파트를 찾음
 				local primary = child:IsA("Model") and child.PrimaryPart or nil
 				local targetPart = primary or getLargestFloorPart(child)
-				
-				local wallCFrame, wallSize = getContainerBoundingBox(child)
 				
 				if targetPart then
 					return child, targetPart.CFrame * CFrame.new(0, (targetPart.Size.Y / 2) + 1.5, 0), wallCFrame, wallSize

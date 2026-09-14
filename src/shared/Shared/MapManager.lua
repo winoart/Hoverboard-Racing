@@ -62,19 +62,34 @@ function MapManager.getLoungeCFrame(): CFrame
 
 	for _, child in ipairs(Workspace:GetChildren()) do
 		local nameLower = child.Name:lower():gsub("%s+", "")
-		if child:IsA("SpawnLocation") or nameLower:find("waitingroom") or nameLower:find("lounge") or nameLower:find("대기실") or nameLower:find("스폰장소") then
+		
+		if nameLower:find("waitingroom") or nameLower:find("lounge") or nameLower:find("대기실") or nameLower:find("스폰장소") then
+			local spawnLoc = child:FindFirstChildWhichIsA("SpawnLocation", true)
+			if spawnLoc then
+				print("[MapManager] Found SpawnLocation inside WaitingRoom folder: ", spawnLoc:GetFullName())
+				return spawnLoc.CFrame
+			end
+
 			if child:IsA("BasePart") then
+				print("[MapManager] Found BasePart as WaitingRoom: ", child:GetFullName())
 				return child.CFrame
 			elseif child:IsA("Model") or child:IsA("Folder") then
 				local primary = child:IsA("Model") and child.PrimaryPart or nil
 				local targetPart = primary or getLargestFloorPart(child)
 				
 				if targetPart then
+					print("[MapManager] Found floor part inside WaitingRoom: ", targetPart:GetFullName())
 					return targetPart.CFrame
 				else
+					print("[MapManager] Found Model/Folder without floor part: ", child:GetFullName())
 					return child:IsA("Model") and child:GetPivot() or CFrame.new(0, 85, 0)
 				end
 			end
+		end
+
+		if child:IsA("SpawnLocation") then
+			print("[MapManager] Found fallback SpawnLocation in Workspace: ", child:GetFullName())
+			return child.CFrame
 		end
 	end
 

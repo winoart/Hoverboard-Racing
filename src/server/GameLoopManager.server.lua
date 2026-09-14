@@ -90,6 +90,9 @@ local function teleportPlayer(player: Player, cframe: CFrame)
 				hrp.AssemblyLinearVelocity = Vector3.zero
 				hrp.AssemblyAngularVelocity = Vector3.zero
 				hrp.CFrame = cframe
+				
+				task.wait(0.1)
+				print(string.format("[Spawn Debug] %s teleported. Expected: %s, Actual: %s", player.Name, tostring(cframe.Position), tostring(hrp.Position)))
 				break
 			end
 			task.wait(0.1)
