@@ -30,6 +30,8 @@ local empEffectRemote = hoverRemotes:WaitForChild("EMPEffect") :: RemoteEvent
 local frostEffectRemote = hoverRemotes:WaitForChild("FrostEffect") :: RemoteEvent
 local empHackRemote = hoverRemotes:WaitForChild("EMPHackEffect") :: RemoteEvent
 local globalSkillCastRemote = hoverRemotes:WaitForChild("GlobalSkillCast") :: RemoteEvent
+local paintballEffectRemote = hoverRemotes:WaitForChild("PaintballEffect") :: RemoteEvent
+local updateUsesRemote = hoverRemotes:WaitForChild("SkillUsesUpdated") :: RemoteEvent
 
 -- Temporary Product IDs for unlocking slots
 local MonetizationConfig = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("MonetizationConfig"))
@@ -39,14 +41,7 @@ local SkillStoreConfig = require(ReplicatedStorage:WaitForChild("Shared"):WaitFo
 
 local isRaceStarted = false
 local clientCooldowns = {}
-local SKILL_COOLDOWNS = {
-	Skill_IceBomb = 10,
-	Skill_Shield = 15,
-	Skill_OrbitalLaser = 20,
-	Skill_BlindFog = 15,
-	Skill_Ghost = 20,
-	Skill_EMP = 30,
-}
+local clientSkillUses = {}
 
 -- Bind UI
 local gui = playerGui:WaitForChild("SkillActionGui")
@@ -634,7 +629,32 @@ local function bindSlot(index)
 		hkCorner.Parent = hotkeyLabel
 	end
 	
+	
+	local usesLabel = slotFrame:FindFirstChild("UsesLabel") :: TextLabel?
+	if not usesLabel then
+		usesLabel = Instance.new("TextLabel")
+		usesLabel.Name = "UsesLabel"
+		usesLabel.Size = UDim2.new(0, 30, 0, 30)
+		usesLabel.Position = UDim2.new(1, -5, 0, 5)
+		usesLabel.AnchorPoint = Vector2.new(1, 0)
+		usesLabel.BackgroundTransparency = 1
+		usesLabel.Font = Enum.Font.FredokaOne
+		usesLabel.TextSize = 22
+		usesLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
+		usesLabel.TextStrokeTransparency = 0
+		usesLabel.ZIndex = 8
+		usesLabel.Visible = false
+		
+		local hkStroke = Instance.new("UIStroke")
+		hkStroke.Color = Color3.fromRGB(0, 0, 0)
+		hkStroke.Thickness = 3
+		hkStroke.Parent = usesLabel
+		
+		usesLabel.Parent = slotFrame
+	end
+
 	slots[index] = {
+		usesLabel = usesLabel,
 		frame = slotFrame,
 		icon = icon,
 		nameLabel = nameLabel,
@@ -662,8 +682,18 @@ local function bindSlot(index)
 		if slots[index] and slots[index].skillId and (isRaceStarted and LocalPlayer:GetAttribute("IsRacing")) then
 			local skillId = slots[index].skillId
 			
+			
+			local sInfo = getSkillInfo(skillId)
+			if not sInfo then return end
+			
+			if sInfo.cooldownType == "Charges" then
+				local left = clientSkillUses[skillId] or sInfo.maxUses
+				if left <= 0 then return end
+			end
+			
 			local lastUsed = clientCooldowns[skillId]
-			local cooldown = SKILL_COOLDOWNS[skillId] or 10
+			local cooldown = sInfo.cooldownTime or 10
+
 			if lastUsed and (os.clock() - lastUsed) < cooldown then
 				print(SkillMessages.Messages.CooldownActive)
 				return
@@ -714,14 +744,17 @@ local function getSkillInfo(skillId: string)
 	return nil
 end
 
--- Refresh UI based on equipped skills and max slots
 local function refreshSlots()
 	local equipped = equippedSkillsFolder:GetChildren()
 	local currentMax = maxSkillSlots.Value
+	print("🛠️ [SkillActionController] refreshSlots called. Equipped count:", #equipped, "CurrentMax:", currentMax)
 	
 	for i = 1, 4 do
 		local slot = slots[i]
-		if not slot then continue end
+		if not slot then 
+			print("🛠️ [SkillActionController] Slot", i, "not found in slots table")
+			continue 
+		end
 		
 		-- Manage Lock status for Slot 3 and 4
 		if i > currentMax then
@@ -755,26 +788,46 @@ local function refreshSlots()
 			
 			local skillVal = equipped[i]
 			if skillVal then
+				print("🛠️ [SkillActionController] Slot", i, "Equipped:", skillVal.Name)
 				slot.skillId = skillVal.Name
+				
 				local info = getSkillInfo(skillVal.Name)
 				if info then
+					print("🛠️ [SkillActionController] Slot", i, "Found Info:", info.name)
 					slot.icon.Image = info.imageId
 					slot.nameLabel.Text = info.name
 					slot.stroke.Color = Color3.fromRGB(0, 0, 0)
+					if info.cooldownType == "Charges" then
+						slot.usesLabel.Visible = true
+						local left = clientSkillUses[info.id] or info.maxUses
+						slot.usesLabel.Text = tostring(left)
+						if left <= 0 then
+							slot.overlay.Visible = true
+						else
+							slot.overlay.Visible = false
+						end
+					else
+						slot.usesLabel.Visible = false
+						slot.overlay.Visible = false
+					end
 				else
+					print("⚠️ [SkillActionController] Slot", i, "Missing Info for:", skillVal.Name)
 					slot.skillId = nil
 					slot.icon.Image = ""
 					slot.nameLabel.Text = ""
 					slot.stroke.Color = Color3.fromRGB(0, 0, 0)
+					slot.usesLabel.Visible = false
+					slot.overlay.Visible = false
 				end
 			else
+				print("🛠️ [SkillActionController] Slot", i, "is Empty in EquippedSkillsFolder")
 				slot.skillId = nil
 				slot.icon.Image = ""
 				slot.nameLabel.Text = ""
 				slot.stroke.Color = Color3.fromRGB(0, 0, 0)
+				slot.usesLabel.Visible = false
+				slot.overlay.Visible = false
 			end
-			-- Unlocked slots should never be dimmed by default in casual style
-			slot.overlay.Visible = false
 		end
 	end
 end
@@ -791,6 +844,7 @@ refreshSlots()
 phaseRemote.OnClientEvent:Connect(function(phase, timeLeft)
 	if phase ~= "RACE_MATCH" then
 		isRaceStarted = false
+		clientSkillUses = {}
 		refreshSlots()
 		
 		-- Force clear EMP effects
@@ -811,6 +865,7 @@ end)
 countdownRemote.OnClientEvent:Connect(function(count)
 	if count == 0 then
 		isRaceStarted = true
+		clientSkillUses = {}
 		refreshSlots()
 	end
 end)
@@ -900,8 +955,18 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		if input.KeyCode == key then
 			if slots[i] and slots[i].skillId and maxSkillSlots.Value >= i then
 				local skillId = slots[i].skillId
-				local lastUsed = clientCooldowns[skillId]
-				local cooldown = SKILL_COOLDOWNS[skillId] or 10
+				
+			local sInfo = getSkillInfo(skillId)
+			if not sInfo then continue end
+			
+			if sInfo.cooldownType == "Charges" then
+				local left = clientSkillUses[skillId] or sInfo.maxUses
+				if left <= 0 then continue end
+			end
+			
+			local lastUsed = clientCooldowns[skillId]
+			local cooldown = sInfo.cooldownTime or 10
+
 				if lastUsed and (os.clock() - lastUsed) < cooldown then
 					print(SkillMessages.Messages.CooldownActive)
 					continue
@@ -1094,4 +1159,31 @@ game:GetService("RunService").Heartbeat:Connect(function()
 		end
 		if glitchOverlay then glitchOverlay.Visible = false end
 	end
+end)
+
+
+
+updateUsesRemote.OnClientEvent:Connect(function(skillId, left)
+	clientSkillUses[skillId] = left
+	refreshSlots()
+end)
+
+local paintOverlay
+paintballEffectRemote.OnClientEvent:Connect(function()
+	if not paintOverlay then
+		paintOverlay = Instance.new("ImageLabel")
+		paintOverlay.Size = UDim2.new(0.5, 0, 0.5, 0)
+		paintOverlay.Position = UDim2.new(0.5, 0, 0.5, 0)
+		paintOverlay.AnchorPoint = Vector2.new(0.5, 0.5)
+		paintOverlay.BackgroundTransparency = 1
+		paintOverlay.Image = "rbxassetid://13583568770" -- Ink Splat
+		paintOverlay.ZIndex = 100
+		paintOverlay.Parent = fullScreenGui
+	end
+	
+	paintOverlay.Visible = true
+	local ts = TweenService:Create(paintOverlay, TweenInfo.new(3), {ImageTransparency = 1})
+	paintOverlay.ImageTransparency = 0
+	ts:Play()
+	ts.Completed:Connect(function() paintOverlay.Visible = false end)
 end)

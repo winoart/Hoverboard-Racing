@@ -222,6 +222,7 @@ local cardUpdaters: { () -> () } = {}
 
 -- Populate Store Items with Thick Cartoon Cards (Bright Theme)
 for idx, item in ipairs(SkillStoreConfig.Skills) do
+	if item.isExclusive then continue end
 	local card = Instance.new("Frame")
 	card.Name = "ItemCard_" .. item.id
 	card.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- Bright crisp white

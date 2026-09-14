@@ -9,6 +9,9 @@ local Workspace = game:GetService("Workspace")
 
 local LapManager = require(script.Parent:WaitForChild("LapManager") :: ModuleScript)
 
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local SkillStoreConfig = require(Shared:WaitForChild("SkillStoreConfig") :: ModuleScript)
+
 -- Initialize Remotes
 local remotesFolder = ReplicatedStorage:FindFirstChild("HoverboardRemotes")
 if not remotesFolder then
@@ -66,28 +69,59 @@ if not globalSkillCastRemote then
 	globalSkillCastRemote.Parent = remotesFolder
 end
 
--- Skill Cooldown Tracking (Server side)
+local paintballEffectRemote = remotesFolder:FindFirstChild("PaintballEffect") :: RemoteEvent?
+if not paintballEffectRemote then
+	paintballEffectRemote = Instance.new("RemoteEvent")
+	paintballEffectRemote.Name = "PaintballEffect"
+	paintballEffectRemote.Parent = remotesFolder
+end
+
+local updateUsesRemote = remotesFolder:FindFirstChild("SkillUsesUpdated") :: RemoteEvent?
+if not updateUsesRemote then
+	updateUsesRemote = Instance.new("RemoteEvent")
+	updateUsesRemote.Name = "SkillUsesUpdated"
+	updateUsesRemote.Parent = remotesFolder
+end
+
+-- Skill Tracking (Server side)
 local playerCooldowns: { [number]: { [string]: number } } = {}
-local SKILL_COOLDOWNS = {
-	Skill_IceBomb = 10,
-	Skill_Shield = 15,
-	Skill_OrbitalLaser = 20,
-	Skill_BlindFog = 15,
-	Skill_Ghost = 20,
-	Skill_EMP = 30,
-}
+local playerSkillUses: { [number]: { [string]: number } } = {}
+
+Players.PlayerAdded:Connect(function(player)
+	player:GetAttributeChangedSignal("IsRacing"):Connect(function()
+		if player:GetAttribute("IsRacing") then
+			playerSkillUses[player.UserId] = {}
+		end
+	end)
+end)
 
 local activeShields: { [number]: boolean } = {}
 local activeGhosts: { [number]: boolean } = {}
 
+local function getSkillConfig(skillId: string)
+	for _, skill in ipairs(SkillStoreConfig.Skills) do
+		if skill.id == skillId then return skill end
+	end
+	return nil
+end
+
 local function canUseSkill(player: Player, skillId: string): boolean
+	local config = getSkillConfig(skillId)
+	if not config then return true end
+	
+	if config.cooldownType == "Charges" then
+		local uses = (playerSkillUses[player.UserId] and playerSkillUses[player.UserId][skillId]) or 0
+		local maxUses = config.maxUses or 1
+		if uses >= maxUses then return false end
+	end
+	
 	local pCooldowns = playerCooldowns[player.UserId]
 	if not pCooldowns then return true end
 	
 	local lastUsed = pCooldowns[skillId]
 	if not lastUsed then return true end
 	
-	local cooldownDuration = SKILL_COOLDOWNS[skillId] or 10
+	local cooldownDuration = config.cooldownTime or 10
 	if os.clock() - lastUsed >= cooldownDuration then
 		return true
 	end
@@ -99,6 +133,19 @@ local function setCooldown(player: Player, skillId: string)
 		playerCooldowns[player.UserId] = {}
 	end
 	playerCooldowns[player.UserId][skillId] = os.clock()
+	
+	local config = getSkillConfig(skillId)
+	if config and config.cooldownType == "Charges" then
+		if not playerSkillUses[player.UserId] then
+			playerSkillUses[player.UserId] = {}
+		end
+		playerSkillUses[player.UserId][skillId] = (playerSkillUses[player.UserId][skillId] or 0) + 1
+		
+		-- Notify client about use count update
+		if updateUsesRemote then
+			updateUsesRemote:FireClient(player, skillId, config.maxUses - playerSkillUses[player.UserId][skillId])
+		end
+	end
 end
 
 -- [KartRider-Style Projectile Standard]
@@ -336,8 +383,7 @@ local function fireShield(player: Player)
 	
 	-- 발동 사운드
 	local startSound = Instance.new("Sound")
-	startSound.SoundId = "rbxassetid://888568674" -- SF 에너지 쉴드 발동음
-	startSound.Volume = 1
+	startSound.SoundId = "rbxassetid://12222076" -- SF 에너지 쉴드 발동음
 	startSound.Parent = root
 	startSound:Play()
 	game:GetService("Debris"):AddItem(startSound, 2)
@@ -766,6 +812,82 @@ local function fireEMP(player: Player)
 	end
 end
 
+local function firePaintball(caster: Player, target: Player?)
+	local casterChar = caster.Character
+	if not casterChar or not casterChar.PrimaryPart then return end
+	
+	setCooldown(caster, "Skill_Paintball")
+	
+	if not target or not target.Character or not target.Character.PrimaryPart then
+		print("🦑 [SkillServer] Paintball fizzled (No Target) for " .. caster.Name)
+		return
+	end
+	
+	print("🦑 [SkillServer] Paintball fired by " .. caster.Name .. " at " .. target.Name)
+	
+	if skillWarningRemote then
+		skillWarningRemote:FireAllClients(target.Name, caster.Name, "Skill_Paintball")
+	end
+	
+	task.delay(1.5, function()
+		if not target or not target.Character or not target.Character.PrimaryPart then return end
+		if activeGhosts[target.UserId] then
+			print("👻 [SkillServer] " .. target.Name .. " DODGED Paintball as a Ghost!")
+			return
+		end
+		
+		if activeShields[target.UserId] then
+			print("🛡️ [SkillServer] " .. target.Name .. " BLOCKED Paintball with a Shield!")
+			activeShields[target.UserId] = nil
+			return
+		end
+		
+		if paintballEffectRemote then
+			paintballEffectRemote:FireClient(target)
+		end
+	end)
+end
+
+local function fireVirus(caster: Player, target: Player?)
+	local casterChar = caster.Character
+	if not casterChar or not casterChar.PrimaryPart then return end
+	
+	setCooldown(caster, "Skill_Virus")
+	
+	if not target or not target.Character or not target.Character.PrimaryPart then
+		print("🔄 [SkillServer] Virus fizzled (No Target) for " .. caster.Name)
+		return
+	end
+	
+	print("🔄 [SkillServer] Virus fired by " .. caster.Name .. " at " .. target.Name)
+	
+	if skillWarningRemote then
+		skillWarningRemote:FireAllClients(target.Name, caster.Name, "Skill_Virus")
+	end
+	
+	task.delay(1.5, function()
+		if not target or not target.Character or not target.Character.PrimaryPart then return end
+		if activeGhosts[target.UserId] then
+			print("👻 [SkillServer] " .. target.Name .. " DODGED Virus as a Ghost!")
+			return
+		end
+		
+		if activeShields[target.UserId] then
+			print("🛡️ [SkillServer] " .. target.Name .. " BLOCKED Virus with a Shield!")
+			activeShields[target.UserId] = nil
+			return
+		end
+		
+		print("🔄 [SkillServer] " .. target.Name .. " is INFECTED by Virus!")
+		target:SetAttribute("StatusEffect_EMP", true)
+		task.delay(3, function()
+			if target:GetAttribute("StatusEffect_EMP") then
+				target:SetAttribute("StatusEffect_EMP", false)
+			end
+		end)
+	end)
+end
+
 if useSkillRemote then
 	useSkillRemote.OnServerEvent:Connect(function(player: Player, skillId: string)
 		if not canUseSkill(player, skillId) then
@@ -780,6 +902,12 @@ if useSkillRemote then
 		if skillId == "Skill_IceBomb" then
 			local target = LapManager.getPlayerAhead(player.UserId)
 			fireIceBomb(player, target)
+		elseif skillId == "Skill_Paintball" then
+			local target = LapManager.getPlayerAhead(player.UserId)
+			firePaintball(player, target)
+		elseif skillId == "Skill_Virus" then
+			local target = LapManager.getPlayerAhead(player.UserId)
+			fireVirus(player, target)
 		elseif skillId == "Skill_Shield" then
 			fireShield(player)
 		elseif skillId == "Skill_OrbitalLaser" then

@@ -39,6 +39,11 @@ end
 
 -- 2. Find WaitingRoom Lounge CFrame in Workspace
 function MapManager.getLoungeCFrame(): CFrame
+	local loungeSpawn = Workspace:FindFirstChild("LoungeSpawnLocation") :: BasePart?
+	if loungeSpawn then
+		return loungeSpawn.CFrame
+	end
+
 	-- Helper to find the largest floor part in a folder/model
 	local function getLargestFloorPart(container: Instance): BasePart?
 		local bestPart = nil
@@ -57,7 +62,7 @@ function MapManager.getLoungeCFrame(): CFrame
 
 	for _, child in ipairs(Workspace:GetChildren()) do
 		local nameLower = child.Name:lower():gsub("%s+", "")
-		if nameLower:find("waitingroom") or nameLower:find("lounge") or nameLower:find("대기실") or nameLower:find("스폰장소") or nameLower:find("스폰") then
+		if child:IsA("SpawnLocation") or nameLower:find("waitingroom") or nameLower:find("lounge") or nameLower:find("대기실") or nameLower:find("스폰장소") then
 			if child:IsA("BasePart") then
 				return child.CFrame
 			elseif child:IsA("Model") or child:IsA("Folder") then
@@ -71,11 +76,6 @@ function MapManager.getLoungeCFrame(): CFrame
 				end
 			end
 		end
-	end
-
-	local loungeSpawn = Workspace:FindFirstChild("LoungeSpawnLocation") :: BasePart?
-	if loungeSpawn then
-		return loungeSpawn.CFrame
 	end
 
 	return CFrame.new(0, 85, 0)

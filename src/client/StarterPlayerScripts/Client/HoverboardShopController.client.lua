@@ -274,35 +274,25 @@ if not toastGui then
 	toastGui.Parent = playerGui
 end
 
+local gamePhaseRemote = remotesFolder:WaitForChild("GamePhaseChanged") :: RemoteEvent
+local currentGamePhase = "Intermission"
+
+gamePhaseRemote.OnClientEvent:Connect(function(phase: string)
+	currentGamePhase = phase
+end)
+
 local function showRestockBanner(newItems: {string})
+	if currentGamePhase == "Racing" then return end -- 레이싱 모드일 때는 안 뜨게 변경
+
 	-- Remove any existing banner
 	local existingBanner = toastGui:FindFirstChild("RestockBanner")
 	if existingBanner then existingBanner:Destroy() end
 
-	-- Find highest rarity item among newly arrived items
-	local highestItem = nil
-	local rarityRanks = { ["Common"] = 1, ["Uncommon"] = 2, ["Rare"] = 3, ["Super Rare"] = 4 }
-	local highestRank = 0
-	
-	if newItems and typeof(newItems) == "table" then
-		for _, id in ipairs(newItems) do
-			for _, item in ipairs(StoreConfig.Items) do
-				if item.id == id then
-					local r = rarityRanks[item.rarity] or 1
-					if r > highestRank then
-						highestRank = r
-						highestItem = item
-					end
-				end
-			end
-		end
-	end
-
 	-- 🎨 Banner Frame (Strict adherence to HoverboardRacing_UI_Design_Guide.md: Glass Sky Blue + 6px Black Stroke)
 	local banner = Instance.new("Frame")
 	banner.Name = "RestockBanner"
-	banner.Size = UDim2.new(0, 550, 0, 86)
-	banner.Position = UDim2.new(0.5, -275, 0, -120) -- Starts hidden off-screen above
+	banner.Size = UDim2.new(0, 480, 0, 60) -- 자막이 없어져 높이를 86 -> 60으로 축소
+	banner.Position = UDim2.new(0.5, -240, 0, -120) -- Starts hidden off-screen above
 	banner.BackgroundColor3 = Color3.fromRGB(150, 240, 255) -- Main Glass Color
 	banner.BackgroundTransparency = 0.15 -- Glass translucency
 	banner.ZIndex = 100
@@ -343,18 +333,18 @@ local function showRestockBanner(newItems: {string})
 	table.insert(keypoints, NumberSequenceKeypoint.new(1, 1))
 	grad.Transparency = NumberSequence.new(keypoints)
 
-	-- Left Hoverboard Icon Box (Gold Color #1: 255, 200, 50)
+	-- Left Hoverboard Icon Box
 	local iconBox = Instance.new("Frame")
 	iconBox.Name = "IconBox"
-	iconBox.Size = UDim2.new(0, 56, 0, 56)
-	iconBox.Position = UDim2.new(0, 16, 0.5, -28)
+	iconBox.Size = UDim2.new(0, 44, 0, 44) -- 아이콘 박스 축소
+	iconBox.Position = UDim2.new(0, 12, 0.5, -22) -- 상하 정중앙 배치
 	iconBox.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
 	iconBox.BorderSizePixel = 0
 	iconBox.ZIndex = 102
 	iconBox.Parent = banner
 
 	local iconCorner = Instance.new("UICorner")
-	iconCorner.CornerRadius = UDim.new(0, 16)
+	iconCorner.CornerRadius = UDim.new(0, 12)
 	iconCorner.Parent = iconBox
 
 	local iconStroke = Instance.new("UIStroke")
@@ -366,15 +356,15 @@ local function showRestockBanner(newItems: {string})
 	iconEmoji.Size = UDim2.new(1, 0, 1, 0)
 	iconEmoji.BackgroundTransparency = 1
 	iconEmoji.Text = "🛹"
-	iconEmoji.TextSize = 34
+	iconEmoji.TextSize = 28
 	iconEmoji.ZIndex = 103
 	iconEmoji.Parent = iconBox
 
-	-- Header Pill (Title Header Blue: 40, 180, 255)
+	-- Header Pill
 	local titlePill = Instance.new("Frame")
 	titlePill.Name = "TitlePill"
-	titlePill.Size = UDim2.new(1, -95, 0, 32)
-	titlePill.Position = UDim2.new(0, 84, 0, 12)
+	titlePill.Size = UDim2.new(1, -75, 0, 36)
+	titlePill.Position = UDim2.new(0, 65, 0.5, -18) -- 자막 없이 정중앙에 배치
 	titlePill.BackgroundColor3 = Color3.fromRGB(40, 180, 255)
 	titlePill.BorderSizePixel = 0
 	titlePill.ZIndex = 102
@@ -396,7 +386,7 @@ local function showRestockBanner(newItems: {string})
 	titleLbl.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
 	titleLbl.Text = "✨ HOVERBOARD SHOP RESTOCKED! ✨"
 	titleLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
-	titleLbl.TextSize = 18
+	titleLbl.TextSize = 20
 	titleLbl.ZIndex = 103
 	titleLbl.Parent = titlePill
 
@@ -404,31 +394,6 @@ local function showRestockBanner(newItems: {string})
 	tStroke.Color = Color3.fromRGB(0, 0, 0)
 	tStroke.Thickness = 3
 	tStroke.Parent = titleLbl
-
-	-- Subtitle / Featured Item Label (White text with thick black stroke for maximum cartoon pop)
-	local subLbl = Instance.new("TextLabel")
-	subLbl.Name = "SubLabel"
-	subLbl.Size = UDim2.new(1, -95, 0, 28)
-	subLbl.Position = UDim2.new(0, 84, 0, 48)
-	subLbl.BackgroundTransparency = 1
-	subLbl.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
-	subLbl.TextSize = 16
-	subLbl.TextXAlignment = Enum.TextXAlignment.Center
-	subLbl.ZIndex = 103
-	subLbl.Parent = banner
-
-	local sStroke = Instance.new("UIStroke")
-	sStroke.Color = Color3.fromRGB(0, 0, 0)
-	sStroke.Thickness = 3
-	sStroke.Parent = subLbl
-
-	if highestItem and (highestItem.rarity == "Rare" or highestItem.rarity == "Super Rare") then
-		subLbl.Text = "★ Featured: [" .. highestItem.rarity .. "] " .. highestItem.name .. " is now in stock!"
-		subLbl.TextColor3 = Color3.fromRGB(255, 230, 80) -- Gold accent text
-	else
-		subLbl.Text = "New hoverboards have arrived! Visit the Kiosk now."
-		subLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
-	end
 
 	-- Sound Effect: Pleasant notification chime
 	pcall(function()
@@ -440,16 +405,16 @@ local function showRestockBanner(newItems: {string})
 		chimeSound.Ended:Connect(function() chimeSound:Destroy() end)
 	end)
 
-	-- Animate In (Bounce Drop down to Y = 75 so it sits cleanly BELOW the Intermission bar)
+	-- Animate In
 	TweenService:Create(banner, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-		Position = UDim2.new(0.5, -275, 0, 75)
+		Position = UDim2.new(0.5, -240, 0, 40)
 	}):Play()
 
-	-- Hold for 4.5 seconds then slide up smoothly
-	task.delay(4.5, function()
+	-- Hold for 3 seconds then slide up smoothly
+	task.delay(3, function()
 		if not banner.Parent then return end
 		local tweenOut = TweenService:Create(banner, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-			Position = UDim2.new(0.5, -275, 0, -120)
+			Position = UDim2.new(0.5, -240, 0, -120)
 		})
 		tweenOut:Play()
 		tweenOut.Completed:Connect(function()

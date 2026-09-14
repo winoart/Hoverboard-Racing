@@ -118,19 +118,15 @@ watermark.Size = UDim2.new(1, 0, 0, 50)
 watermark.Position = UDim2.new(0, 0, 0, 120)
 watermark.BackgroundTransparency = 1
 watermark.Font = Enum.Font.GothamBlack
-watermark.Text = "A.F.K"
+watermark.Text = "AFK"
 watermark.TextColor3 = Color3.fromRGB(255, 255, 255)
-watermark.TextTransparency = 1
-watermark.TextSize = 60
+watermark.TextTransparency = 0
+watermark.TextSize = 40
 watermark.ZIndex = 10
 watermark.Visible = false
 watermark.Parent = afkGui
 
-local wmStroke = Instance.new("UIStroke")
-wmStroke.Color = Color3.fromRGB(0, 0, 0)
-wmStroke.Thickness = 3
-wmStroke.Transparency = 1
-wmStroke.Parent = watermark
+-- Stroke removed per user request
 
 -- Spectator Status Text
 local specText = Instance.new("TextLabel")
@@ -151,11 +147,7 @@ specStroke.Thickness = 3
 specStroke.Parent = specText
 
 RunService.RenderStepped:Connect(function()
-	if isAFK then
-		local time = tick()
-		watermark.TextTransparency = 0.4 + math.sin(time * 2) * 0.2
-		wmStroke.Transparency = watermark.TextTransparency
-	end
+	-- AFK Watermark is now statically transparent, no animation needed here
 end)
 
 local function updateAFKUI()
@@ -172,6 +164,7 @@ local function updateAFKUI()
 		afkBtn.Text = "AFK ON"
 		afkBtn.BackgroundColor3 = Color3.fromRGB(80, 255, 80)
 		watermark.Visible = true
+		watermark.TextTransparency = 0
 		
 		-- 관전 버튼은 레이스 중에만 노출
 		if currentPhase == "RACE_MATCH" then
@@ -184,7 +177,6 @@ local function updateAFKUI()
 		afkBtn.BackgroundColor3 = Color3.fromRGB(150, 150, 150)
 		watermark.Visible = false
 		watermark.TextTransparency = 1
-		wmStroke.Transparency = 1
 		startSpectateBtn.Visible = false
 	end
 end
@@ -236,7 +228,16 @@ local function applyCameraToTarget()
 	else
 		-- 타겟이 유효하지 않으면 갱신 후 다시 시도
 		refreshRacersList()
-		applyCameraToTarget()
+		if #activeRacers == 0 then
+			-- 관전 도중 모든 유저가 나가거나 끝난 경우
+			if LocalPlayer:GetAttribute("IsSpectating") then
+				-- 잠시 안내 후 stopSpectating을 직접 호출하는 것보다는 
+				-- 루프나 stopSpectating 함수를 호출해 종료시킴.
+				-- 여기서는 stopSpectating()이 위쪽에 선언되지 않아 나중에 아래쪽에서 처리
+			end
+		else
+			applyCameraToTarget()
+		end
 	end
 end
 
@@ -262,12 +263,26 @@ local function startSpectating()
 	if not isAFK then return end
 	if currentPhase ~= "RACE_MATCH" then return end
 	
+	refreshRacersList()
+	
+	if #activeRacers == 0 then
+		-- 관전할 유저가 없을 때는 관전 모드로 들어가지 않음
+		specText.Text = "관전할 유저가 없습니다."
+		specText.Visible = true
+		task.delay(2, function()
+			-- 만약 그 사이에 실제 관전 모드로 들어간 게 아니라면 텍스트 숨김
+			if not LocalPlayer:GetAttribute("IsSpectating") then
+				specText.Visible = false
+			end
+		end)
+		return
+	end
+	
 	LocalPlayer:SetAttribute("IsSpectating", true)
 	startSpectateBtn.Visible = false
 	specControlsFrame.Visible = true
 	specText.Visible = true
 	
-	refreshRacersList()
 	currentSpectateIndex = 1
 	applyCameraToTarget()
 end
@@ -320,7 +335,19 @@ task.spawn(function()
 			local targetPlayer = activeRacers[currentSpectateIndex]
 			if not targetPlayer or not targetPlayer.Character or not targetPlayer:GetAttribute("IsRacing") then
 				refreshRacersList()
-				applyCameraToTarget()
+				if #activeRacers == 0 then
+					-- 관전 도중 마지막 유저가 나가면 강제로 관전 종료
+					stopSpectating()
+					specText.Text = "관전할 유저가 없습니다."
+					specText.Visible = true
+					task.delay(2, function()
+						if not LocalPlayer:GetAttribute("IsSpectating") then
+							specText.Visible = false
+						end
+					end)
+				else
+					applyCameraToTarget()
+				end
 			end
 		end
 	end

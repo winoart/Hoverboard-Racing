@@ -91,13 +91,13 @@ addGoldButton.MouseLeave:Connect(function()
 	TweenService:Create(addGoldButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(50, 200, 50)}):Play()
 end)
 
--- 골드 구매 상점 UI 구성
+-- ROBUX 상점 UI 구성
 local shopModal = Instance.new("Frame")
-shopModal.Name = "GoldShopModal"
-shopModal.Size = UDim2.new(0, 680, 0, 460) -- 세로 길이를 살짝 늘려서 2줄이 딱 맞게 들어감
-shopModal.Position = UDim2.new(0.5, -340, 0.5, -230)
+shopModal.Name = "RobuxShopModal"
+shopModal.Size = UDim2.new(0, 720, 0, 500) -- 가로로 길게 조금 늘림
+shopModal.Position = UDim2.new(0.5, -360, 0.5, -250)
 shopModal.BackgroundColor3 = Color3.fromRGB(150, 240, 255)
-shopModal.BackgroundTransparency = 0.5 -- 반투명 유리 질감
+shopModal.BackgroundTransparency = 0.5
 shopModal.Visible = false
 shopModal.Parent = screenGui
 
@@ -110,15 +110,14 @@ shopStroke.Color = Color3.fromRGB(0, 0, 0)
 shopStroke.Thickness = 8
 shopStroke.Parent = shopModal
 
--- 타이틀 헤더 (파란색 알약 배경)
 local shopHeader = Instance.new("Frame")
 shopHeader.Size = UDim2.new(1, -40, 0, 60)
-shopHeader.Position = UDim2.new(0, 20, 0, 20) -- 여백을 두어 메인 테두리와 겹치지 않게 함
+shopHeader.Position = UDim2.new(0, 20, 0, 20)
 shopHeader.BackgroundColor3 = Color3.fromRGB(40, 180, 255)
 shopHeader.Parent = shopModal
 
 local headerCorner = Instance.new("UICorner")
-headerCorner.CornerRadius = UDim.new(0.5, 0) -- 좌우가 완전히 둥근 알약 모양
+headerCorner.CornerRadius = UDim.new(0.5, 0)
 headerCorner.Parent = shopHeader
 
 local headerStroke = Instance.new("UIStroke")
@@ -129,15 +128,20 @@ headerStroke.Parent = shopHeader
 local shopTitle = Instance.new("TextLabel")
 shopTitle.Size = UDim2.new(1, 0, 1, 0)
 shopTitle.BackgroundTransparency = 1
-shopTitle.Font = Enum.Font.FredokaOne -- 인벤토리와 동일한 두꺼운 폰트 복구
-shopTitle.Text = "GOLD SHOP"
-shopTitle.TextColor3 = Color3.fromRGB(30, 30, 30) -- 인벤토리와 동일한 다크 그레이
-shopTitle.TextSize = 36 -- 크기도 36으로 통일
+shopTitle.Font = Enum.Font.FredokaOne
+shopTitle.Text = "ROBUX SHOP"
+shopTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+shopTitle.TextSize = 36
 shopTitle.Parent = shopHeader
+
+local titleStroke = Instance.new("UIStroke")
+titleStroke.Color = Color3.fromRGB(0, 0, 0)
+titleStroke.Thickness = 4
+titleStroke.Parent = shopTitle
 
 local closeButton = Instance.new("TextButton")
 closeButton.Size = UDim2.new(0, 48, 0, 48)
-closeButton.Position = UDim2.new(1, 0, 0, 0) -- 완전히 바깥쪽/우상단에 걸치도록
+closeButton.Position = UDim2.new(1, 0, 0, 0)
 closeButton.AnchorPoint = Vector2.new(0.5, 0.5)
 closeButton.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
 closeButton.Font = Enum.Font.FredokaOne
@@ -148,12 +152,12 @@ closeButton.ZIndex = 10
 closeButton.Parent = shopModal
 
 local closeCorner = Instance.new("UICorner")
-closeCorner.CornerRadius = UDim.new(1, 0) -- 완전한 원형
+closeCorner.CornerRadius = UDim.new(1, 0)
 closeCorner.Parent = closeButton
 
 local closeStroke = Instance.new("UIStroke")
 closeStroke.Color = Color3.fromRGB(0, 0, 0)
-closeStroke.Thickness = 6 -- 두꺼운 테두리
+closeStroke.Thickness = 6
 closeStroke.Parent = closeButton
 
 local closeTextStroke = Instance.new("UIStroke")
@@ -161,19 +165,197 @@ closeTextStroke.Color = Color3.fromRGB(0, 0, 0)
 closeTextStroke.Thickness = 3
 closeTextStroke.Parent = closeButton
 
+local productContainer = Instance.new("ScrollingFrame")
+productContainer.Size = UDim2.new(1, -40, 1, -120)
+productContainer.Position = UDim2.new(0, 20, 0, 95)
+productContainer.BackgroundTransparency = 1
+productContainer.ScrollBarThickness = 8
+productContainer.VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar
+productContainer.CanvasSize = UDim2.new(0, 0, 0, 0)
+productContainer.Parent = shopModal
+
+local containerPadding = Instance.new("UIPadding")
+containerPadding.PaddingTop = UDim.new(0, 10)
+containerPadding.PaddingBottom = UDim.new(0, 10)
+containerPadding.PaddingLeft = UDim.new(0, 10)
+containerPadding.PaddingRight = UDim.new(0, 10)
+containerPadding.Parent = productContainer
+
+local listLayout = Instance.new("UIListLayout")
+listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+listLayout.Padding = UDim.new(0, 20) -- 배너 간 세로 여백
+listLayout.Parent = productContainer
+
+local remotes = ReplicatedStorage:WaitForChild("HoverboardRemotes")
+local getShopStockInfo = remotes:WaitForChild("GetShopStockInfo") :: RemoteFunction
+local getActivePromosFunc = remotes:WaitForChild("GetActivePromotions") :: RemoteFunction
+
+local function refreshShopUI()
+	-- 기존 배너 삭제
+	for _, child in ipairs(productContainer:GetChildren()) do
+		if child:IsA("ImageLabel") or child:IsA("Frame") then
+			child:Destroy()
+		end
+	end
+	
+	-- 서버로부터 최신 재고 및 프로모션 데이터 조회
+	local stockInfo = {}
+	local serverPromos = {}
+	
+	pcall(function()
+		stockInfo = getShopStockInfo:InvokeServer() or {}
+	end)
+	
+	pcall(function()
+		serverPromos = getActivePromosFunc:InvokeServer() or {}
+	end)
+	
+	local currentTime = os.time()
+	local activePromotions = {}
+	
+	for _, promo in ipairs(serverPromos) do
+		-- 기간 체크
+		if currentTime >= promo.startDate and currentTime <= promo.endDate then
+			table.insert(activePromotions, promo)
+		end
+	end
+	
+	local bannerHeight = 165 -- 660x165 (4:1 비율) 배너 기준
+	
+	for i, promo in ipairs(activePromotions) do
+		local stock = nil
+		local isSoldOut = false
+		if promo.maxQuantity then
+			stock = stockInfo[tostring(promo.id)] or 0
+			if stock <= 0 then
+				isSoldOut = true
+			end
+		end
+		
+		local bannerCard = Instance.new("ImageLabel")
+		bannerCard.Name = "Banner_" .. tostring(promo.id)
+		bannerCard.Size = UDim2.new(1, -15, 0, bannerHeight) -- 스크롤바 영역 고려
+		bannerCard.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
+		bannerCard.Image = promo.bannerImage
+		bannerCard.ScaleType = Enum.ScaleType.Fit -- 이미지가 잘리지 않고 비율을 유지하도록
+		bannerCard.LayoutOrder = i
+		bannerCard.Parent = productContainer
+		
+		local cardCorner = Instance.new("UICorner")
+		cardCorner.CornerRadius = UDim.new(0, 16)
+		cardCorner.Parent = bannerCard
+		
+		local cardStroke = Instance.new("UIStroke")
+		cardStroke.Color = Color3.fromRGB(0, 0, 0)
+		cardStroke.Thickness = 4
+		cardStroke.Parent = bannerCard
+		
+		-- 품절 표시 오버레이
+		if isSoldOut then
+			local soldOutOverlay = Instance.new("Frame")
+			soldOutOverlay.Size = UDim2.new(1, 0, 1, 0)
+			soldOutOverlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+			soldOutOverlay.BackgroundTransparency = 0.6
+			soldOutOverlay.ZIndex = 5
+			soldOutOverlay.Parent = bannerCard
+			
+			local soCorner = Instance.new("UICorner")
+			soCorner.CornerRadius = UDim.new(0, 16)
+			soCorner.Parent = soldOutOverlay
+			
+			local soText = Instance.new("TextLabel")
+			soText.Size = UDim2.new(1, 0, 1, 0)
+			soText.BackgroundTransparency = 1
+			soText.Font = Enum.Font.FredokaOne
+			soText.Text = "SOLD OUT"
+			soText.TextColor3 = Color3.fromRGB(255, 50, 50)
+			soText.TextSize = 64
+			soText.ZIndex = 6
+			soText.Parent = soldOutOverlay
+			
+			local soStroke = Instance.new("UIStroke")
+			soStroke.Color = Color3.fromRGB(255, 255, 255)
+			soStroke.Thickness = 4
+			soStroke.Parent = soText
+		else
+			-- 구매 버튼 (우측 하단)
+			local buyBtn = Instance.new("TextButton")
+			buyBtn.Size = UDim2.new(0, 180, 0, 56)
+			buyBtn.Position = UDim2.new(1, -200, 1, -76) -- 우측 20px, 하단 20px 여백
+			buyBtn.BackgroundColor3 = Color3.fromRGB(100, 220, 110)
+			buyBtn.Font = Enum.Font.FredokaOne
+			buyBtn.Text = "R$ " .. tostring(promo.price)
+			buyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+			buyBtn.TextSize = 28
+			buyBtn.ZIndex = 5
+			buyBtn.Parent = bannerCard
+			
+			local btnCorner = Instance.new("UICorner")
+			btnCorner.CornerRadius = UDim.new(0, 12)
+			btnCorner.Parent = buyBtn
+			
+			local btnStroke = Instance.new("UIStroke")
+			btnStroke.Color = Color3.fromRGB(0, 0, 0)
+			btnStroke.Thickness = 4
+			btnStroke.Parent = buyBtn
+			
+			local btnTextStroke = Instance.new("UIStroke")
+			btnTextStroke.Color = Color3.fromRGB(0, 0, 0)
+			btnTextStroke.Thickness = 2
+			btnTextStroke.Parent = buyBtn
+			
+			-- 남은 수량 뱃지
+			if stock ~= nil then
+				local stockBadge = Instance.new("TextLabel")
+				stockBadge.Size = UDim2.new(0, 140, 0, 30)
+				stockBadge.Position = UDim2.new(0.5, -70, 0, -15) -- 버튼 상단 중앙
+				stockBadge.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
+				stockBadge.Font = Enum.Font.GothamBlack
+				stockBadge.Text = "남은 수량: " .. tostring(stock)
+				stockBadge.TextColor3 = Color3.fromRGB(255, 255, 255)
+				stockBadge.TextSize = 16
+				stockBadge.ZIndex = 6
+				stockBadge.Parent = buyBtn
+				
+				local bCorner = Instance.new("UICorner")
+				bCorner.CornerRadius = UDim.new(0, 8)
+				bCorner.Parent = stockBadge
+				
+				local bStroke = Instance.new("UIStroke")
+				bStroke.Color = Color3.fromRGB(0,0,0)
+				bStroke.Thickness = 2
+				bStroke.Parent = stockBadge
+			end
+			
+			buyBtn.MouseButton1Click:Connect(function()
+				MarketplaceService:PromptProductPurchase(LocalPlayer, promo.id)
+			end)
+		end
+	end
+	
+	-- 캔버스 사이즈 조절
+	local totalHeight = (#activePromotions * bannerHeight) + ((#activePromotions - 1) * 20) + 20
+	productContainer.CanvasSize = UDim2.new(0, 0, 0, totalHeight)
+end
+
+-- 상점 열 때마다 새로고침
+local function toggleShop()
+	if shopModal.Visible then
+		shopModal.Visible = false
+	else
+		refreshShopUI()
+		shopModal.Visible = true
+	end
+end
+
 closeButton.MouseButton1Click:Connect(function()
 	shopModal.Visible = false
 end)
-addGoldButton.MouseButton1Click:Connect(function()
-	shopModal.Visible = not shopModal.Visible
-end)
+addGoldButton.MouseButton1Click:Connect(toggleShop)
 
--- Find and link RobuxShop button
 task.spawn(function()
 	local function linkRobuxShop(btn)
-		btn.MouseButton1Click:Connect(function()
-			shopModal.Visible = not shopModal.Visible
-		end)
+		btn.MouseButton1Click:Connect(toggleShop)
 	end
 
 	local robuxShopBtn = nil
@@ -198,130 +380,6 @@ task.spawn(function()
 		end
 	end)
 end)
-
-local productContainer = Instance.new("ScrollingFrame")
-productContainer.Size = UDim2.new(1, -40, 1, -120) -- 전체 460 높이 중 340 픽셀을 차지 (2줄 완벽 호환)
-productContainer.Position = UDim2.new(0, 20, 0, 95)
-productContainer.BackgroundTransparency = 1
-productContainer.ScrollBarThickness = 8
-productContainer.VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar -- 스크롤바가 카드와 겹치지 않게
-productContainer.CanvasSize = UDim2.new(0, 0, 0, 0)
-productContainer.Parent = shopModal
-
--- UIStroke 잘림 현상(클리핑) 방지를 위한 패딩 추가
-local containerPadding = Instance.new("UIPadding")
-containerPadding.PaddingTop = UDim.new(0, 10)
-containerPadding.PaddingBottom = UDim.new(0, 10)
-containerPadding.PaddingLeft = UDim.new(0, 10)
-containerPadding.PaddingRight = UDim.new(0, 10)
-containerPadding.Parent = productContainer
-
-local gridLayout = Instance.new("UIGridLayout")
-gridLayout.CellSize = UDim2.new(0, 295, 0, 150)
-gridLayout.CellPadding = UDim2.new(0, 15, 0, 20) -- 카드 간 여백 조정
-gridLayout.SortOrder = Enum.SortOrder.LayoutOrder
-gridLayout.Parent = productContainer
-
--- 동적 상품 생성
-for i, product in ipairs(MonetizationConfig.GoldProducts) do
-	local card = Instance.new("Frame")
-	card.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- 화이트톤 바탕
-	card.LayoutOrder = i
-	card.Parent = productContainer
-	
-	local cardCorner = Instance.new("UICorner")
-	cardCorner.CornerRadius = UDim.new(0, 16)
-	cardCorner.Parent = card
-	
-	local cardStroke = Instance.new("UIStroke")
-	cardStroke.Color = Color3.fromRGB(0, 0, 0)
-	cardStroke.Thickness = 4
-	cardStroke.Parent = card
-	
-	if product.isBestValue then
-		local bestTag = Instance.new("TextLabel")
-		bestTag.Size = UDim2.new(0, 110, 0, 28)
-		bestTag.Position = UDim2.new(0, -10, 0, -10)
-		bestTag.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
-		bestTag.Font = Enum.Font.FredokaOne
-		bestTag.Text = "BEST VALUE"
-		bestTag.TextColor3 = Color3.fromRGB(255, 255, 255)
-		bestTag.TextSize = 16
-		bestTag.Rotation = -10
-		bestTag.Parent = card
-		
-		local tagCorner = Instance.new("UICorner")
-		tagCorner.CornerRadius = UDim.new(0, 8)
-		tagCorner.Parent = bestTag
-		
-		local tagStroke = Instance.new("UIStroke")
-		tagStroke.Color = Color3.fromRGB(0, 0, 0)
-		tagStroke.Thickness = 3
-		tagStroke.Parent = bestTag
-		
-		local tagTextStroke = Instance.new("UIStroke")
-		tagTextStroke.Color = Color3.fromRGB(0, 0, 0)
-		tagTextStroke.Thickness = 2
-		tagTextStroke.Parent = bestTag
-	end
-	
-	local pName = Instance.new("TextLabel")
-	pName.Size = UDim2.new(1, 0, 0, 30)
-	pName.Position = UDim2.new(0, 0, 0, 15)
-	pName.BackgroundTransparency = 1
-	pName.Font = Enum.Font.GothamBlack -- 한글이 굵고 예쁘게 나오는 폰트
-	pName.Text = product.name
-	pName.TextColor3 = Color3.fromRGB(30, 30, 30) -- 다크 그레이
-	pName.TextSize = 24
-	pName.Parent = card
-	
-	local pAmount = Instance.new("TextLabel")
-	pAmount.Size = UDim2.new(1, 0, 0, 40)
-	pAmount.Position = UDim2.new(0, 0, 0, 40)
-	pAmount.BackgroundTransparency = 1
-	pAmount.Font = Enum.Font.FredokaOne
-	pAmount.Text = tostring(product.amount) .. " G"
-	pAmount.TextColor3 = Color3.fromRGB(255, 200, 50) -- 골드 컬러
-	pAmount.TextSize = 36
-	pAmount.Parent = card
-	
-	local amountStroke = Instance.new("UIStroke")
-	amountStroke.Color = Color3.fromRGB(0, 0, 0)
-	amountStroke.Thickness = 4
-	amountStroke.Parent = pAmount
-	
-	local buyBtn = Instance.new("TextButton")
-	buyBtn.Size = UDim2.new(0, 140, 0, 46)
-	buyBtn.Position = UDim2.new(0.5, -70, 1, -55)
-	buyBtn.BackgroundColor3 = Color3.fromRGB(100, 220, 110) -- 성공/액션 밝은 녹색
-	buyBtn.Font = Enum.Font.FredokaOne
-	buyBtn.Text = "R$ " .. tostring(product.price)
-	buyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-	buyBtn.TextSize = 24
-	buyBtn.Parent = card
-	
-	local btnCorner = Instance.new("UICorner")
-	btnCorner.CornerRadius = UDim.new(0, 12)
-	btnCorner.Parent = buyBtn
-	
-	local btnStroke = Instance.new("UIStroke")
-	btnStroke.Color = Color3.fromRGB(0, 0, 0)
-	btnStroke.Thickness = 4
-	btnStroke.Parent = buyBtn
-	
-	local btnTextStroke = Instance.new("UIStroke")
-	btnTextStroke.Color = Color3.fromRGB(0, 0, 0)
-	btnTextStroke.Thickness = 2
-	btnTextStroke.Parent = buyBtn
-	
-	buyBtn.MouseButton1Click:Connect(function()
-		MarketplaceService:PromptProductPurchase(LocalPlayer, product.id)
-	end)
-end
--- 카드가 2줄일 때는 정확히 스크롤 없이 딱 맞고, 3줄 이상일 때만 스크롤이 생기도록 수학적 계산!
-local rowCount = math.ceil(#MonetizationConfig.GoldProducts / 2)
-local calculatedCanvasHeight = (rowCount * 150) + ((rowCount - 1) * 20) + 20 -- CellY + CellPaddingY + UIPadding(상하 10씩)
-productContainer.CanvasSize = UDim2.new(0, 0, 0, calculatedCanvasHeight)
 
 
 -- (기존에 레이싱 진입 시 골드창을 끄던 로직을 제거하여 항상 보이게 함)
