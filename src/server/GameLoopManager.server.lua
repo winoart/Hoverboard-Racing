@@ -344,6 +344,13 @@ for _, player in ipairs(Players:GetPlayers()) do
 end
 
 local countdownRemote = getOrCreateRemote("StartCountdownSignal")
+local clientMapLoadedRemote = getOrCreateRemote("ClientMapLoaded")
+local loadedPlayers = {}
+
+clientMapLoadedRemote.OnServerEvent:Connect(function(player)
+	loadedPlayers[player] = true
+	print(string.format("✅ [Sync] Player %s has finished loading the map.", player.Name))
+end)
 
 -- Helper: Set physical signal light states on StartingPoint arch
 local function setSignalLightsState(redOn: boolean, yellowOn: boolean, greenOn: boolean)
@@ -454,18 +461,77 @@ task.spawn(function()
 		print("🏆 [GameLoop] Map Voting Finished! Winning Map:", chosenMapName, " (Votes:", highestVotes, ")")
 
 		-- ---------------------------------------------------------------------
-		-- STEP 3: MAP LOADING SCREEN & STRUCTURE BUILDING (5 Seconds)
+		-- STEP 3: MAP LOADING SCREEN & STRUCTURE BUILDING
 		-- ---------------------------------------------------------------------
 		currentPhase = "MAP_BUILDING"
-		phaseTimeLeft = DURATION_BUILDING
-
+		phaseTimeLeft = 15 -- 15초 타임아웃
+		
 		-- Load selected Studio Model map from ReplicatedStorage.Maps directly under WaitingRoom!
 		MapManager.LoadMap(chosenMapName)
+		
+		-- 모든 인원을 먼저 트랙으로 이동시킵니다. (이동 완료 후 대기)
+		teleportAllToTrackAndMount()
+		lockAllPlayersMovement()
+		
+		local expectedPlayers = {}
+		loadedPlayers = {}
+		for _, player in ipairs(Players:GetPlayers()) do
+			if not player:GetAttribute("IsAFK") then
+				expectedPlayers[player] = true
+			end
+		end
+
+		local expectedCount = 0
+		for _ in pairs(expectedPlayers) do expectedCount += 1 end
+		print(string.format("⏳ [Sync] Waiting for %d players to load the map...", expectedCount))
 
 		while phaseTimeLeft > 0 do
 			broadcastPhaseUpdate()
+			
+			local loadedCount = 0
+			for player in pairs(expectedPlayers) do
+				if loadedPlayers[player] then
+					loadedCount += 1
+				end
+			end
+			
+			if loadedCount >= expectedCount then
+				print("🚀 [Sync] All expected players loaded! Proceeding early.")
+				break
+			end
+
 			task.wait(1)
 			phaseTimeLeft -= 1
+		end
+		
+		if phaseTimeLeft <= 0 then
+			print("⚠️ [Sync] Timeout reached. Filtering out lagging players...")
+			for player in pairs(expectedPlayers) do
+				if not loadedPlayers[player] then
+					print(string.format("❌ [Sync] Player %s failed to load in time. Removing from race.", player.Name))
+					
+					-- 1. 레이스 참가 자격 박탈
+					player:SetAttribute("IsRacing", false)
+					player:SetAttribute("IsHoverboarding", false)
+					
+					-- 2. 이미 지급된 호버보드 탑승 해제 및 파괴
+					local dismountRemote = getOrCreateRemote("DismountRequest")
+					local stateRemote = getOrCreateRemote("StateChanged")
+					dismountRemote:FireClient(player)
+					stateRemote:FireClient(player, false, nil)
+					
+					if player.Character then
+						for _, child in ipairs(player.Character:GetChildren()) do
+							if child.Name == "EquippedHoverboard" or child.Name:lower():find("hoverboard") then
+								child:Destroy()
+							end
+						end
+					end
+					
+					-- 3. 대기실로 원복
+					teleportPlayer(player, getLoungeCFrame())
+				end
+			end
 		end
 
 		-- ---------------------------------------------------------------------
@@ -476,8 +542,6 @@ task.spawn(function()
 		print("🏁 [GameLoop] 110 seconds Main Race Started!")
 
 		broadcastPhaseUpdate()
-		teleportAllToTrackAndMount()
-		lockAllPlayersMovement()
 		
 		-- Setup Laps Display for Countdown
 		local totalLaps = MapManager.getTotalLaps(chosenMapName)

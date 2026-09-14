@@ -647,6 +647,27 @@ phaseRemote.OnClientEvent:Connect(function(phase: string, timeLeft: number, mapV
 		-- 이전 숨김 로직 제거: 이제 UIManager.client.lua가 IsRacing 속성 등을 기반으로 일괄 관리합니다.
 	end
 	
+	if phase == "MAP_BUILDING" and currentPhase ~= "MAP_BUILDING" then
+		task.spawn(function()
+			print("⏳ [Sync] Map building started. Waiting for ActiveMap to replicate...")
+			local activeMap = game.Workspace:WaitForChild("ActiveMap", 10)
+			if activeMap then
+				-- 깨진 사운드/텍스쳐로 인한 무한 렉(PreloadAsync 40초 지연 문제)을 방지하기 위해 
+				-- 전체 프리로드 대신 트랙의 물리적 파트(출발선)만 생성되었는지 빠르게 확인합니다.
+				print("⏳ [Sync] ActiveMap found! Waiting for track physical parts...")
+				local startTick = os.clock()
+				activeMap:WaitForChild("StartingPoint", 5)
+				print(string.format("✅ [Sync] Track structure confirmed in %.2f seconds. Notifying server...", os.clock() - startTick))
+			else
+				print("⚠️ [Sync] ActiveMap not found within 10 seconds.")
+			end
+			local clientMapLoadedRemote = remotesFolder:WaitForChild("ClientMapLoaded", 5)
+			if clientMapLoadedRemote then
+				clientMapLoadedRemote:FireServer()
+			end
+		end)
+	end
+	
 	currentPhase = phase
 	phaseTimeLeft = timeLeft
 	if mapVotes then
