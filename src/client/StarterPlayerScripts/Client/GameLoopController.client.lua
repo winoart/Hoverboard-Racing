@@ -89,7 +89,11 @@ local function updateMapCardAvatars(mapVotes: MapVoteData)
 			end
 
 			if container then
-				container:ClearAllChildren()
+				for _, child in ipairs(container:GetChildren()) do
+					if child:IsA("ImageLabel") then
+						child:Destroy()
+					end
+				end
 
 				local iconSize = 36
 				local maxIcons = 5
