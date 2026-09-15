@@ -38,6 +38,7 @@ local raceFinishedRemote = getOrCreateRemote("RaceFinished")
 local updateRankingsRemote = getOrCreateRemote("UpdateRankings")
 local suddenDeathRemote = getOrCreateRemote("SuddenDeathUpdate")
 local showScoreboardRemote = getOrCreateRemote("ShowScoreboard")
+local syncTimeoutRemote = getOrCreateRemote("SyncTimeoutError")
 
 local toggleAFKRemote = getOrCreateRemote("ToggleAFK")
 toggleAFKRemote.OnServerEvent:Connect(function(player, isAFK)
@@ -53,7 +54,8 @@ local MAX_PLAYERS = 16
 -- Phase Durations (seconds)
 local DURATION_INTERMISSION = 30
 local DURATION_VOTING = 15
-local DURATION_BUILDING = 5
+local DURATION_MAP_LOAD = 5
+local DURATION_SYNC = 30
 local DURATION_RACE = 110
 
 -- Game State Variables
@@ -464,14 +466,34 @@ task.spawn(function()
 		-- STEP 3: MAP LOADING SCREEN & STRUCTURE BUILDING
 		-- ---------------------------------------------------------------------
 		currentPhase = "MAP_BUILDING"
-		phaseTimeLeft = 15 -- 15초 타임아웃
+		phaseTimeLeft = DURATION_MAP_LOAD
+		
+		print("[DEBUG-SYNC-SERVER] MAP_BUILDING Phase Started at", os.clock())
 		
 		-- Load selected Studio Model map from ReplicatedStorage.Maps directly under WaitingRoom!
 		MapManager.LoadMap(chosenMapName)
 		
+		print("[DEBUG-SYNC-SERVER] MapManager.LoadMap finished at", os.clock())
+		
+		while phaseTimeLeft > 0 do
+			broadcastPhaseUpdate()
+			task.wait(1)
+			phaseTimeLeft -= 1
+		end
+		
+		-- ---------------------------------------------------------------------
+		-- STEP 3.5: PLAYER TELEPORT & SYNC (Up to 30 Seconds)
+		-- ---------------------------------------------------------------------
+		currentPhase = "PLAYER_SYNC"
+		phaseTimeLeft = DURATION_SYNC
+		
+		print("[DEBUG-SYNC-SERVER] PLAYER_SYNC Phase Started at", os.clock())
+		
 		-- 모든 인원을 먼저 트랙으로 이동시킵니다. (이동 완료 후 대기)
+		print("[DEBUG-SYNC-SERVER] teleportAllToTrackAndMount started at", os.clock())
 		teleportAllToTrackAndMount()
 		lockAllPlayersMovement()
+		print("[DEBUG-SYNC-SERVER] teleportAllToTrackAndMount finished at", os.clock())
 		
 		local expectedPlayers = {}
 		loadedPlayers = {}
@@ -496,6 +518,7 @@ task.spawn(function()
 			end
 			
 			if loadedCount >= expectedCount then
+				print("[DEBUG-SYNC-SERVER] All expected players loaded! Proceeding early at", os.clock())
 				print("🚀 [Sync] All expected players loaded! Proceeding early.")
 				break
 			end
@@ -530,6 +553,9 @@ task.spawn(function()
 					
 					-- 3. 대기실로 원복
 					teleportPlayer(player, getLoungeCFrame())
+					
+					-- 4. 클라이언트에 에러 팝업 띄우기
+					syncTimeoutRemote:FireClient(player)
 				end
 			end
 		end
@@ -540,6 +566,7 @@ task.spawn(function()
 		currentPhase = "RACE_MATCH"
 		phaseTimeLeft = DURATION_RACE
 		print("🏁 [GameLoop] 110 seconds Main Race Started!")
+		print("[DEBUG-SYNC-SERVER] RACE_MATCH Phase Started at", os.clock())
 
 		broadcastPhaseUpdate()
 		

@@ -28,6 +28,8 @@ local loadingSubLabel: TextLabel? = nil
 local loadingFillBar: Frame? = nil
 local loadingPercentLabel: TextLabel? = nil
 
+local errorModalFrame: Frame? = nil
+
 type VoterInfo = { userId: number, name: string }
 type MapVoteData = { [string]: { VoterInfo } }
 
@@ -138,6 +140,9 @@ local function refreshDisplays()
 			elseif currentPhase == "MAP_BUILDING" then
 				headerStatusLabel.Text = "LOADING MAP..."
 				headerTimerLabel.Text = string.format("%ds", math.max(0, phaseTimeLeft))
+			elseif currentPhase == "PLAYER_SYNC" then
+				headerStatusLabel.Text = "WAITING PLAYERS..."
+				headerTimerLabel.Text = string.format("%ds", math.max(0, phaseTimeLeft))
 			elseif currentPhase == "RACE_MATCH" then
 				if isPlayerInRace then
 					headerStatusLabel.Text = "ROUND ENDS IN"
@@ -160,21 +165,16 @@ local function refreshDisplays()
 			end
 		end
 
-		-- Modal 2: 5s Animated Map Loading Screen Modal
+		-- Modal 2: 5s Animated Map Loading Screen Modal (and 30s Sync)
 		if loadingModalFrame then
-			if currentPhase == "MAP_BUILDING" and not LocalPlayer:GetAttribute("IsAFK") then
+			if (currentPhase == "MAP_BUILDING" or currentPhase == "PLAYER_SYNC") and not LocalPlayer:GetAttribute("IsAFK") then
 				loadingModalFrame.Visible = true
-				if loadingTitleLabel then
-					loadingTitleLabel.Text = "🏆 SELECTED MAP: " .. currentChosenMap
-				end
 				if loadingSubLabel then
-					loadingSubLabel.Text = string.format("Loading Map (%ds)", math.max(0, phaseTimeLeft))
-				end
-
-				if loadingFillBar and loadingPercentLabel then
-					local pct = math.clamp((5 - phaseTimeLeft) / 5, 0.1, 1)
-					loadingFillBar.Size = UDim2.new(pct, 0, 1, 0)
-					loadingPercentLabel.Text = string.format("%d%%", math.floor(pct * 100))
+					if currentPhase == "MAP_BUILDING" then
+						loadingSubLabel.Text = string.format("Loading Map (%ds)", math.max(0, phaseTimeLeft))
+					else
+						loadingSubLabel.Text = string.format("다른 플레이어들을 기다리는 중... (%ds)", math.max(0, phaseTimeLeft))
+					end
 				end
 			else
 				loadingModalFrame.Visible = false
@@ -518,108 +518,113 @@ local function createGameLoopUI()
 	end
 
 	-- =========================================================================
-	-- 🏗️ [3] 5-SECOND ANIMATED MAP LOADING SCREEN MODAL UI
+	-- 🏗️ [3] MAP LOADING / SYNC TEXT UI
 	-- =========================================================================
 	loadingModalFrame = Instance.new("Frame")
 	loadingModalFrame.Name = "LoadingModal"
-	loadingModalFrame.Size = UDim2.new(0, 540, 0, 210)
-	loadingModalFrame.Position = UDim2.new(0.5, -270, 0.5, -105)
-	loadingModalFrame.BackgroundColor3 = Color3.fromRGB(150, 240, 255)
-	loadingModalFrame.BackgroundTransparency = 0.5
+	loadingModalFrame.Size = UDim2.new(1, 0, 0, 100)
+	loadingModalFrame.Position = UDim2.new(0, 0, 0.35, 0)
+	loadingModalFrame.BackgroundTransparency = 1
 	loadingModalFrame.BorderSizePixel = 0
 	loadingModalFrame.Visible = false
 	loadingModalFrame.ZIndex = 50
 	loadingModalFrame.Parent = mainGuiScreen
 
-	local lCorner = Instance.new("UICorner")
-	lCorner.CornerRadius = UDim.new(0, 24)
-	lCorner.Parent = loadingModalFrame
-
-	local lStroke = Instance.new("UIStroke")
-	lStroke.Color = Color3.fromRGB(0, 0, 0)
-	lStroke.Thickness = 8
-	lStroke.Parent = loadingModalFrame
-
-	loadingTitleLabel = Instance.new("TextLabel")
-	loadingTitleLabel.Name = "LoadingTitle"
-	loadingTitleLabel.Size = UDim2.new(1, -20, 0, 45)
-	loadingTitleLabel.Position = UDim2.new(0, 10, 0, 30)
-	loadingTitleLabel.BackgroundTransparency = 1
-	loadingTitleLabel.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
-	loadingTitleLabel.Text = "🏆 SELECTED MAP: Oval Speedway"
-	loadingTitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-	loadingTitleLabel.TextSize = 28
-	loadingTitleLabel.ZIndex = 51
-	loadingTitleLabel.Parent = loadingModalFrame
-	
-	local loadTitleStroke = Instance.new("UIStroke")
-	loadTitleStroke.Color = Color3.fromRGB(0, 0, 0)
-	loadTitleStroke.Thickness = 4
-	loadTitleStroke.Parent = loadingTitleLabel
-
 	loadingSubLabel = Instance.new("TextLabel")
 	loadingSubLabel.Name = "LoadingSub"
-	loadingSubLabel.Size = UDim2.new(1, -20, 0, 25)
-	loadingSubLabel.Position = UDim2.new(0, 10, 0, 75)
+	loadingSubLabel.Size = UDim2.new(1, 0, 1, 0)
 	loadingSubLabel.BackgroundTransparency = 1
 	loadingSubLabel.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
-	loadingSubLabel.Text = "Loading Map (5s)"
+	loadingSubLabel.Text = "다른 플레이어들을 기다리는 중... (30s)"
 	loadingSubLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-	loadingSubLabel.TextSize = 18
+	loadingSubLabel.TextSize = 42
 	loadingSubLabel.ZIndex = 51
 	loadingSubLabel.Parent = loadingModalFrame
 	
 	local loadSubStroke = Instance.new("UIStroke")
 	loadSubStroke.Color = Color3.fromRGB(0, 0, 0)
-	loadSubStroke.Thickness = 3
+	loadSubStroke.Thickness = 5
 	loadSubStroke.Parent = loadingSubLabel
-
-	-- Loading Progress Bar Track
-	local loadTrack = Instance.new("Frame")
-	loadTrack.Name = "LoadTrack"
-	loadTrack.Size = UDim2.new(0.86, 0, 0, 36)
-	loadTrack.Position = UDim2.new(0.07, 0, 0.62, 0)
-	loadTrack.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-	loadTrack.BorderSizePixel = 0
-	loadTrack.ZIndex = 51
-	loadTrack.Parent = loadingModalFrame
-
-	local tCorner = Instance.new("UICorner")
-	tCorner.CornerRadius = UDim.new(0, 18)
-	tCorner.Parent = loadTrack
-
-	local tStroke = Instance.new("UIStroke")
-	tStroke.Color = Color3.fromRGB(0, 0, 0)
-	tStroke.Thickness = 4
-	tStroke.Parent = loadTrack
-
-	loadingFillBar = Instance.new("Frame")
-	loadingFillBar.Name = "LoadFill"
-	loadingFillBar.Size = UDim2.new(0, 0, 1, 0)
-	loadingFillBar.BackgroundColor3 = Color3.fromRGB(255, 200, 50) -- Gold fill
-	loadingFillBar.BorderSizePixel = 0
-	loadingFillBar.ZIndex = 52
-	loadingFillBar.Parent = loadTrack
-
-	local fCorner = Instance.new("UICorner")
-	fCorner.CornerRadius = UDim.new(0, 18)
-	fCorner.Parent = loadingFillBar
-
-	loadingPercentLabel = Instance.new("TextLabel")
-	loadingPercentLabel.Name = "LoadPercent"
-	loadingPercentLabel.Size = UDim2.new(1, 0, 1, 0)
-	loadingPercentLabel.BackgroundTransparency = 1
-	loadingPercentLabel.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
-	loadingPercentLabel.Text = "0%"
-	loadingPercentLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-	loadingPercentLabel.TextSize = 18
-	loadingPercentLabel.ZIndex = 53
-	loadingPercentLabel.Parent = loadTrack
 	
-	local pctStroke = Instance.new("UIStroke")
-	pctStroke.Color = Color3.fromRGB(0, 0, 0)
-	pctStroke.Thickness = 3
-	pctStroke.Parent = loadingPercentLabel
+	-- =========================================================================
+	-- 🚨 [4] ERROR POPUP MODAL (Timeout Kick)
+	-- =========================================================================
+	errorModalFrame = Instance.new("Frame")
+	errorModalFrame.Name = "ErrorModal"
+	errorModalFrame.Size = UDim2.new(0, 500, 0, 220)
+	errorModalFrame.Position = UDim2.new(0.5, -250, 0.5, -110)
+	errorModalFrame.BackgroundColor3 = Color3.fromRGB(200, 40, 40)
+	errorModalFrame.BackgroundTransparency = 0.1
+	errorModalFrame.BorderSizePixel = 0
+	errorModalFrame.Visible = false
+	errorModalFrame.ZIndex = 60
+	errorModalFrame.Parent = mainGuiScreen
+
+	local eCorner = Instance.new("UICorner")
+	eCorner.CornerRadius = UDim.new(0, 20)
+	eCorner.Parent = errorModalFrame
+
+	local eStroke = Instance.new("UIStroke")
+	eStroke.Color = Color3.fromRGB(0, 0, 0)
+	eStroke.Thickness = 6
+	eStroke.Parent = errorModalFrame
+	
+	local errorTitle = Instance.new("TextLabel")
+	errorTitle.Size = UDim2.new(1, 0, 0, 50)
+	errorTitle.Position = UDim2.new(0, 0, 0, 15)
+	errorTitle.BackgroundTransparency = 1
+	errorTitle.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
+	errorTitle.Text = "⚠️ CONNECTION ERROR"
+	errorTitle.TextColor3 = Color3.fromRGB(255, 200, 50)
+	errorTitle.TextSize = 28
+	errorTitle.ZIndex = 61
+	errorTitle.Parent = errorModalFrame
+	
+	local errTitleStroke = Instance.new("UIStroke")
+	errTitleStroke.Color = Color3.fromRGB(0, 0, 0)
+	errTitleStroke.Thickness = 3
+	errTitleStroke.Parent = errorTitle
+
+	local errorMsg = Instance.new("TextLabel")
+	errorMsg.Size = UDim2.new(1, -40, 0, 60)
+	errorMsg.Position = UDim2.new(0, 20, 0, 65)
+	errorMsg.BackgroundTransparency = 1
+	errorMsg.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
+	errorMsg.Text = "네트워크 지연으로 인해 게임 참여에 실패했습니다."
+	errorMsg.TextColor3 = Color3.fromRGB(255, 255, 255)
+	errorMsg.TextSize = 20
+	errorMsg.TextWrapped = true
+	errorMsg.ZIndex = 61
+	errorMsg.Parent = errorModalFrame
+	
+	local errMsgStroke = Instance.new("UIStroke")
+	errMsgStroke.Color = Color3.fromRGB(0, 0, 0)
+	errMsgStroke.Thickness = 2
+	errMsgStroke.Parent = errorMsg
+	
+	local errOkBtn = Instance.new("TextButton")
+	errOkBtn.Size = UDim2.new(0, 140, 0, 45)
+	errOkBtn.Position = UDim2.new(0.5, -70, 0, 145)
+	errOkBtn.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
+	errOkBtn.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
+	errOkBtn.Text = "OK"
+	errOkBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+	errOkBtn.TextSize = 24
+	errOkBtn.ZIndex = 62
+	errOkBtn.Parent = errorModalFrame
+	
+	local btnCorner = Instance.new("UICorner")
+	btnCorner.CornerRadius = UDim.new(0, 12)
+	btnCorner.Parent = errOkBtn
+	
+	local btnStroke = Instance.new("UIStroke")
+	btnStroke.Color = Color3.fromRGB(0, 0, 0)
+	btnStroke.Thickness = 3
+	btnStroke.Parent = errOkBtn
+	
+	errOkBtn.MouseButton1Click:Connect(function()
+		errorModalFrame.Visible = false
+	end)
 end
 
 createGameLoopUI()
@@ -643,26 +648,38 @@ phaseRemote.OnClientEvent:Connect(function(phase: string, timeLeft: number, mapV
 		isVotingModalDismissed = false
 	end
 	
-	if phase ~= currentPhase and (phase == "MAP_VOTING" or phase == "MAP_BUILDING") then
+	if phase ~= currentPhase and (phase == "MAP_VOTING" or phase == "MAP_BUILDING" or phase == "PLAYER_SYNC") then
 		-- 이전 숨김 로직 제거: 이제 UIManager.client.lua가 IsRacing 속성 등을 기반으로 일괄 관리합니다.
 	end
 	
-	if phase == "MAP_BUILDING" and currentPhase ~= "MAP_BUILDING" then
+	if phase == "PLAYER_SYNC" and currentPhase ~= "PLAYER_SYNC" then
 		task.spawn(function()
+			print("[DEBUG-SYNC-CLIENT] PLAYER_SYNC Phase received at", os.clock())
 			print("⏳ [Sync] Map building started. Waiting for ActiveMap to replicate...")
 			local activeMap = game.Workspace:WaitForChild("ActiveMap", 10)
 			if activeMap then
+				print("[DEBUG-SYNC-CLIENT] ActiveMap replicated at", os.clock())
 				-- 깨진 사운드/텍스쳐로 인한 무한 렉(PreloadAsync 40초 지연 문제)을 방지하기 위해 
 				-- 전체 프리로드 대신 트랙의 물리적 파트(출발선)만 생성되었는지 빠르게 확인합니다.
 				print("⏳ [Sync] ActiveMap found! Waiting for track physical parts...")
 				local startTick = os.clock()
 				activeMap:WaitForChild("StartingPoint", 5)
-				print(string.format("✅ [Sync] Track structure confirmed in %.2f seconds. Notifying server...", os.clock() - startTick))
+				print("[DEBUG-SYNC-CLIENT] StartingPoint replicated at", os.clock())
+				
+				print("⏳ [Sync] Waiting for character and hoverboard to be ready...")
+				local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+				character:WaitForChild("EquippedHoverboard", 10)
+				
+				-- 카메라 및 물리 안정화(텔레포트 후 자리잡기) 대기
+				task.wait(1.5)
+				
+				print(string.format("✅ [Sync] Track structure and character confirmed in %.2f seconds. Notifying server...", os.clock() - startTick))
 			else
 				print("⚠️ [Sync] ActiveMap not found within 10 seconds.")
 			end
 			local clientMapLoadedRemote = remotesFolder:WaitForChild("ClientMapLoaded", 5)
 			if clientMapLoadedRemote then
+				print("[DEBUG-SYNC-CLIENT] Firing ClientMapLoaded at", os.clock())
 				clientMapLoadedRemote:FireServer()
 			end
 		end)
@@ -680,5 +697,14 @@ phaseRemote.OnClientEvent:Connect(function(phase: string, timeLeft: number, mapV
 	refreshDisplays()
 	updateMapCardAvatars(currentMapVotes)
 end)
+
+local syncTimeoutRemote = remotesFolder:WaitForChild("SyncTimeoutError", 10)
+if syncTimeoutRemote then
+	syncTimeoutRemote.OnClientEvent:Connect(function()
+		if errorModalFrame then
+			errorModalFrame.Visible = true
+		end
+	end)
+end
 
 print("⏱️ [GameLoopController] 5초 애니메이션 맵 로딩 스크린 연출 완료!")

@@ -569,6 +569,8 @@ stateRemote.OnClientEvent:Connect(function(mounted: boolean, boardModel: Model?,
 		LocalPlayer:SetAttribute("OnTreadmill", false)
 		_G.wasOnTreadmill = false
 		lastSafePosition = nil -- Reset Fall Recovery to allow vertical teleport!
+		_G.introCamDist = 50.0
+		_G.introCamHeight = 30.0
 	end
 
 	isMounted = mounted
@@ -609,7 +611,13 @@ stateRemote.OnClientEvent:Connect(function(mounted: boolean, boardModel: Model?,
 
 				if Camera and not LocalPlayer:GetAttribute("OnTreadmill") then
 					Camera.CameraType = Enum.CameraType.Scriptable
-					Camera.CFrame = CFrame.lookAt(currentPos - trackForwardDir * 16 + Vector3.new(0, 6.5, 0), currentPos + trackForwardDir * 25 + Vector3.new(0, 3.5, 0))
+					if forceIsRacing then
+						local initDist = _G.introCamDist or 50.0
+						local initHeight = _G.introCamHeight or 30.0
+						Camera.CFrame = CFrame.lookAt(currentPos - trackForwardDir * initDist + Vector3.new(0, initHeight, 0), currentPos + trackForwardDir * 25 + Vector3.new(0, 3.5, 0))
+					else
+						Camera.CFrame = CFrame.lookAt(currentPos - trackForwardDir * 16 + Vector3.new(0, 6.5, 0), currentPos + trackForwardDir * 25 + Vector3.new(0, 3.5, 0))
+					end
 				end
 				
 				-- 💨 Attach "wind force 3" VFX to Camera (so it surrounds the screen)
@@ -1179,8 +1187,23 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 		
 		local wDir = _G.smoothCamDir
 
-		local camDist = 16.0
-		local camHeight = 6.5
+		local targetCamDist = 16.0
+		local targetCamHeight = 6.5
+		
+		if _G.introCamDist then
+			local lerpSpeed = 1.2
+			_G.introCamDist = _G.introCamDist + (targetCamDist - _G.introCamDist) * math.clamp(deltaTime * lerpSpeed, 0, 1)
+			_G.introCamHeight = _G.introCamHeight + (targetCamHeight - _G.introCamHeight) * math.clamp(deltaTime * lerpSpeed, 0, 1)
+			
+			if math.abs(_G.introCamDist - targetCamDist) < 0.1 then
+				_G.introCamDist = nil
+				_G.introCamHeight = nil
+			end
+		end
+
+		local camDist = _G.introCamDist or targetCamDist
+		local camHeight = _G.introCamHeight or targetCamHeight
+		
 		local desiredCamPos = hrp.Position - (wDir * camDist) + Vector3.new(0, camHeight, 0)
 		local lookAtTarget = hrp.Position + (wDir * 25.0) + Vector3.new(0, 3.5, 0)
 
