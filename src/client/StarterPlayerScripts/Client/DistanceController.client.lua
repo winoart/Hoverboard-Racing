@@ -33,8 +33,14 @@ local function formatDistance(meters: number): string
 	end
 end
 
+local cachedMeterLabel = nil
+
 -- 미터기 UI 찾기 (재시도 로직)
 local function getMeterLabel(): TextLabel?
+	if cachedMeterLabel and cachedMeterLabel.Parent then
+		return cachedMeterLabel
+	end
+
 	local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
 	if playerGui then
 		local targetLabel = nil
@@ -55,7 +61,7 @@ local function getMeterLabel(): TextLabel?
 			for _, gui in ipairs(playerGui:GetChildren()) do
 				if gui:IsA("ScreenGui") then
 					for _, desc in ipairs(gui:GetDescendants()) do
-						if (desc:IsA("TextLabel") or desc:IsA("TextButton")) and desc.Text == "12345" then
+						if (desc:IsA("TextLabel") or desc:IsA("TextButton")) and desc.Text:find("12345") then
 							targetLabel = desc
 							break
 						end
@@ -79,6 +85,7 @@ local function getMeterLabel(): TextLabel?
 				stroke.Thickness = 3
 				stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
 			end
+			cachedMeterLabel = targetLabel
 			return targetLabel
 		end
 	end

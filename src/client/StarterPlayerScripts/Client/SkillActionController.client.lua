@@ -1170,20 +1170,127 @@ end)
 
 local paintOverlay
 paintballEffectRemote.OnClientEvent:Connect(function()
-	if not paintOverlay then
-		paintOverlay = Instance.new("ImageLabel")
-		paintOverlay.Size = UDim2.new(0.5, 0, 0.5, 0)
-		paintOverlay.Position = UDim2.new(0.5, 0, 0.5, 0)
-		paintOverlay.AnchorPoint = Vector2.new(0.5, 0.5)
-		paintOverlay.BackgroundTransparency = 1
-		paintOverlay.Image = "rbxassetid://13583568770" -- Ink Splat
-		paintOverlay.ZIndex = 100
-		paintOverlay.Parent = fullScreenGui
-	end
+	-- 1. Splat 에셋 찾기 (어디에 넣으셨든 다 찾도록 범위 확대)
+	local splatSource = workspace:FindFirstChild("Splat", true) 
+		or game.ReplicatedStorage:FindFirstChild("Splat", true)
+		or game:GetService("StarterGui"):FindFirstChild("Splat", true)
+		or game.Players.LocalPlayer:FindFirstChild("PlayerGui"):FindFirstChild("Splat", true)
 	
-	paintOverlay.Visible = true
-	local ts = TweenService:Create(paintOverlay, TweenInfo.new(3), {ImageTransparency = 1})
-	paintOverlay.ImageTransparency = 0
-	ts:Play()
-	ts.Completed:Connect(function() paintOverlay.Visible = false end)
+	if splatSource then
+		-- 2. Splat 복제 후 화면에 띄우기
+		local splatClone = splatSource:Clone()
+		
+		if splatClone:IsA("ScreenGui") then
+			-- ScreenGui 전체라면 PlayerGui에 직접 넣기
+			local playerGui = game.Players.LocalPlayer:FindFirstChild("PlayerGui")
+			if playerGui then
+				splatClone.Parent = playerGui
+			end
+		elseif splatClone:IsA("GuiObject") then
+			-- ImageLabel, Frame 등 GUI 컴포넌트라면 기존 fullScreenGui 안에 넣기
+			splatClone.Parent = fullScreenGui
+		else
+			-- 파트나 모델(3D 이펙트)라면 카메라 바로 앞에 매 프레임마다 고정시키기
+			splatClone.Parent = workspace.CurrentCamera
+			
+			local originalSize
+			if splatClone:IsA("BasePart") then
+				splatClone.Anchored = true
+				splatClone.CanCollide = false
+				splatClone.Transparency = 0 -- 초기 투명도 설정
+				originalSize = splatClone.Size
+				splatClone.Size = originalSize * 0.01 -- 아주 작게 시작
+			elseif splatClone:IsA("Model") then
+				splatClone:ScaleTo(splatClone:GetScale() * 0.01) 
+			end
+
+			local runService = game:GetService("RunService")
+			local tweenService = game:GetService("TweenService")
+			
+			-- 1. 화면에 붙은 채로 크기가 확 커지는 스케일 애니메이션
+			local scaleValue = Instance.new("NumberValue")
+			scaleValue.Value = 0.01 -- 1% 크기에서 시작
+			
+			-- 바운스 효과 제거, 빠르고 부드럽게 커지게 (Linear 또는 Quad 적용)
+			local popTween = tweenService:Create(scaleValue, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Value = 0.6})
+			popTween:Play()
+
+			-- 고속 이동 시 카메라 프레임 지연(Lag)으로 파트가 뒤에 남는 현상 방지:
+			-- 모든 게임의 카메라 연산이 끝난 맨 마지막(Last.Value + 1)에 무조건 강제 고정!
+			local renderId = "SplatEffect_" .. tostring(math.random(100000, 999999))
+			print("[DEBUG-Splat] 시작! Splat 생성 및 렌더 우선순위(Last+1) 바인딩 완료. ID: ", renderId)
+			local lastPrintTick = 0
+			
+			runService:BindToRenderStep(renderId, Enum.RenderPriority.Last.Value + 1, function()
+				if splatClone and splatClone.Parent then
+					local camCFrame = workspace.CurrentCamera.CFrame
+					
+					-- 거리는 항상 -3 스터드로 화면 바로 앞에 고정
+					local targetCFrame = camCFrame * CFrame.new(0, 0, -3) * CFrame.Angles(math.rad(90), 0, 0)
+					
+					if splatClone:IsA("Model") then
+						splatClone:PivotTo(targetCFrame)
+					elseif splatClone:IsA("BasePart") then
+						splatClone.CFrame = targetCFrame
+						-- FOV 변경에 따라 시각적인 크기 보정 (FOV가 넓어지면 작아보이는 것을 방지)
+						local currentFOV = workspace.CurrentCamera.FieldOfView
+						local fovScale = math.tan(math.rad(currentFOV / 2)) / math.tan(math.rad(70 / 2))
+						
+						-- 실시간으로 바뀌는 scaleValue 값과 fovScale 값을 결합하여 Size에 적용
+						splatClone.Size = originalSize * (scaleValue.Value * fovScale)
+					end
+					
+					-- 0.2초마다 상태 추적 로그 출력
+					if tick() - lastPrintTick > 0.2 then
+						lastPrintTick = tick()
+						local dist = (camCFrame.Position - splatClone:GetPivot().Position).Magnitude
+						print(string.format("[DEBUG-Splat] 유지중! 속도 체크: 카메라와거리=%.2f, 크기배율=%.2f, 투명도=%.2f, 현재부모=%s", 
+							dist, scaleValue.Value, splatClone:IsA("BasePart") and splatClone.Transparency or 0, tostring(splatClone.Parent)))
+					end
+				else
+					print("[DEBUG-Splat] 객체가 삭제되어 RenderStep 바인딩 해제함. ID: ", renderId)
+					runService:UnbindFromRenderStep(renderId)
+				end
+			end)
+			
+			-- 파티클이 있다면 촥! 뿜어주기
+			for _, child in ipairs(splatClone:GetDescendants()) do
+				if child:IsA("ParticleEmitter") then
+					-- [중요] 플레이어가 초고속으로 이동할 때 파티클이 공중에 남겨져서 뒤로 밀리는 현상(안 보이는 현상) 방지
+					child.LockedToPart = true 
+					child:Emit(30)
+				end
+			end
+			
+			-- 2. 서서히 투명해지며 사라지는 애니메이션 (2초 유지 후 1초간 페이드아웃)
+			task.delay(2, function()
+				if splatClone and splatClone:IsA("BasePart") then
+					local fadeTween = tweenService:Create(splatClone, TweenInfo.new(1, Enum.EasingStyle.Linear), {Transparency = 1})
+					fadeTween:Play()
+				end
+			end)
+		end
+		
+		-- 3. 3초 뒤에 깔끔하게 객체들 완전히 삭제
+		task.delay(3.1, function()
+			if splatClone then splatClone:Destroy() end
+		end)
+	else
+		-- 만약 Splat을 못 찾았을 때를 대비한 기본 잉크 자국 (예비용)
+		if not paintOverlay then
+			paintOverlay = Instance.new("ImageLabel")
+			paintOverlay.Size = UDim2.new(0.5, 0, 0.5, 0)
+			paintOverlay.Position = UDim2.new(0.5, 0, 0.5, 0)
+			paintOverlay.AnchorPoint = Vector2.new(0.5, 0.5)
+			paintOverlay.BackgroundTransparency = 1
+			paintOverlay.Image = "rbxthumb://type=Asset&id=82078297468898&w=420&h=420"
+			paintOverlay.ZIndex = 100
+			paintOverlay.Parent = fullScreenGui
+		end
+		paintOverlay.Visible = true
+		local ts = TweenService:Create(paintOverlay, TweenInfo.new(3), {ImageTransparency = 1})
+		paintOverlay.ImageTransparency = 0
+		ts:Play()
+		ts.Completed:Connect(function() paintOverlay.Visible = false end)
+	end
 end)

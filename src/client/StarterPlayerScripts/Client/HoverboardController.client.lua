@@ -728,7 +728,7 @@ RunService.Stepped:Connect(function(_, deltaTime)
 end)
 
 -- Main Render Loop for Arcade Racing HUD, Hovering Physics, Speedometer, Booster Gauge & Wind FX
-RunService.RenderStepped:Connect(function(deltaTime: number)
+RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Camera.Value, function(deltaTime: number)
 	local isSpectating = LocalPlayer:GetAttribute("IsSpectating") or false
 	local character = LocalPlayer.Character
 	if not character then return end
@@ -774,6 +774,10 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 	local hrp = character:FindFirstChild("HumanoidRootPart") :: BasePart?
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	if not hrp or not humanoid then return end
+
+	local velocity = hrp.AssemblyLinearVelocity
+	local horizontalVelocity = Vector3.new(velocity.X, 0, velocity.Z)
+	local currentSpeed = horizontalVelocity.Magnitude
 
 	if not isSpectating then
 		humanoid.AutoRotate = false
@@ -825,20 +829,23 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 
 		-- Stop leg flailing animations
 		local hasBoard = character:FindFirstChild("EquippedHoverboard") ~= nil
-		local animator = humanoid:FindFirstChildOfClass("Animator")
-		if animator then
-			for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
-				if track.Name:lower():find("run") or track.Name:lower():find("walk") then
-					if hasBoard then
+		if hasBoard and humanoid:GetState() == Enum.HumanoidStateType.Running then
+			-- Instead of checking string names every frame, we just disable the Run/Walk states or rely on HipHeight
+			-- Actually, stopping animations by name every frame is very expensive. 
+			-- We will only stop tracks once, or just let the default animate script handle it since WalkSpeed is overwritten.
+			-- Alternatively, we only check if velocity changed, but a cheaper way:
+			local animator = humanoid:FindFirstChildOfClass("Animator")
+			if animator then
+				-- Optimization: Only check if WalkSpeed > 0 but we want them hovering
+				for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+					if track.IsPlaying and (track.Priority == Enum.AnimationPriority.Movement or track.Priority == Enum.AnimationPriority.Core) then
 						track:Stop()
 					end
 				end
 			end
 		end
 
-		local velocity = hrp.AssemblyLinearVelocity
-		local horizontalVelocity = Vector3.new(velocity.X, 0, velocity.Z)
-		local currentSpeed = horizontalVelocity.Magnitude
+		-- velocity and currentSpeed are now calculated above the if block
 
 		-- Prevent Movement & Steering during Start Countdown
 		if not isRaceStarted then
@@ -1075,12 +1082,20 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 				end
 			end
 
-			-- Steady non-flashing thruster lighting
-			for _, desc in ipairs(boardModel:GetDescendants()) do
-				if desc:IsA("PointLight") then
-					desc.Brightness = 2.5
-					desc.Range = 8
+			-- Steady non-flashing thruster lighting (Optimized to avoid GetDescendants every frame)
+			if not _G.boardLightsCached or _G.boardLightsCachedModel ~= boardModel then
+				_G.boardLightsCached = {}
+				_G.boardLightsCachedModel = boardModel
+				for _, desc in ipairs(boardModel:GetDescendants()) do
+					if desc:IsA("PointLight") then
+						table.insert(_G.boardLightsCached, desc)
+					end
 				end
+			end
+			
+			for _, light in ipairs(_G.boardLightsCached) do
+				light.Brightness = 2.5
+				light.Range = 8
 			end
 		end
 	end
@@ -1267,7 +1282,7 @@ RunService.RenderStepped:Connect(function(deltaTime: number)
 			if boosterGaugeStroke then boosterGaugeStroke.Color = Color3.fromRGB(255, 100, 50) end
 		elseif displayGauge >= HoverboardConfig.BOOSTER_MAX_GAUGE then
 			-- Flash effect
-			local flash = (math.floor(clockTime * 8) % 2 == 0)
+			local flash = (math.floor(os.clock() * 8) % 2 == 0)
 			if flash then
 				speedModeLabel.Text = "⚡ SPACE ⚡"
 				speedModeLabel.TextColor3 = Color3.fromRGB(255, 255, 0)

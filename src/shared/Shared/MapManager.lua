@@ -44,10 +44,15 @@ function MapManager.getLoungeCFrame(): CFrame
 		return loungeSpawn.CFrame
 	end
 
-	-- Helper to find the largest floor part in a folder/model
+	-- Helper to find the largest floor part in a folder/model (Optimized to not check every single descendant if it's too large, or we just rely on BoundingBox)
 	local function getLargestFloorPart(container: Instance): BasePart?
+		if container:IsA("Model") and container.PrimaryPart then
+			return container.PrimaryPart
+		end
+		-- Just find the first few parts to avoid lagging the game
 		local bestPart = nil
 		local maxArea = 0
+		local checkCount = 0
 		for _, child in ipairs(container:GetDescendants()) do
 			if child:IsA("BasePart") and child.Name ~= "Model1" then
 				local area = child.Size.X * child.Size.Z
@@ -55,6 +60,9 @@ function MapManager.getLoungeCFrame(): CFrame
 					maxArea = area
 					bestPart = child
 				end
+				checkCount += 1
+				-- Limit checking to maximum 50 parts to avoid lag spike
+				if checkCount > 50 then break end
 			end
 		end
 		return bestPart
