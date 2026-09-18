@@ -146,14 +146,19 @@ local function spawnLightningEffect(meterLabel: TextLabel?, hrp: BasePart)
 	end
 end
 
+local cachedMGui = nil
+
 RunService.RenderStepped:Connect(function(dt)
 	local isSpectating = LocalPlayer:GetAttribute("IsSpectating") == true
 	
 	local meterLabel = getMeterLabel()
 	if meterLabel then
-		local mGui = meterLabel:FindFirstAncestor("MeterDisplayHUD")
-		if mGui and mGui:IsA("ScreenGui") then
-			mGui.Enabled = not isSpectating
+		if not cachedMGui or cachedMGui.Parent == nil then
+			cachedMGui = meterLabel:FindFirstAncestor("MeterDisplayHUD")
+		end
+		
+		if cachedMGui and cachedMGui:IsA("ScreenGui") then
+			cachedMGui.Enabled = not isSpectating
 		else
 			meterLabel.Visible = not isSpectating
 		end

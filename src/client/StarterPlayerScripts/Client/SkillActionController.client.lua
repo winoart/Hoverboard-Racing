@@ -501,6 +501,7 @@ local function bindSlot(index)
 	nameLabel.Position = UDim2.new(0.5, 0, 1, 0) -- 버튼 정중앙 하단
 	nameLabel.AnchorPoint = Vector2.new(0.5, 0.5) -- 정확히 경계선에 걸치게 앵커 포인트 조정
 	nameLabel.BackgroundTransparency = 1
+	nameLabel.Visible = false -- 스킬명을 숨기고 아이콘만 보이게 함
 	nameLabel.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
 	nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 	nameLabel.TextStrokeTransparency = 1
@@ -904,6 +905,19 @@ skillWarningRemote.OnClientEvent:Connect(function(targetName: string, casterName
 		else
 			showWarningToast(SkillMessages:Format("ShieldDisabledEnemy", {casterName = casterName}))
 		end
+		return
+	end
+	
+	if skillId == "Skill_Reflected" then
+		showWarningToast(SkillMessages:Format("SkillReflected", {casterName = casterName}))
+		
+		-- 화면 피격 피드백 (빨간 번쩍임)
+		local cc = Instance.new("ColorCorrectionEffect")
+		cc.TintColor = Color3.fromRGB(255, 150, 150)
+		cc.Parent = game:GetService("Lighting")
+		local tween = TweenService:Create(cc, TweenInfo.new(0.4), {TintColor = Color3.fromRGB(255, 255, 255)})
+		tween:Play()
+		tween.Completed:Connect(function() cc:Destroy() end)
 		return
 	end
 	

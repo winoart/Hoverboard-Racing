@@ -49,28 +49,70 @@ local StoreConfig = require(Shared:WaitForChild("StoreConfig") :: ModuleScript)
 
 -- 직접 스튜디오에 배치된 정적 ProximityPrompt 연결
 local waitingRoom = Workspace:FindFirstChild("WaitingRoom")
+
+local function getCenterPart(target: Instance): BasePart?
+	if target:IsA("BasePart") then return target end
+	if target:IsA("Model") and target.PrimaryPart then return target.PrimaryPart end
+	if target:IsA("Model") then
+		local anchor = target:FindFirstChild("PromptAnchor")
+		if anchor and anchor:IsA("BasePart") then return anchor end
+		anchor = Instance.new("Part")
+		anchor.Name = "PromptAnchor"
+		anchor.Size = Vector3.new(1, 1, 1)
+		anchor.Transparency = 1
+		anchor.CanCollide = false
+		anchor.Anchored = true
+		local cf, _ = target:GetBoundingBox()
+		anchor.CFrame = cf
+		anchor.Parent = target
+		return anchor
+	end
+	return target:FindFirstChildWhichIsA("BasePart", true)
+end
+
 if waitingRoom then
 	-- 1. 상점 (룰렛) 키오스크
 	local shopStand = waitingRoom:FindFirstChild("HoverboardShopStand")
 	if shopStand then
-		local innerPart = shopStand:FindFirstChild("HoverboardShopStand")
-		if innerPart then
-			local shopPrompt = innerPart:FindFirstChild("ProximityPrompt")
-			if shopPrompt and shopPrompt:IsA("ProximityPrompt") then
-				shopPrompt.Triggered:Connect(function(player)
-					openStoreRemote:FireClient(player)
-				end)
-				print("🛒 [StoreServer] Bound static ProximityPrompt for HoverboardShopStand")
+		local shopPrompt = shopStand:FindFirstChild("ProximityPrompt", true)
+		if not shopPrompt then
+			local promptPart = getCenterPart(shopStand)
+			if promptPart then
+				shopPrompt = Instance.new("ProximityPrompt")
+				shopPrompt.ActionText = "룰렛 열기"
+				shopPrompt.ObjectText = "호버보드 뽑기"
+				shopPrompt.KeyboardKeyCode = Enum.KeyCode.E
+				shopPrompt.RequiresLineOfSight = false
+				shopPrompt.MaxActivationDistance = 15
+				shopPrompt.Parent = promptPart
 			end
+		end
+		
+		if shopPrompt and shopPrompt:IsA("ProximityPrompt") then
+			shopPrompt.Triggered:Connect(function(player)
+				openStoreRemote:FireClient(player)
+			end)
+			print("🛒 [StoreServer] Bound static ProximityPrompt for HoverboardShopStand")
 		end
 	end
 	
 	-- 2. 호버보드 상점 (일반 키오스크)
 	local kioskStand = waitingRoom:FindFirstChild("HoverboardKiosk")
 	if kioskStand then
-		-- 사용자가 HoverboardKiosk 내부 어디에 프롬프트를 뒀는지 모르지만, 최상위 파트에 있다고 가정하거나 
-		-- 구조가 ShopStand와 같다면 innerPart를 찾음 (여기서는 혹시 몰라 하위에서 이름으로 하나 찾음)
 		local kioskPrompt = kioskStand:FindFirstChild("ProximityPrompt", true)
+		if not kioskPrompt then
+			local promptPart = getCenterPart(kioskStand)
+			if promptPart then
+				kioskPrompt = Instance.new("ProximityPrompt")
+				kioskPrompt.ActionText = "상점 열기"
+				kioskPrompt.ObjectText = "호버보드 키오스크"
+				kioskPrompt.KeyboardKeyCode = Enum.KeyCode.E
+				kioskPrompt.RequiresLineOfSight = false
+				kioskPrompt.MaxActivationDistance = 15
+				kioskPrompt.Parent = promptPart
+			end
+		end
+		
 		if kioskPrompt and kioskPrompt:IsA("ProximityPrompt") then
 			kioskPrompt.Triggered:Connect(function(player)
 				openHoverboardShopRemote:FireClient(player)

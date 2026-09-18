@@ -240,6 +240,10 @@ local function fireIceBomb(caster: Player, target: Player?)
 				print("🪞 [SkillServer] " .. target.Name .. " REFLECTED Ice Bomb back to " .. caster.Name .. "!")
 				activeReflects[target.UserId] = false
 				
+				if skillWarningRemote then
+					skillWarningRemote:FireAllClients(caster.Name, target.Name, "Skill_Reflected")
+				end
+				
 				-- 타겟을 시전자로 교체하여 역으로 맞게 함
 				target = caster
 				targetChar = target.Character
@@ -856,6 +860,9 @@ local function firePaintball(caster: Player, target: Player?)
 		if activeReflects[target.UserId] then
 			print("🪞 [SkillServer] " .. target.Name .. " REFLECTED Paintball back to " .. caster.Name .. "!")
 			activeReflects[target.UserId] = false
+			if skillWarningRemote then
+				skillWarningRemote:FireAllClients(caster.Name, target.Name, "Skill_Reflected")
+			end
 			target = caster
 		elseif activeShields[target.UserId] then
 			print("🛡️ [SkillServer] " .. target.Name .. " BLOCKED Paintball with a Shield!")

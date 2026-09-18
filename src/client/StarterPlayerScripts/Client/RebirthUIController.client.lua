@@ -424,29 +424,33 @@ local function updateNotification()
 	end
 end
 
-RunService.RenderStepped:Connect(function()
-	local btn = getRebirthButton()
-	if btn and not btn:GetAttribute("Connected") then
-		print("🔗 [RebirthUI] 환생 버튼에 클릭 이벤트를 연결합니다!")
-		btn:SetAttribute("Connected", true)
-		btn.MouseButton1Click:Connect(function()
-			print("🖱️ [RebirthUI] 환생 버튼 클릭됨!")
-			local win = createRebirthWindow()
-			
-			-- 리스폰 후 UI가 가려지거나 비활성화(Enabled=false)되는 현상 방지
-			if win and win.Parent and win.Parent:IsA("ScreenGui") then
-				win.Parent.Enabled = true
-				win.Parent.DisplayOrder = 999
-			end
-			
-			updateRebirthWindow()
-			win.Visible = not win.Visible
-			isWindowOpen = win.Visible
-			
-			print("🪟 [RebirthUI] 창 상태 변경 - Visible:", win.Visible, "ScreenGui Enabled:", win.Parent and win.Parent.Enabled)
-		end)
+task.spawn(function()
+	while task.wait(1) do
+		local btn = getRebirthButton()
+		if btn and not btn:GetAttribute("Connected") then
+			print("🔗 [RebirthUI] 환생 버튼에 클릭 이벤트를 연결합니다!")
+			btn:SetAttribute("Connected", true)
+			btn.MouseButton1Click:Connect(function()
+				print("🖱️ [RebirthUI] 환생 버튼 클릭됨!")
+				local win = createRebirthWindow()
+				
+				-- 리스폰 후 UI가 가려지거나 비활성화(Enabled=false)되는 현상 방지
+				if win and win.Parent and win.Parent:IsA("ScreenGui") then
+					win.Parent.Enabled = true
+					win.Parent.DisplayOrder = 999
+				end
+				
+				updateRebirthWindow()
+				win.Visible = not win.Visible
+				isWindowOpen = win.Visible
+				
+				print("🪟 [RebirthUI] 창 상태 변경 - Visible:", win.Visible, "ScreenGui Enabled:", win.Parent and win.Parent.Enabled)
+			end)
+		end
 	end
-	
+end)
+
+RunService.RenderStepped:Connect(function()
 	-- 주기적으로 알림 마커 확인
 	if os.clock() % 1 < 0.05 then
 		updateNotification()

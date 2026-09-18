@@ -48,6 +48,10 @@ return {
 		-- 내가 공격한 상대방이 방어막을 켜고 있어서, 상대의 방어막만 부수고 끝났을 때 나에게 뜨는 알림
 		-- {casterName} 자리에 상대방 이름이 자동으로 들어갑니다.
 		ShieldDisabledEnemy = "💥 Broke {casterName}'s Shield!",
+		
+		-- 🪞 [반사 관련]
+		-- 내가 공격한 대상이 반사 스킬을 사용하여 내 스킬이 되돌아왔을 때 나에게 뜨는 알림
+		SkillReflected = "🪞 Your skill was reflected by {casterName}!",
 
 		-- ⚠️ [피격 경고]
 		-- 누군가 나에게 타겟팅 스킬(얼음폭탄 등)을 쏘았을 때 나에게 뜨는 위험 경고
