@@ -28,15 +28,20 @@ local function formatDistance(meters: number): string
 end
 
 local function getRebirthButton(): TextButton?
+	-- 만약 기존에 캐싱한 버튼이 삭제(Destroy)되었다면 캐시를 초기화합니다.
+	if rebirthButton and rebirthButton.Parent == nil then
+		print("🐛 [RebirthUI] 기존 환생 버튼이 파괴되었습니다! (리스폰 추정) 다시 찾습니다.")
+		rebirthButton = nil
+	end
+
 	if not rebirthButton then
-		-- Search for the Rebirth button in PlayerGui
-		for _, gui in ipairs(PlayerGui:GetChildren()) do
-			if gui:IsA("ScreenGui") then
-				local btn = gui:FindFirstChild("Rebirth", true)
-				if btn and btn:IsA("TextButton") then
-					rebirthButton = btn
-					break
-				end
+		-- 고정 경로에서 버튼 찾기
+		local rebirthGui = PlayerGui:FindFirstChild("Rebirth")
+		if rebirthGui then
+			local btn = rebirthGui:FindFirstChild("Rebirth")
+			if btn and btn:IsA("TextButton") then
+				print("✅ [RebirthUI] 새로운 환생 버튼을 성공적으로 찾았습니다!")
+				rebirthButton = btn
 			end
 		end
 	end
@@ -44,7 +49,14 @@ local function getRebirthButton(): TextButton?
 end
 
 local function createRebirthWindow()
-	if rebirthWindow then return rebirthWindow end
+	if rebirthWindow then
+		if rebirthWindow.Parent and rebirthWindow.Parent.Parent then
+			return rebirthWindow
+		else
+			print("🐛 [RebirthUI] 기존 환생 창이 파괴되었습니다! 새로 생성합니다.")
+			rebirthWindow = nil
+		end
+	end
 
 	local screenGui = Instance.new("ScreenGui")
 	screenGui.Name = "RebirthWindowGui"
@@ -415,12 +427,23 @@ end
 RunService.RenderStepped:Connect(function()
 	local btn = getRebirthButton()
 	if btn and not btn:GetAttribute("Connected") then
+		print("🔗 [RebirthUI] 환생 버튼에 클릭 이벤트를 연결합니다!")
 		btn:SetAttribute("Connected", true)
 		btn.MouseButton1Click:Connect(function()
+			print("🖱️ [RebirthUI] 환생 버튼 클릭됨!")
 			local win = createRebirthWindow()
+			
+			-- 리스폰 후 UI가 가려지거나 비활성화(Enabled=false)되는 현상 방지
+			if win and win.Parent and win.Parent:IsA("ScreenGui") then
+				win.Parent.Enabled = true
+				win.Parent.DisplayOrder = 999
+			end
+			
 			updateRebirthWindow()
 			win.Visible = not win.Visible
 			isWindowOpen = win.Visible
+			
+			print("🪟 [RebirthUI] 창 상태 변경 - Visible:", win.Visible, "ScreenGui Enabled:", win.Parent and win.Parent.Enabled)
 		end)
 	end
 	

@@ -38,69 +38,18 @@ function MapManager.getMapsFolder(): Folder
 end
 
 -- 2. Find WaitingRoom Lounge CFrame in Workspace
+-- 2. Find WaitingRoom Lounge CFrame in Workspace
 function MapManager.getLoungeCFrame(): CFrame
-	local loungeSpawn = Workspace:FindFirstChild("LoungeSpawnLocation") :: BasePart?
-	if loungeSpawn then
-		return loungeSpawn.CFrame
-	end
-
-	-- Helper to find the largest floor part in a folder/model (Optimized to not check every single descendant if it's too large, or we just rely on BoundingBox)
-	local function getLargestFloorPart(container: Instance): BasePart?
-		if container:IsA("Model") and container.PrimaryPart then
-			return container.PrimaryPart
-		end
-		-- Just find the first few parts to avoid lagging the game
-		local bestPart = nil
-		local maxArea = 0
-		local checkCount = 0
-		for _, child in ipairs(container:GetDescendants()) do
-			if child:IsA("BasePart") and child.Name ~= "Model1" then
-				local area = child.Size.X * child.Size.Z
-				if area > maxArea then
-					maxArea = area
-					bestPart = child
-				end
-				checkCount += 1
-				-- Limit checking to maximum 50 parts to avoid lag spike
-				if checkCount > 50 then break end
-			end
-		end
-		return bestPart
-	end
-
-	for _, child in ipairs(Workspace:GetChildren()) do
-		local nameLower = child.Name:lower():gsub("%s+", "")
-		
-		if nameLower:find("waitingroom") or nameLower:find("lounge") or nameLower:find("대기실") or nameLower:find("스폰장소") then
-			local spawnLoc = child:FindFirstChildWhichIsA("SpawnLocation", true)
-			if spawnLoc then
-				print("[MapManager] Found SpawnLocation inside WaitingRoom folder: ", spawnLoc:GetFullName())
-				return spawnLoc.CFrame
-			end
-
-			if child:IsA("BasePart") then
-				print("[MapManager] Found BasePart as WaitingRoom: ", child:GetFullName())
-				return child.CFrame
-			elseif child:IsA("Model") or child:IsA("Folder") then
-				local primary = child:IsA("Model") and child.PrimaryPart or nil
-				local targetPart = primary or getLargestFloorPart(child)
-				
-				if targetPart then
-					print("[MapManager] Found floor part inside WaitingRoom: ", targetPart:GetFullName())
-					return targetPart.CFrame
-				else
-					print("[MapManager] Found Model/Folder without floor part: ", child:GetFullName())
-					return child:IsA("Model") and child:GetPivot() or CFrame.new(0, 85, 0)
-				end
-			end
-		end
-
-		if child:IsA("SpawnLocation") then
-			print("[MapManager] Found fallback SpawnLocation in Workspace: ", child:GetFullName())
-			return child.CFrame
+	-- 사용자가 직접 생성한 지정된 위치를 무조건 사용합니다. (탐색 안 함)
+	local waitingRoom = Workspace:FindFirstChild("WaitingRoom")
+	if waitingRoom then
+		local spawnLoc = waitingRoom:FindFirstChild("SpawnLocation")
+		if spawnLoc and spawnLoc:IsA("SpawnLocation") then
+			return spawnLoc.CFrame
 		end
 	end
-
+	
+	warn("[MapManager] Workspace.WaitingRoom.SpawnLocation 을 찾을 수 없습니다! 안전한 기본 좌표로 대체합니다.")
 	return CFrame.new(0, 85, 0)
 end
 
@@ -158,7 +107,7 @@ function MapManager.LoadMap(mapName: string): (Model, CFrame)
 	local targetMapPos = Vector3.new(loungeCFrame.Position.X, loungeCFrame.Position.Y - 80, loungeCFrame.Position.Z)
 
 	-- Find StartGrid to use as the center of our pivot
-	local startGridPart = activeMap:FindFirstChild("TrackStartGridPart", true) :: BasePart?
+	local startGridPart = activeMap:FindFirstChild("TrackStartGridPart") :: BasePart?
 	
 	if startGridPart then
 		-- Pivot map so that the startGrid is exactly at targetMapPos
@@ -183,7 +132,7 @@ function MapManager.LoadMap(mapName: string): (Model, CFrame)
 	if startGridPart then
 		startGridCFrame = startGridPart.CFrame
 		
-		local startModel = activeMap:FindFirstChild("StartingPoint", true) :: Model?
+		local startModel = activeMap:FindFirstChild("StartingPoint") :: Model?
 		if startModel then
 			-- Generate missing CheckerTiles if user forgot to copy them
 			local startLineBase = startModel:FindFirstChild("StartLineBase") :: BasePart?
@@ -216,7 +165,7 @@ function MapManager.LoadMap(mapName: string): (Model, CFrame)
 			end
 		end
 	else
-		local startModel = activeMap:FindFirstChild("StartingPoint", true) :: Model?
+		local startModel = activeMap:FindFirstChild("StartingPoint") :: Model?
 		if startModel then
 			startGridCFrame = startModel:GetPivot() * CFrame.new(0, 15, -3)
 		else

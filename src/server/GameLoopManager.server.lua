@@ -94,7 +94,12 @@ local function teleportPlayer(player: Player, cframe: CFrame)
 				hrp.CFrame = cframe
 				
 				task.wait(0.1)
-				print(string.format("[Spawn Debug] %s teleported. Expected: %s, Actual: %s", player.Name, tostring(cframe.Position), tostring(hrp.Position)))
+				local dist = (cframe.Position - hrp.Position).Magnitude
+				if dist > 2 then
+					print(string.format("⚠️ [Spawn Debug] %s was pushed by physics! Diff: %.1f studs | Expected: %s, Actual: %s", player.Name, dist, tostring(cframe.Position), tostring(hrp.Position)))
+				else
+					print(string.format("✅ [Spawn Debug] %s spawned normally. Diff: %.1f", player.Name, dist))
+				end
 				break
 			end
 			task.wait(0.1)
@@ -115,7 +120,9 @@ local function teleportAllToLounge()
 			end
 			player:SetAttribute("IsRacing", false)
 			stateRemote:FireClient(player, false, nil)
-			teleportPlayer(player, loungeCFrame)
+			
+			local randomOffset = CFrame.new(math.random(-4, 4), 0, math.random(-4, 4))
+			teleportPlayer(player, loungeCFrame * randomOffset)
 		end
 	end
 end
@@ -124,12 +131,12 @@ end
 local function getTrackStartGridCFrame(): CFrame
 	local activeMap = Workspace:FindFirstChild("ActiveMap") :: Model?
 	if activeMap then
-		local gridPart = activeMap:FindFirstChild("TrackStartGridPart", true) :: BasePart?
+		local gridPart = activeMap:FindFirstChild("TrackStartGridPart") :: BasePart?
 		if gridPart then
 			return gridPart.CFrame * CFrame.new(0, 10.0, 0)
 		end
 
-		local startModel = activeMap:FindFirstChild("StartingPoint", true) :: Model?
+		local startModel = activeMap:FindFirstChild("StartingPoint") :: Model?
 		if startModel then
 			return startModel:GetPivot() * CFrame.new(0, 15.0, -3)
 		end
@@ -309,7 +316,8 @@ local function setupPlayer(player: Player)
 
 			task.wait(0.3)
 			local loungeCFrame = getLoungeCFrame()
-			teleportPlayer(player, loungeCFrame)
+			local randomOffset = CFrame.new(math.random(-4, 4), 0, math.random(-4, 4))
+			teleportPlayer(player, loungeCFrame * randomOffset)
 			task.wait(0.1)
 			phaseRemote:FireClient(player, currentPhase, phaseTimeLeft, mapVoteData, chosenMapName)
 			return
@@ -317,7 +325,8 @@ local function setupPlayer(player: Player)
 
 		task.wait(0.3)
 		local loungeCFrame = getLoungeCFrame()
-		teleportPlayer(player, loungeCFrame)
+		local randomOffset = CFrame.new(math.random(-4, 4), 0, math.random(-4, 4))
+		teleportPlayer(player, loungeCFrame * randomOffset)
 		task.wait(0.1)
 		phaseRemote:FireClient(player, currentPhase, phaseTimeLeft, mapVoteData, chosenMapName)
 	end)
@@ -357,7 +366,7 @@ end)
 -- Helper: Set physical signal light states on StartingPoint arch
 local function setSignalLightsState(redOn: boolean, yellowOn: boolean, greenOn: boolean)
 	local activeMap = Workspace:FindFirstChild("ActiveMap") :: Model?
-	local startModel = activeMap and activeMap:FindFirstChild("StartingPoint", true) or Workspace:FindFirstChild("StartingPoint")
+	local startModel = activeMap and activeMap:FindFirstChild("StartingPoint") or Workspace:FindFirstChild("StartingPoint")
 	if not startModel then return end
 
 	local redPart = startModel:FindFirstChild("RedLight") :: BasePart?
@@ -666,3 +675,57 @@ task.spawn(function()
 end)
 
 print("🏁 [GameLoopManager] Game Loop and Map Loader Initialized!")
+
+-- ---------------------------------------------------------------------
+-- 대기실 낙하 방지 바닥 (CatchFloor) 생성 및 디버깅
+-- ---------------------------------------------------------------------
+local function createLoungeCatchFloor()
+	print("🔍 [CatchFloor] 대기실(WaitingRoom)을 찾는 중...")
+	local waitingRoom = Workspace:WaitForChild("WaitingRoom", 10)
+	if not waitingRoom then 
+		warn("❌ [CatchFloor] WaitingRoom을 10초 내에 찾지 못했습니다!")
+		return 
+	end
+	
+	print("🔍 [CatchFloor] SpawnLocation을 찾는 중...")
+	local spawnLoc = waitingRoom:WaitForChild("SpawnLocation", 5)
+	if not spawnLoc or not spawnLoc:IsA("SpawnLocation") then 
+		warn("❌ [CatchFloor] SpawnLocation을 찾지 못했거나 타입이 다릅니다!")
+		return 
+	end
+
+	local centerCFrame = spawnLoc.CFrame
+	print("✅ [CatchFloor] SpawnLocation 기준 좌표:", centerCFrame.Position)
+	
+	local oldCatch = Workspace:FindFirstChild("LoungeCatchFloor")
+	if oldCatch then oldCatch:Destroy() end
+
+	local catchFloor = Instance.new("Part")
+	catchFloor.Name = "LoungeCatchFloor"
+	catchFloor.Size = Vector3.new(2000, 10, 2000)
+	catchFloor.CFrame = CFrame.new(centerCFrame.Position.X, centerCFrame.Position.Y - 15, centerCFrame.Position.Z)
+	catchFloor.Anchored = true
+	catchFloor.CanCollide = false
+	catchFloor.Transparency = 1 -- 다시 완전 투명하게 변경
+	catchFloor.Parent = Workspace
+	
+	print("✅ [CatchFloor] 거대한 투명 낙하 방지 바닥 생성 완료!")
+
+	catchFloor.Touched:Connect(function(hit)
+		print("💥 [CatchFloor] 무언가 바닥에 닿았습니다! 대상:", hit.Name, "부모:", hit.Parent and hit.Parent.Name)
+		
+		if hit.Name ~= "HumanoidRootPart" then return end
+		local character = hit.Parent
+		if character and character:FindFirstChild("Humanoid") then
+			local hrp = character:FindFirstChild("HumanoidRootPart")
+			if hrp then
+				print("🚀 [CatchFloor] 플레이어 텔레포트 실행! 플레이어:", character.Name)
+				hrp.AssemblyLinearVelocity = Vector3.zero
+				hrp.AssemblyAngularVelocity = Vector3.zero
+				hrp.CFrame = centerCFrame * CFrame.new(0, 5, 0)
+			end
+		end
+	end)
+end
+
+task.spawn(createLoungeCatchFloor)

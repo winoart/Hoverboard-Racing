@@ -43,31 +43,11 @@ local function getMeterLabel(): TextLabel?
 
 	local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
 	if playerGui then
-		local targetLabel = nil
-		
-		-- 1. 먼저 MeterTextLabel 이나 MeterDisplayHUD 라는 이름으로 찾아봅니다.
-		for _, gui in ipairs(playerGui:GetChildren()) do
-			if gui:IsA("ScreenGui") then
-				local label = gui:FindFirstChild("MeterTextLabel", true) or gui:FindFirstChild("MeterDisplayHUD", true)
-				if label and (label:IsA("TextLabel") or label:IsA("TextButton")) then
-					targetLabel = label
-					break
-				end
-			end
-		end
-		
-		-- 2. 만약 이름을 다르게 지으셨다면, 텍스트가 "12345"인 텍스트 관련 UI를 무조건 찾습니다!
-		if not targetLabel then
-			for _, gui in ipairs(playerGui:GetChildren()) do
-				if gui:IsA("ScreenGui") then
-					for _, desc in ipairs(gui:GetDescendants()) do
-						if (desc:IsA("TextLabel") or desc:IsA("TextButton")) and desc.Text:find("12345") then
-							targetLabel = desc
-							break
-						end
-					end
-				end
-				if targetLabel then break end
+		local hud = playerGui:FindFirstChild("MeterDisplayHUD")
+		if hud then
+			local meterFrame = hud:FindFirstChild("MeterFrame")
+			if meterFrame then
+				targetLabel = meterFrame:FindFirstChild("MeterTextLabel")
 			end
 		end
 		

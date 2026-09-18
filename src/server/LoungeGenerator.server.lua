@@ -1,5 +1,9 @@
 --!strict
 -- LoungeGenerator.server.luau
+-- 사용자가 직접 WaitingRoom 안에 SpawnLocation과 벽을 만들어 두었으므로 
+-- 더 이상 자동 생성 코드를 실행하지 않고 즉시 종료합니다.
+return
+
 -- Finds user's floating WaitingRoom platform ("스폰장소") and attaches LoungeSpawnLocation to it
 
 local Workspace = game:GetService("Workspace")

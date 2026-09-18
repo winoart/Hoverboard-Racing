@@ -97,6 +97,15 @@ end)
 
 local activeShields: { [number]: boolean } = {}
 local activeGhosts: { [number]: boolean } = {}
+local activeReflects: { [number]: boolean } = {}
+local reflectUses: { [number]: number } = {}
+
+Players.PlayerAdded:Connect(function(player)
+	player.CharacterAdded:Connect(function()
+		reflectUses[player.UserId] = 0
+		activeReflects[player.UserId] = false
+	end)
+end)
 
 local function getSkillConfig(skillId: string)
 	for _, skill in ipairs(SkillStoreConfig.Skills) do
@@ -226,8 +235,16 @@ local function fireIceBomb(caster: Player, target: Player?)
 			local targetChar = target.Character
 			local targetRoot = targetChar.PrimaryPart
 			
-			-- 타격 직전(떨어진 후) 방어막 체크
-			if activeShields[target.UserId] then
+			-- 타격 직전(떨어진 후) 반사 체크
+			if activeReflects[target.UserId] then
+				print("🪞 [SkillServer] " .. target.Name .. " REFLECTED Ice Bomb back to " .. caster.Name .. "!")
+				activeReflects[target.UserId] = false
+				
+				-- 타겟을 시전자로 교체하여 역으로 맞게 함
+				target = caster
+				targetChar = target.Character
+				targetRoot = targetChar.PrimaryPart
+			elseif activeShields[target.UserId] then
 				print("🛡️ [SkillServer] " .. target.Name .. " BLOCKED Ice Bomb with a Shield!")
 				activeShields[target.UserId] = false
 				
@@ -836,7 +853,11 @@ local function firePaintball(caster: Player, target: Player?)
 			return
 		end
 		
-		if activeShields[target.UserId] then
+		if activeReflects[target.UserId] then
+			print("🪞 [SkillServer] " .. target.Name .. " REFLECTED Paintball back to " .. caster.Name .. "!")
+			activeReflects[target.UserId] = false
+			target = caster
+		elseif activeShields[target.UserId] then
 			print("🛡️ [SkillServer] " .. target.Name .. " BLOCKED Paintball with a Shield!")
 			activeShields[target.UserId] = nil
 			return
@@ -848,43 +869,99 @@ local function firePaintball(caster: Player, target: Player?)
 	end)
 end
 
-local function fireVirus(caster: Player, target: Player?)
-	local casterChar = caster.Character
-	if not casterChar or not casterChar.PrimaryPart then return end
+-- Create Reflect
+local function activateReflect(player: Player)
+	local char = player.Character
+	if not char or not char.PrimaryPart then return end
 	
-	setCooldown(caster, "Skill_Virus")
-	
-	if not target or not target.Character or not target.Character.PrimaryPart then
-		print("🔄 [SkillServer] Virus fizzled (No Target) for " .. caster.Name)
+	-- Max 2 uses per game logic
+	local uses = reflectUses[player.UserId] or 0
+	if uses >= 2 then
+		print("❌ [SkillServer] " .. player.Name .. " reached max reflect uses for this game!")
 		return
 	end
 	
-	print("🔄 [SkillServer] Virus fired by " .. caster.Name .. " at " .. target.Name)
+	reflectUses[player.UserId] = uses + 1
+	setCooldown(player, "Skill_Reflect")
+	activeReflects[player.UserId] = true
 	
-	if skillWarningRemote then
-		skillWarningRemote:FireAllClients(target.Name, caster.Name, "Skill_Virus")
-	end
+	print("🪞 [SkillServer] " .. player.Name .. " activated Reflect! (Uses: " .. reflectUses[player.UserId] .. "/2)")
 	
-	task.delay(1.5, function()
-		if not target or not target.Character or not target.Character.PrimaryPart then return end
-		if activeGhosts[target.UserId] then
-			print("👻 [SkillServer] " .. target.Name .. " DODGED Virus as a Ghost!")
-			return
-		end
-		
-		if activeShields[target.UserId] then
-			print("🛡️ [SkillServer] " .. target.Name .. " BLOCKED Virus with a Shield!")
-			activeShields[target.UserId] = nil
-			return
-		end
-		
-		print("🔄 [SkillServer] " .. target.Name .. " is INFECTED by Virus!")
-		target:SetAttribute("StatusEffect_EMP", true)
-		task.delay(3, function()
-			if target:GetAttribute("StatusEffect_EMP") then
-				target:SetAttribute("StatusEffect_EMP", false)
+	char:SetAttribute("HasReflect", true)
+	
+	local root = char.PrimaryPart
+	
+	local reflectPart = Instance.new("Part")
+	reflectPart.Name = "SkillReflect"
+	reflectPart.Shape = Enum.PartType.Ball
+	reflectPart.Size = Vector3.new(12, 12, 12)
+	reflectPart.Color = Color3.fromRGB(255, 0, 0) -- 빨간색 (Red)
+	reflectPart.Material = Enum.Material.ForceField
+	reflectPart.Transparency = 0.5
+	reflectPart.Anchored = false
+	reflectPart.CanCollide = false
+	reflectPart.Massless = true
+	
+	local weld = Instance.new("WeldConstraint")
+	weld.Part0 = root
+	weld.Part1 = reflectPart
+	weld.Parent = reflectPart
+	
+	reflectPart.CFrame = root.CFrame
+	reflectPart.Parent = char
+	
+	-- 발동 사운드
+	local startSound = Instance.new("Sound")
+	startSound.SoundId = "rbxassetid://12222076" -- SF 에너지 쉴드 발동음
+	startSound.Parent = root
+	startSound:Play()
+	game:GetService("Debris"):AddItem(startSound, 2)
+	
+	-- 맥박 뛰는(Pulse) 애니메이션
+	local pulseInfo = TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true)
+	local pulseTween = TweenService:Create(reflectPart, pulseInfo, {
+		Size = Vector3.new(13, 13, 13),
+		Transparency = 0.3
+	})
+	pulseTween:Play()
+	
+	-- No time limit, stays active until used.
+	task.spawn(function()
+		while reflectPart.Parent do
+			if not activeReflects[player.UserId] then
+				-- Broken/Used!
+				if char and char.Parent then
+					char:SetAttribute("HasReflect", false)
+				end
+				pulseTween:Cancel()
+				
+				-- 방어 성공 사운드
+				local breakSound = Instance.new("Sound")
+				breakSound.SoundId = "rbxassetid://258057783"
+				breakSound.Volume = 1
+				breakSound.Parent = root
+				breakSound:Play()
+				game:GetService("Debris"):AddItem(breakSound, 2)
+				
+				-- 방어막 깜빡거림 연출
+				if reflectPart and reflectPart.Parent then
+					for i = 1, 4 do
+						if not reflectPart or not reflectPart.Parent then break end
+						reflectPart.Transparency = 1
+						task.wait(0.08)
+						if not reflectPart or not reflectPart.Parent then break end
+						reflectPart.Transparency = 0.2
+						task.wait(0.08)
+					end
+					
+					if reflectPart and reflectPart.Parent then
+						reflectPart:Destroy()
+					end
+				end
+				break
 			end
-		end)
+			task.wait(0.1)
+		end
 	end)
 end
 
@@ -905,9 +982,8 @@ if useSkillRemote then
 		elseif skillId == "Skill_Paintball" then
 			local target = LapManager.getPlayerAhead(player.UserId)
 			firePaintball(player, target)
-		elseif skillId == "Skill_Virus" then
-			local target = LapManager.getPlayerAhead(player.UserId)
-			fireVirus(player, target)
+		elseif skillId == "Skill_Reflect" then
+			activateReflect(player)
 		elseif skillId == "Skill_Shield" then
 			fireShield(player)
 		elseif skillId == "Skill_OrbitalLaser" then

@@ -18,7 +18,7 @@ SkillStoreConfig.Skills = {
 		id = "Skill_Paintball",
 		name = "Paintball",
 		description = "Splats ink on the screen of the player directly in front of you, blocking their vision.",
-		imageId = "rbxassetid://13583568770", -- 임시 아이콘 (퀘스트 아이콘 재사용)
+		imageId = "rbxassetid://100042133733129",
 		goldPrice = 2500,
 		cooldownType = "Cooldown",
 		cooldownTime = 12
@@ -43,13 +43,13 @@ SkillStoreConfig.Skills = {
 		cooldownTime = 5 -- 연속 사용 방지용 짧은 쿨타임
 	},
 	{
-		id = "Skill_Virus",
-		name = "Virus Inject",
-		description = "Hacks the hoverboard of the player in front of you, reversing their controls.",
-		imageId = "rbxassetid://99214302538101", -- 임시 아이콘 (EMP 아이콘 재사용)
-		goldPrice = 4500,
+		id = "Skill_Reflect",
+		name = "Reflect",
+		description = "Creates a red shield that lasts until hit. Reflects targeted skills (like Ice Bomb, Paintball) back to the attacker! (Max 2 uses per game)",
+		imageId = "rbxassetid://13583568770", -- 방패 아이콘이 없으면 일단 임시 배정
+		goldPrice = 3000,
 		cooldownType = "Cooldown",
-		cooldownTime = 18
+		cooldownTime = 1
 	},
 	{
 		id = "Skill_BlindFog",

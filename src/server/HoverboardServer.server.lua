@@ -9,13 +9,7 @@ local Workspace = game:GetService("Workspace")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local HoverboardConfig = require(Shared:WaitForChild("HoverboardConfig") :: ModuleScript)
 
--- Clean up legacy SpawnLocations or BasicBoard models on the track so players spawn in WaitingRoom Lounge
-for _, child in ipairs(Workspace:GetDescendants()) do
-	if child:IsA("SpawnLocation") and child.Name ~= "LoungeSpawnLocation" then
-		child:Destroy()
-		print("🗑️ 트랙 임시 스폰지점 삭제 완료:", child.Name)
-	end
-end
+-- 스폰 지역 삭제 코드 제거 (유저가 배치한 SpawnLocation 보호)
 
 -- Clear StarterPack & Player Backpack default items (Remove slot 1 tool)
 local StarterPack = game:GetService("StarterPack")

@@ -458,7 +458,8 @@ local function playGlitchEffect()
 end
 
 local function bindSlot(index)
-	local slotFrame = gui:FindFirstChild("Slot" .. index, true) :: ImageButton?
+	local slotsContainer = gui:FindFirstChild("SlotsContainer")
+	local slotFrame = slotsContainer and slotsContainer:FindFirstChild("Slot" .. index) :: ImageButton?
 	if not slotFrame then
 		warn("❌ [SkillActionController] Could not find 'Slot" .. index .. "' inside SkillActionGui. Skipping.")
 		return
@@ -1169,12 +1170,16 @@ updateUsesRemote.OnClientEvent:Connect(function(skillId, left)
 end)
 
 local paintOverlay
+local cachedSplatSource = nil
+
 paintballEffectRemote.OnClientEvent:Connect(function()
-	-- 1. Splat 에셋 찾기 (어디에 넣으셨든 다 찾도록 범위 확대)
-	local splatSource = workspace:FindFirstChild("Splat", true) 
-		or game.ReplicatedStorage:FindFirstChild("Splat", true)
-		or game:GetService("StarterGui"):FindFirstChild("Splat", true)
-		or game.Players.LocalPlayer:FindFirstChild("PlayerGui"):FindFirstChild("Splat", true)
+	-- 1. Splat 에셋 찾기 (경로 하드코딩 - 가장 빠르고 권장되는 방식)
+	-- 주의: Splat 원본 에셋은 반드시 ReplicatedStorage 바로 아래에 위치해야 합니다.
+	if not cachedSplatSource or not cachedSplatSource.Parent then
+		cachedSplatSource = game.ReplicatedStorage:FindFirstChild("Splat")
+	end
+	
+	local splatSource = cachedSplatSource
 	
 	if splatSource then
 		-- 2. Splat 복제 후 화면에 띄우기

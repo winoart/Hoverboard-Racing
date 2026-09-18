@@ -359,13 +359,11 @@ task.spawn(function()
 	end
 
 	local robuxShopBtn = nil
-	for _, gui in ipairs(playerGui:GetChildren()) do
-		if gui:IsA("ScreenGui") then
-			local btn = gui:FindFirstChild("RobuxShop", true) or gui:FindFirstChild("RobuxShopBtn", true)
-			if btn and btn:IsA("GuiButton") then
-				robuxShopBtn = btn
-				break
-			end
+	local shopGui = playerGui:FindFirstChild("RobuxShop")
+	if shopGui then
+		local btn = shopGui:FindFirstChild("RobuxShop")
+		if btn and btn:IsA("GuiButton") then
+			robuxShopBtn = btn
 		end
 	end
 	

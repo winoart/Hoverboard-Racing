@@ -212,13 +212,11 @@ local function createRow(rank: number, username: string, gold: number, userId: n
 end
 
 local function updateLeaderboard()
-	local board = Workspace:FindFirstChild("MoneyLeaderboard", true) or Workspace:FindFirstChild("MoneyBoard", true)
+	local board = Workspace:FindFirstChild("WaitingRoom") and Workspace.WaitingRoom:FindFirstChild("MoneyLeaderboard")
 	if not board then return end
-	
-	local surfaceGui = board:FindFirstChild("RaceBoard", true) or board:FindFirstChild("LeaderboardSurfaceGui", true) or board:FindFirstChildWhichIsA("SurfaceGui", true)
+	local surfaceGui = board:FindFirstChild("ScreenPart") and board.ScreenPart:FindFirstChild("RaceBoard")
 	if not surfaceGui then return end
-	
-	local root = surfaceGui:FindFirstChild("Root", true)
+	local root = surfaceGui:FindFirstChild("Root")
 	if not root then return end
 	
 	local rawContainer = root:FindFirstChild("Container") or root
@@ -416,9 +414,9 @@ local function updateLeaderboard()
 end
 
 local function getSurfaceGui()
-	local board = Workspace:FindFirstChild("MoneyLeaderboard", true) or Workspace:FindFirstChild("MoneyBoard", true)
+	local board = Workspace:FindFirstChild("WaitingRoom") and Workspace.WaitingRoom:FindFirstChild("MoneyLeaderboard")
 	if not board then return nil end
-	return board:FindFirstChild("RaceBoard", true) or board:FindFirstChild("LeaderboardSurfaceGui", true) or board:FindFirstChildWhichIsA("SurfaceGui", true)
+	return board:FindFirstChild("ScreenPart") and board.ScreenPart:FindFirstChild("RaceBoard")
 end
 
 local function updateRefreshCounter(timeLeft: number)
