@@ -39,6 +39,8 @@ local isMounted = false
 local isRaceStarted = false
 local isFinished = false
 local currentBoardModel: Model? = nil
+local engineSound: Sound? = nil
+local boostSound: Sound? = nil
 local currentBankAngle = 0
 local currentHeadingYaw = 0
 local defaultFOV = 70
@@ -592,6 +594,35 @@ stateRemote.OnClientEvent:Connect(function(mounted: boolean, boardModel: Model?,
 		if hum then
 			hum:SetStateEnabled(Enum.HumanoidStateType.Jumping, false)
 		end
+		
+		if not engineSound then
+			engineSound = Instance.new("Sound")
+			engineSound.Name = "HoverboardEngineSound"
+			engineSound.SoundId = "rbxassetid://75876120873511"
+			engineSound.Looped = true
+			engineSound.Volume = 0.2
+			engineSound.PlaybackSpeed = 0.8
+			
+			local hrp = character and character:FindFirstChild("HumanoidRootPart")
+			if hrp then
+				engineSound.Parent = hrp
+				engineSound:Play()
+			end
+		end
+
+		if not boostSound then
+			boostSound = Instance.new("Sound")
+			boostSound.Name = "HoverboardBoostSound"
+			boostSound.SoundId = "rbxassetid://122292120519645"
+			boostSound.Looped = true
+			boostSound.Volume = 0.8
+			boostSound.PlaybackSpeed = 1.0
+			
+			local hrp = character and character:FindFirstChild("HumanoidRootPart")
+			if hrp then
+				boostSound.Parent = hrp
+			end
+		end
 
 		task.defer(function()
 			local char = LocalPlayer.Character
@@ -647,6 +678,14 @@ stateRemote.OnClientEvent:Connect(function(mounted: boolean, boardModel: Model?,
 			end
 		end)
 	else
+		if engineSound then
+			engineSound:Destroy()
+			engineSound = nil
+		end
+		if boostSound then
+			boostSound:Destroy()
+			boostSound = nil
+		end
 		isBoosting = false
 		isRaceStarted = false
 		_G.wasOnTreadmill = false
@@ -779,6 +818,28 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 	local horizontalVelocity = Vector3.new(velocity.X, 0, velocity.Z)
 	local currentSpeed = horizontalVelocity.Magnitude
 
+	if engineSound and engineSound.IsPlaying then
+		local maxSpeed = HoverboardConfig.MAX_SPEED or 150
+		local speedRatio = math.clamp(currentSpeed / maxSpeed, 0, 1)
+		-- 중저음을 위해 피치(PlaybackSpeed)를 전체적으로 낮춤 (최고속도 시 피치 증가폭 감소)
+		engineSound.PlaybackSpeed = 0.6 + (speedRatio * 0.4) -- 0.6 ~ 1.0
+		-- 호버보드 주행 소리가 묻히지 않도록 기존 대비 2배 더 증폭 (매우 큼)
+		engineSound.Volume = 0.8 + (speedRatio * 2.4) -- 0.8 ~ 3.2
+		
+		if isBoosting then
+			engineSound.PlaybackSpeed = engineSound.PlaybackSpeed + 0.3
+			engineSound.Volume = engineSound.Volume + 0.4
+		end
+	end
+
+	if boostSound then
+		if isBoosting and not boostSound.IsPlaying then
+			boostSound:Play()
+		elseif not isBoosting and boostSound.IsPlaying then
+			boostSound:Stop()
+		end
+	end
+
 	if not isSpectating then
 		humanoid.AutoRotate = false
 
@@ -847,8 +908,8 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 
 		-- velocity and currentSpeed are now calculated above the if block
 
-		-- Prevent Movement & Steering during Start Countdown
-		if not isRaceStarted then
+		-- Prevent Movement & Steering during Start Countdown (레이스 시작 전 대기 상태)
+		if not isRaceStarted and not isFinished then
 			humanoid.WalkSpeed = 0
 			humanoid:Move(Vector3.zero, false)
 			currentWalkSpeed = 0.0
@@ -858,6 +919,14 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 			local isW = UserInputService:IsKeyDown(Enum.KeyCode.W) or UserInputService:IsKeyDown(Enum.KeyCode.Up)
 			local isS = UserInputService:IsKeyDown(Enum.KeyCode.S) or UserInputService:IsKeyDown(Enum.KeyCode.Down)
 			local isBoostKey = UserInputService:IsKeyDown(HoverboardConfig.BOOSTER_KEY) or UserInputService:IsKeyDown(Enum.KeyCode.Space)
+			
+			-- 레이스를 완주한 경우 조작을 막아 자연스럽게 감속되도록 유도
+			if isFinished then
+				isW = false
+				isS = false
+				isBoostKey = false
+				isBoosting = false
+			end
 			
 			if isStunned then
 				stunTimer -= deltaTime
@@ -941,7 +1010,7 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 					local accelRate = 36
 					currentWalkSpeed = math.min(targetSpeed, currentWalkSpeed + (accelRate * deltaTime))
 				elseif currentWalkSpeed > targetSpeed then
-					local decelRate = 48
+					local decelRate = 60 -- 48에서 60으로 약간 상향하여 부드럽지만 너무 미끄러지지 않게 감속
 					currentWalkSpeed = math.max(targetSpeed, currentWalkSpeed - (decelRate * deltaTime))
 				end
 
@@ -951,6 +1020,17 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 			end
 
 			humanoid.WalkSpeed = currentWalkSpeed
+			
+			-- 가속도 디버깅 (속도가 변하는 동안 0.1초마다 콘솔에 출력)
+			if not _G.debugPrintTimer then _G.debugPrintTimer = 0 end
+			_G.debugPrintTimer += deltaTime
+			if _G.debugPrintTimer >= 0.1 then
+				_G.debugPrintTimer = 0
+				local maxR = HoverboardConfig.RIDE_WALKSPEED or 110
+				if currentWalkSpeed > 0.1 and currentWalkSpeed < (maxR - 0.1) then
+					print(string.format("[DEBUG-ACCEL] 🕒 WalkSpeed(목표): %.1f | 실제물리속도: %.1f", currentWalkSpeed, currentSpeed))
+				end
+			end
 
 			-- Execute Movement
 			local boardModel = character:FindFirstChild("EquippedHoverboard") :: Model?
@@ -958,19 +1038,16 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 			local frontLED = boardModel and boardModel:FindFirstChild("FrontLED") :: BasePart?
 			local rearLED = boardModel and boardModel:FindFirstChild("RearLED") :: BasePart?
 
-			if rootPart and (isW or isS) then
+			if rootPart and currentWalkSpeed > 0.1 then
 				local wDir = hrp.CFrame.RightVector
 
-				local moveVector = Vector3.zero
-				if isW then
-					moveVector = wDir
-				elseif isS then
+				local moveVector = wDir
+				if isS and not isW then
 					moveVector = -wDir
 				end
 
-				if moveVector.Magnitude > 0 then
-					humanoid:Move(moveVector, false)
-				end
+				-- W나 S를 떼더라도 currentWalkSpeed가 남아있는 동안 관성으로 계속 미끄러집니다.
+				humanoid:Move(moveVector, false)
 			else
 				humanoid:Move(Vector3.zero, false)
 			end
