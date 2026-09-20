@@ -83,12 +83,13 @@ SkillStoreConfig.Skills = {
 	},
 	{
 		id = "Skill_Premium",
-		name = "스타터 전용 스킬",
-		description = "로벅스 패키지를 구매한 플레이어만 사용할 수 있는 강력한 전용 스킬입니다.",
+		name = "골든 프리즈",
+		description = "스타터팩 전용! 금빛 얼음으로 상대를 더 길게 얼어붙게 만듭니다.",
 		imageId = "rbxassetid://13583568770", -- Placeholder
 		goldPrice = 0,
-		cooldownType = "Cooldown",
-		cooldownTime = 15,
+		cooldownType = "Charges",
+		maxUses = 3,
+		cooldownTime = 6,
 		isExclusive = true -- 스킬 상점(골드 상점)에 노출되지 않음
 	}
 }

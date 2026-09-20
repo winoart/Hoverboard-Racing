@@ -39,6 +39,15 @@ StoreConfig.Items = {
 		desc = "The most basic hoverboard for beginners. Features a stable and smooth ride.",
 	},
 	{
+		id = "StarterPac_Board",
+		name = "VIP Starter Board",
+		imageId = "rbxassetid://98211009044526", -- 임시 아이콘 (나중에 데칼 이미지로 변경 가능)
+		rarity = "Super Rare",
+		weight = 0, -- 시작할 때 기본 지급되거나 팩 전용이므로 뽑기 확률 0
+		price = 0,
+		desc = "A luxurious, gold-plated VIP hoverboard exclusively for Starter Pack owners.",
+	},
+	{
 		id = "ClassicRookie",
 		name = "Classic Rookie",
 		imageId = "rbxassetid://10078028148", -- 아이콘은 임시

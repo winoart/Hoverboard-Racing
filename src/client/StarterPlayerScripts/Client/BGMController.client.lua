@@ -5,7 +5,9 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SoundService = game:GetService("SoundService")
 local TweenService = game:GetService("TweenService")
+local Players = game:GetService("Players")
 
+local LocalPlayer = Players.LocalPlayer
 local remotesFolder = ReplicatedStorage:WaitForChild("HoverboardRemotes") :: Folder
 local phaseRemote = remotesFolder:WaitForChild("GamePhaseChanged") :: RemoteEvent
 
@@ -61,6 +63,12 @@ local function updateBGM()
 		-- 맵 로딩 중일 때 BGM 정지
 		playBGM("") 
 	elseif currentPhase == "RACE_MATCH" then
+		local isAFK = LocalPlayer:GetAttribute("IsAFK")
+		if isAFK then
+			playBGM(BGM_IDS.Lobby)
+			return
+		end
+
 		local mapBGM = BGM_IDS.Lobby -- 맵에 해당하는 브금이 없으면 일단 로비 브금(또는 무음) 재생
 		if currentMap == "Oval Speedway" then
 			mapBGM = BGM_IDS.OvalSpeedway
@@ -81,6 +89,11 @@ phaseRemote.OnClientEvent:Connect(function(phase: string, timeLeft: number, mapV
 	if chosenMap then
 		currentMap = chosenMap
 	end
+	updateBGM()
+end)
+
+-- AFK 상태 변경 리스너
+LocalPlayer:GetAttributeChangedSignal("IsAFK"):Connect(function()
 	updateBGM()
 end)
 

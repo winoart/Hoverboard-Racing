@@ -972,6 +972,149 @@ local function activateReflect(player: Player)
 	end)
 end
 
+-- [Premium Skill: Golden Freeze]
+local function fireGoldenFreeze(caster: Player, target: Player?)
+	local casterChar = caster.Character
+	if not casterChar or not casterChar.PrimaryPart then return end
+	
+	setCooldown(caster, "Skill_Premium")
+	
+	if not target or not target.Character or not target.Character.PrimaryPart then
+		print("✨ [SkillServer] Golden Freeze fizzled (No Target) for " .. caster.Name)
+		return
+	end
+	
+	print("✨ [SkillServer] Golden Freeze fired by " .. caster.Name .. " at " .. target.Name .. " (Will hit in 1.0 seconds)")
+	
+	if skillWarningRemote then
+		skillWarningRemote:FireAllClients(target.Name, caster.Name, "Skill_Premium")
+	end
+	
+	-- 서버는 타겟을 찾아 1.0초 뒤에 꽂히는 판정 수행
+	task.delay(1.0, function()
+		if not target or not target.Character or not target.Character.PrimaryPart then return end
+		local targetChar = target.Character
+		local targetRoot = targetChar.PrimaryPart
+		
+		if activeGhosts[target.UserId] then
+			print("👻 [SkillServer] " .. target.Name .. " DODGED Golden Freeze as a Ghost!")
+			return
+		end
+			
+			if not target or not target.Character or not target.Character.PrimaryPart then return end
+			local targetChar = target.Character
+			local targetRoot = targetChar.PrimaryPart
+			
+			-- 타격 직전 반사 체크
+			if activeReflects[target.UserId] then
+				print("🪞 [SkillServer] " .. target.Name .. " REFLECTED Golden Freeze back to " .. caster.Name .. "!")
+				activeReflects[target.UserId] = false
+				
+				if skillWarningRemote then
+					skillWarningRemote:FireAllClients(caster.Name, target.Name, "Skill_Reflected")
+				end
+				
+				target = caster
+				targetChar = target.Character
+				targetRoot = targetChar.PrimaryPart
+			elseif activeShields[target.UserId] then
+				print("🛡️ [SkillServer] " .. target.Name .. " BLOCKED Golden Freeze with a Shield!")
+				activeShields[target.UserId] = false
+				
+				if skillWarningRemote then
+					skillWarningRemote:FireAllClients(caster.Name, target.Name, "Skill_Shield_Break")
+				end
+				return
+			end
+			
+			-- 타격 파티클 이펙트
+			local hitAtt = Instance.new("Attachment", targetRoot)
+			local hitEmit = Instance.new("ParticleEmitter")
+			hitEmit.Size = NumberSequence.new({NumberSequenceKeypoint.new(0, 5), NumberSequenceKeypoint.new(1, 15)})
+			hitEmit.Transparency = NumberSequence.new(0, 1)
+			hitEmit.Color = ColorSequence.new(Color3.fromRGB(255, 223, 0))
+			hitEmit.Speed = NumberRange.new(50, 100)
+			hitEmit.Drag = 5
+			hitEmit.Lifetime = NumberRange.new(0.5, 1)
+			hitEmit.Rate = 0
+			hitEmit.SpreadAngle = Vector2.new(180, 180)
+			hitEmit.Parent = hitAtt
+			hitEmit:Emit(150)
+			game:GetService("Debris"):AddItem(hitAtt, 2)
+			
+			-- FREEZE TARGET (길게 얼림)
+			print("✨ [SkillServer] " .. target.Name .. " is GOLDEN FROZEN by " .. caster.Name .. "!")
+			
+			targetChar:SetAttribute("StatusEffect_Frozen", true)
+			
+			local hoverboard = targetChar:FindFirstChild("Hoverboard")
+			if hoverboard and hoverboard:IsA("Model") and hoverboard.PrimaryPart then
+				hoverboard.PrimaryPart.Anchored = true
+			else
+				targetRoot.Anchored = true
+			end
+			
+			-- 황금 파티클 입자로 몸을 감싸기! (클라이언트에서 200개의 개별 파티클이 감싸므로 서버 안개 파티클 제거)
+			local iceAtt = Instance.new("Attachment", targetRoot)
+			iceAtt.Name = "GoldenFreezeCoating"
+			
+			-- 몸 전체에서 빛나도록 조명 추가
+			local light = Instance.new("PointLight")
+			light.Color = Color3.fromRGB(255, 215, 0)
+			light.Range = 12
+			light.Brightness = 3
+			light.Parent = iceAtt
+
+			
+			local humanoid = targetChar:FindFirstChild("Humanoid")
+			local animator = humanoid and humanoid:FindFirstChild("Animator")
+			local pausedTracks = {}
+			if animator then
+				for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+					track:AdjustSpeed(0)
+					table.insert(pausedTracks, track)
+				end
+			end
+			
+			-- 5초간 스무스하게 멈추고 풀림
+			task.delay(5, function()
+				if targetChar and targetChar.Parent then
+					targetChar:SetAttribute("StatusEffect_Frozen", false)
+				end
+				if hoverboard and hoverboard:IsA("Model") and hoverboard.PrimaryPart then
+					hoverboard.PrimaryPart.Anchored = false
+				elseif targetRoot and targetRoot.Parent then
+					targetRoot.Anchored = false
+				end
+				
+				for _, track in ipairs(pausedTracks) do
+					if track.IsPlaying then
+						track:AdjustSpeed(1)
+					end
+				end
+				
+				if iceAtt and iceAtt.Parent then
+					-- 스무스하게 사라지게 하기 위해 빛 꺼지기 (안개 파티클은 제거됨)
+					for _, child in ipairs(iceAtt:GetChildren()) do
+						if child:IsA("PointLight") then
+							game:GetService("TweenService"):Create(child, TweenInfo.new(1), {Brightness = 0}):Play()
+						end
+					end
+					
+					-- 남은 입자가 다 사라지면 삭제
+					game:GetService("Debris"):AddItem(iceAtt, 2)
+				end
+				
+				local shatterSound = Instance.new("Sound")
+				shatterSound.SoundId = "rbxassetid://131148590"
+				shatterSound.Volume = 0.8
+				shatterSound.Parent = targetRoot
+				shatterSound:Play()
+				game:GetService("Debris"):AddItem(shatterSound, 2)
+			end)
+	end)
+end
+
 if useSkillRemote then
 	useSkillRemote.OnServerEvent:Connect(function(player: Player, skillId: string)
 		if not canUseSkill(player, skillId) then
@@ -986,6 +1129,9 @@ if useSkillRemote then
 		if skillId == "Skill_IceBomb" then
 			local target = LapManager.getPlayerAhead(player.UserId)
 			fireIceBomb(player, target)
+		elseif skillId == "Skill_Premium" then
+			local target = LapManager.getPlayerAhead(player.UserId)
+			fireGoldenFreeze(player, target)
 		elseif skillId == "Skill_Paintball" then
 			local target = LapManager.getPlayerAhead(player.UserId)
 			firePaintball(player, target)

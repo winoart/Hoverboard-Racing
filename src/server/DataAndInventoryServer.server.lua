@@ -346,6 +346,31 @@ equipBoardRemote.OnServerInvoke = function(player: Player, itemId: string)
 		local equippedId = player:FindFirstChild("EquippedHoverboardId") :: StringValue?
 		if equippedId then
 			equippedId.Value = itemId
+			
+			-- 스타터팩 보드 장착 시 골든 프리즈(Skill_Premium) 자동 획득 및 장착
+			if itemId == "StarterPac_Board" then
+				local ownedSkills = player:FindFirstChild("OwnedSkills")
+				local equippedSkills = player:FindFirstChild("EquippedSkills")
+				if ownedSkills and equippedSkills then
+					if not ownedSkills:FindFirstChild("Skill_Premium") then
+						local s = Instance.new("StringValue")
+						s.Name = "Skill_Premium"
+						s.Parent = ownedSkills
+					end
+					if not equippedSkills:FindFirstChild("Skill_Premium") then
+						local maxSlots = player:FindFirstChild("MaxSkillSlots")
+						local limit = maxSlots and maxSlots.Value or 1
+						if #equippedSkills:GetChildren() >= limit then
+							local first = equippedSkills:GetChildren()[1]
+							if first then first:Destroy() end
+						end
+						local s = Instance.new("StringValue")
+						s.Name = "Skill_Premium"
+						s.Parent = equippedSkills
+					end
+				end
+			end
+			
 			return true, "장착 완료"
 		end
 	end

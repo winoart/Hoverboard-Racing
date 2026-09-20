@@ -277,6 +277,153 @@ local function spawnLocalProjectileVisual(skillId: string, overrideChar: Model?)
 	end)
 end
 
+local function createSpritePart()
+	local p = Instance.new("Part")
+	p.Size = Vector3.new(0.1, 0.1, 0.1)
+	p.Transparency = 1
+	p.CanCollide = false
+	p.Anchored = true
+	
+	local att = Instance.new("Attachment", p)
+	local pe = Instance.new("ParticleEmitter", att)
+	pe.Texture = "rbxassetid://741215414" -- 선명한 별 텍스처 복구 (안개처럼 보이지 않게 함)
+	pe.Size = NumberSequence.new(0.4) -- 너무 뭉치지 않게 크기 축소
+	pe.Color = ColorSequence.new(Color3.fromRGB(255, 215, 0))
+	pe.Lifetime = NumberRange.new(10)
+	pe.Rate = 0
+	pe.Speed = NumberRange.new(0)
+	pe.LockedToPart = true
+	pe.LightEmission = 1
+	pe.ZOffset = 1
+	
+	return p, pe
+end
+
+local function spawnGoldenFreezeUpVisual(casterRoot)
+	print("🛠️ [DEBUG] spawnGoldenFreezeUpVisual 2-Step (Pop & Fly) started for:", casterRoot and casterRoot.Parent and casterRoot.Parent.Name)
+	task.spawn(function()
+		for i = 1, 150 do -- 150개로 풍성하게 유지
+			if not casterRoot or not casterRoot.Parent then break end
+			local p, pe = createSpritePart()
+			p.Anchored = false 
+			p.Parent = casterRoot
+			
+			local weld = Instance.new("Weld")
+			weld.Part0 = casterRoot
+			weld.Part1 = p
+			weld.C0 = CFrame.new(0, 0, 0)
+			weld.Parent = p
+			pe:Emit(1)
+			
+			-- [1단계] 몸에서 사방으로 살짝 튀어나오는 Pop 연출 (Quad Out - 느려짐)
+			local popX = math.random(-10, 10)
+			local popY = math.random(0, 10)
+			local popZ = math.random(-10, 10)
+			local popOffset = CFrame.new(popX, popY, popZ)
+			
+			local popTweenInfo = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+			local popTween = TweenService:Create(weld, popTweenInfo, {C0 = popOffset})
+			
+			popTween.Completed:Connect(function()
+				if not p or not p.Parent or not weld.Parent then return end
+				
+				-- [2단계] 캐릭터 앞쪽 허공으로 가속하며 쏘아지는 Fly 연출 (Exponential In - 가속도)
+				-- 계속 Weld되어 있으므로 캐릭터가 아무리 빨리 달려도 속도를 완벽히 물려받음
+				local forwardDist = math.random(80, 150)
+				local upDist = math.random(60, 100)
+				-- C0 기준 Z 음수가 캐릭터 앞방향
+				local targetOffset = popOffset * CFrame.new(0, upDist, -forwardDist)
+				
+				local flyDuration = 0.5 + (math.random() * 0.3)
+				local flyTweenInfo = TweenInfo.new(flyDuration, Enum.EasingStyle.Exponential, Enum.EasingDirection.In)
+				local flyTween = TweenService:Create(weld, flyTweenInfo, {C0 = targetOffset})
+				
+				flyTween:Play()
+				flyTween.Completed:Connect(function() p:Destroy() end)
+			end)
+			
+			-- 10개 단위로 아주 미세한 시차를 두고 팝(Pop) 시킴
+			task.delay((i % 10) * 0.01, function()
+				if p and p.Parent then
+					popTween:Play()
+				end
+			end)
+		end
+	end)
+end
+
+local function spawnGoldenFreezeDownVisual(targetRoot)
+	task.spawn(function()
+		local orbitParts = {}
+		-- 0.7초 지연 후 하늘에서 생성 (총 1.0초 뒤 타격과 동기화)
+		task.wait(0.7)
+		
+		for i = 1, 200 do -- 안개 파티클을 제거하고 200개의 개별 파티클로 확실하게 감싸기
+			if not targetRoot or not targetRoot.Parent then break end
+			local p, pe = createSpritePart()
+			p.Anchored = false
+			p.Parent = targetRoot
+			table.insert(orbitParts, p)
+			pe:Emit(1)
+			
+			local weld = Instance.new("Weld")
+			weld.Part0 = targetRoot
+			weld.Part1 = p
+			
+			-- 시작점: 반경 5~12 주변, 60스터드 위 하늘
+			local startAngle = math.rad(math.random(0, 360))
+			local startRadius = math.random(5, 12)
+			weld.C0 = CFrame.new(math.cos(startAngle) * startRadius, 60, math.sin(startAngle) * startRadius)
+			weld.Parent = p
+			
+			-- [1단계] 떨어지는 연출 (0.3초) -> 상대가 도망가도 C0 웰드 덕분에 정수리로 정확히 떨어짐
+			local dropTween = TweenService:Create(weld, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+				C0 = CFrame.new(math.cos(startAngle) * startRadius, math.random(-2, 4), math.sin(startAngle) * startRadius)
+			})
+			dropTween:Play()
+			
+			dropTween.Completed:Connect(function()
+				if not weld or not weld.Parent then return end
+				-- [2단계] 떨어지자마자 몸에서 약간 거리를 둔 반경(4~6)으로 조여드는 연출
+				local bindRadius = math.random(4, 6)
+				local targetY = math.random(-3, 3)
+				local bindTween = TweenService:Create(weld, TweenInfo.new(0.5, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out), {
+					C0 = CFrame.new(math.cos(startAngle) * bindRadius, targetY, math.sin(startAngle) * bindRadius)
+				})
+				bindTween:Play()
+				
+				-- [3단계] 5초 동안 주위를 천천히 도는(Orbit) 연출
+				local rotationSpeed = math.random(60, 120) -- 초당 60~120도 회전
+				local dir = (math.random(1, 2) == 1) and 1 or -1
+				
+				task.spawn(function()
+					local startTime = tick()
+					local currentAngle = startAngle
+					while weld and weld.Parent and tick() - startTime < 5.0 do
+						local dt = task.wait()
+						currentAngle = currentAngle + math.rad(rotationSpeed * dt * dir)
+						weld.C0 = CFrame.new(math.cos(currentAngle) * bindRadius, targetY, math.sin(currentAngle) * bindRadius)
+					end
+				end)
+			end)
+		end
+		
+		-- 5초 후 꽁꽁 묶어놨던 입자들 소멸
+		task.delay(5.0, function()
+			for _, p in ipairs(orbitParts) do
+				if p and p.Parent then
+					local att = p:FindFirstChildWhichIsA("Attachment")
+					if att then
+						local pe = att:FindFirstChildWhichIsA("ParticleEmitter")
+						if pe then pe.Enabled = false end
+					end
+					p:Destroy()
+				end
+			end
+		end)
+	end)
+end
+
 local activeToasts = {}
 local MAX_TOASTS = 4
 local TOAST_SPACING = 0.08 -- Y-scale offset per toast
@@ -885,8 +1032,17 @@ skillWarningRemote.OnClientEvent:Connect(function(targetName: string, casterName
 		print("[DEBUG-SkillWarning] I am spectating target:", subject and subject.Parent and subject.Parent.Name, "Result:", isSpectatingThem)
 	end
 	
+	-- 🌐 글로벌 시각적 효과: 모든 유저가 타겟이 맞는 것을 봐야 합니다!
+	if skillId == "Skill_Premium" then
+		local targetPlayer = Players:FindFirstChild(targetName)
+		if targetPlayer and targetPlayer.Character and targetPlayer.Character.PrimaryPart then
+			-- spawnGoldenFreezeDownVisual 내부에서 0.7초 대기하므로 즉시 호출합니다.
+			spawnGoldenFreezeDownVisual(targetPlayer.Character.PrimaryPart)
+		end
+	end
+
 	if not isMe and not isSpectatingThem then 
-		print("[DEBUG-SkillWarning] Ignored. Not me and not spectating the target.")
+		print("[DEBUG-SkillWarning] Ignored UI for non-target.")
 		return 
 	end
 
@@ -1094,8 +1250,20 @@ empHackRemote.OnClientEvent:Connect(function()
 	end)
 end)
 
--- 📡 Global Skill Cast Listener (For Spectators)
+-- 📡 Global Skill Cast Listener (For Spectators & Global Visuals)
 globalSkillCastRemote.OnClientEvent:Connect(function(casterUserId: number, skillId: string)
+	-- 시전자 시각적 효과 (전체 클라이언트 재생)
+	if skillId == "Skill_Premium" then
+		local casterPlayer = nil
+		for _, p in ipairs(Players:GetPlayers()) do
+			if p.UserId == casterUserId then casterPlayer = p break end
+		end
+		
+		if casterPlayer and casterPlayer.Character and casterPlayer.Character.PrimaryPart then
+			spawnGoldenFreezeUpVisual(casterPlayer.Character.PrimaryPart)
+		end
+	end
+
 	if LocalPlayer:GetAttribute("IsSpectating") == true then
 		local Camera = workspace.CurrentCamera
 		local subject = Camera.CameraSubject
