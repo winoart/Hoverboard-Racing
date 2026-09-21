@@ -1546,6 +1546,21 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	end
 end)
 
+local mobileBoosterEvent = remotesFolder:FindFirstChild("MobileBoosterEvent")
+if not mobileBoosterEvent then
+	mobileBoosterEvent = Instance.new("BindableEvent")
+	mobileBoosterEvent.Name = "MobileBoosterEvent"
+	mobileBoosterEvent.Parent = remotesFolder
+end
+
+mobileBoosterEvent.Event:Connect(function()
+	if not isMounted then return end
+	if not isBoosting and boosterGauge >= HoverboardConfig.BOOSTER_MIN_TO_USE then
+		isBoosting = true
+		showBoosterToast()
+	end
+end)
+
 -- ----------------------------------------------------
 -- 🚦 5-SECOND RACE START COUNTDOWN UI OVERLAY (3, 2, 1, GO!)
 -- ----------------------------------------------------

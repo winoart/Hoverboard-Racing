@@ -332,19 +332,14 @@ task.spawn(function()
 	gui.Enabled = true -- Auto popup on join
 end)
 
--- Hide Attendance UI when Map Voting or Race starts
-local gamePhaseRemote = ReplicatedStorage:WaitForChild("HoverboardRemotes"):WaitForChild("GamePhaseChanged") :: RemoteEvent
-gamePhaseRemote.OnClientEvent:Connect(function(phase: string)
-	if phase ~= "INTERMISSION" then
-		gui.Enabled = false
-	end
-end)
+-- (UIManager가 관전/레이스 진입 시 팝업을 닫아주므로 여기서 1초마다 닫을 필요 없음)
 
 -- Connect HUD Toggle Button
 task.spawn(function()
 	local function connectDailyButton()
-		local dailyRewardGui = playerGui:WaitForChild("dailyreward")
-		local toggleBtn = dailyRewardGui:WaitForChild("ImageButton")
+		local utilityBarGui = playerGui:WaitForChild("UtilityBarGui")
+		local container = utilityBarGui:WaitForChild("UtilityBarContainer")
+		local toggleBtn = container:WaitForChild("DailyButton")
 		
 		if toggleBtn:GetAttribute("DailyHooked") then return end
 		toggleBtn:SetAttribute("DailyHooked", true)
@@ -359,7 +354,7 @@ task.spawn(function()
 	
 	-- In case the UI has ResetOnSpawn turned on and is recreated when the player dies
 	playerGui.ChildAdded:Connect(function(child)
-		if child.Name == "dailyreward" then
+		if child.Name == "UtilityBarGui" then
 			connectDailyButton()
 		end
 	end)

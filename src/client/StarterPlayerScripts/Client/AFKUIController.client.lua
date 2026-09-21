@@ -16,12 +16,13 @@ local isAFK = false
 local currentPhase = "INTERMISSION"
 
 -- 1. Setup AFK & Spectator UI
+local utilityBarGui = PlayerGui:WaitForChild("UtilityBarGui")
+local utilityContainer = utilityBarGui:WaitForChild("UtilityBarContainer")
 local afkGui = PlayerGui:WaitForChild("AFKGui")
 
-local afkBtn = afkGui:WaitForChild("AFKButton") :: ImageButton
-local bgSquare = afkGui:WaitForChild("BgSquare") :: Frame
-local startSpectateBtn = afkGui:WaitForChild("StartSpectateButton") :: ImageButton
-local specBgSquare = afkGui:WaitForChild("SpecBgSquare") :: Frame
+local afkBtn = utilityContainer:WaitForChild("AFKButton") :: ImageButton
+local startSpectateBtn = utilityContainer:WaitForChild("StartSpectateButton") :: ImageButton
+
 local specControlsFrame = afkGui:WaitForChild("SpecControlsFrame") :: Frame
 local prevBtn = specControlsFrame:WaitForChild("PrevBtn") :: TextButton
 local nextBtn = specControlsFrame:WaitForChild("NextBtn") :: TextButton
@@ -33,36 +34,28 @@ local function updateAFKUI()
 	local isRacing = LocalPlayer:GetAttribute("IsRacing")
 	if isRacing then
 		afkBtn.Visible = false
-		bgSquare.Visible = false
 		startSpectateBtn.Visible = false
-		specBgSquare.Visible = false
 		return
 	end
 	
 	afkBtn.Visible = true
-	bgSquare.Visible = true
 
 	if isAFK then
 		afkBtn.Image = "rbxassetid://94850212812337"
-		bgSquare.BackgroundColor3 = Color3.fromRGB(255, 255, 0) -- Yellow
 		watermark.Visible = true
 		watermark.TextTransparency = 0
 		
 		-- 관전 버튼은 레이스 중에만 노출
 		if currentPhase == "RACE_MATCH" then
 			startSpectateBtn.Visible = not LocalPlayer:GetAttribute("IsSpectating")
-			specBgSquare.Visible = startSpectateBtn.Visible
 		else
 			startSpectateBtn.Visible = false
-			specBgSquare.Visible = false
 		end
 	else
 		afkBtn.Image = "rbxassetid://101189590468168"
-		bgSquare.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- Black
 		watermark.Visible = false
 		watermark.TextTransparency = 1
 		startSpectateBtn.Visible = false
-		specBgSquare.Visible = false
 	end
 end
 
@@ -132,7 +125,6 @@ local function stopSpectating()
 	specControlsFrame.Visible = false
 	specText.Visible = false
 	startSpectateBtn.Visible = isAFK and (currentPhase == "RACE_MATCH")
-	specBgSquare.Visible = startSpectateBtn.Visible
 	
 	if Workspace.CurrentCamera then
 		Workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
@@ -166,7 +158,6 @@ local function startSpectating()
 	
 	LocalPlayer:SetAttribute("IsSpectating", true)
 	startSpectateBtn.Visible = false
-	specBgSquare.Visible = false
 	specControlsFrame.Visible = true
 	specText.Visible = true
 	

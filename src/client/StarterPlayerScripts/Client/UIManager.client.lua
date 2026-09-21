@@ -20,7 +20,8 @@ local LOUNGE_BUTTON_GUIS = {
 	"SkillShop",
 	"setting",
 	"Hover",
-	"HoverShop"
+	"HoverShop",
+	"UtilityBarGui"
 }
 
 -- 상점, 인벤토리 등 팝업창 목록 (레이싱 진입 시 강제로 '끄기'만 하고 자동으로 '켜지'는 않음)

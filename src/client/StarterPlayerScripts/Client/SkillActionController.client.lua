@@ -74,72 +74,7 @@ if not glitchOverlay then
 	glitchOverlay.Parent = fullScreenGui
 end
 
-local hoverboardDisplay = gui:FindFirstChild("HoverboardDisplay")
-if not hoverboardDisplay then
-	hoverboardDisplay = Instance.new("Frame")
-	hoverboardDisplay.Name = "HoverboardDisplay"
-	hoverboardDisplay.Size = UDim2.new(0, 175, 0, 150)
-	hoverboardDisplay.Position = UDim2.new(1, -190, 0.5, -230) -- SlotsContainer 보다 좀 더 위로
-	hoverboardDisplay.BackgroundTransparency = 1 -- 배경 투명화
-	hoverboardDisplay.Parent = gui
 
-	local hbIcon = Instance.new("ImageLabel")
-	hbIcon.Name = "Icon"
-	hbIcon.Size = UDim2.new(0, 100, 0, 100) -- 40에서 100으로 2.5배 확대
-	hbIcon.Position = UDim2.new(0.5, 0, 0, 0)
-	hbIcon.AnchorPoint = Vector2.new(0.5, 0) -- 가로 중앙 정렬
-	hbIcon.BackgroundTransparency = 1
-	hbIcon.Image = ""
-	hbIcon.Parent = hoverboardDisplay
-	
-	local hbName = Instance.new("TextLabel")
-	hbName.Name = "NameLabel"
-	hbName.Size = UDim2.new(1, 0, 0, 30)
-	hbName.Position = UDim2.new(0.5, 0, 0, 80) -- 아이콘과 텍스트 사이 간격 줄임 (105 -> 80)
-	hbName.AnchorPoint = Vector2.new(0.5, 0)
-	hbName.BackgroundTransparency = 1
-	hbName.Font = Enum.Font.FredokaOne
-	hbName.Text = "호버보드"
-	hbName.TextColor3 = Color3.fromRGB(255, 255, 255)
-	hbName.TextSize = 22 -- 폰트 사이즈 22
-	hbName.TextXAlignment = Enum.TextXAlignment.Center
-	hbName.Parent = hoverboardDisplay
-	
-	local textStroke = Instance.new("UIStroke")
-	textStroke.Color = Color3.fromRGB(30, 30, 30)
-	textStroke.Thickness = 3 -- 외곽선 3
-	textStroke.Parent = hbName
-end
-
-local hbIcon = hoverboardDisplay:WaitForChild("Icon") :: ImageLabel
-local hbName = hoverboardDisplay:WaitForChild("NameLabel") :: TextLabel
-local equippedBoardId = LocalPlayer:WaitForChild("EquippedHoverboardId") :: StringValue
-
-local StoreConfig = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("StoreConfig"))
-
-local function updateHoverboardDisplay()
-	local boardId = equippedBoardId.Value
-	if boardId == "" then boardId = "DefaultHoverboard" end
-	
-	local foundInfo = nil
-	for _, info in ipairs(StoreConfig.Items) do
-		if info.id == boardId then
-			foundInfo = info
-			break
-		end
-	end
-	
-	if foundInfo then
-		hbName.Text = foundInfo.name
-		hbIcon.Image = foundInfo.imageId
-	else
-		hbName.Text = "호버보드"
-		hbIcon.Image = ""
-	end
-end
-
-updateHoverboardDisplay()
-equippedBoardId.Changed:Connect(updateHoverboardDisplay)
 
 -- [클라이언트 사이드 시각화 (KartRider 방식 표준)]
 -- 투사체 스킬을 쓸 때 핑 지연 없이 내 화면에 즉시 발사되는 연출을 만듭니다.
@@ -617,15 +552,20 @@ local function bindSlot(index)
 	if not icon then
 		icon = Instance.new("ImageLabel")
 		icon.Name = "Icon"
-		icon.Size = UDim2.new(1, -20, 1, -20)
-		icon.Position = UDim2.new(0, 10, 0, 5)
-		icon.AnchorPoint = Vector2.new(0, 0)
+		icon.Size = UDim2.new(1, -12, 1, -12) -- 원형 안에 잘 들어가도록 크기를 살짝 줄임
+		icon.Position = UDim2.new(0.5, 0, 0.5, 0)
+		icon.AnchorPoint = Vector2.new(0.5, 0.5)
 		icon.BackgroundTransparency = 1
 		icon.ZIndex = 2
 		local corner = Instance.new("UICorner")
-		corner.CornerRadius = UDim.new(0, 6)
+		corner.CornerRadius = UDim.new(0, 16)
 		corner.Parent = icon
 		icon.Parent = slotFrame
+	else
+		-- 유저가 스튜디오에서 맞춘 설정을 존중 (강제 덮어쓰기 안 함)
+		icon.Size = UDim2.new(1, -12, 1, -12)
+		icon.Position = UDim2.new(0.5, 0, 0.5, 0)
+		icon.AnchorPoint = Vector2.new(0.5, 0.5)
 	end
 
 	-- Find and clear any default labels left by the UI designer
@@ -691,18 +631,6 @@ local function bindSlot(index)
 		lockImg.ZIndex = 7
 		lockImg.Parent = lock
 		
-		local priceText = Instance.new("TextLabel")
-		priceText.Name = "PriceLabel"
-		priceText.Size = UDim2.new(1, 0, 0.3, 0)
-		priceText.Position = UDim2.new(0, 0, 0.7, 0)
-		priceText.BackgroundTransparency = 1
-		priceText.Font = Enum.Font.FredokaOne
-		priceText.TextColor3 = Color3.fromRGB(255, 215, 0) -- Gold/Robux color
-		priceText.TextStrokeTransparency = 0
-		priceText.TextSize = 14
-		priceText.ZIndex = 7
-		priceText.Parent = lock
-		
 		lock.Parent = slotFrame
 	end
 	
@@ -718,12 +646,17 @@ local function bindSlot(index)
 	overlay.Visible = false
 	
 	local oc = overlay:FindFirstChildOfClass("UICorner") or Instance.new("UICorner")
-	oc.CornerRadius = UDim.new(0, 16) -- 디자인 가이드 (CornerRadius 16)
-	oc.Parent = overlay
+	-- 스튜디오 설정 존중을 위해 기본값일 경우에만 설정
+	if oc.Parent ~= overlay then
+		oc.CornerRadius = UDim.new(0, 16)
+		oc.Parent = overlay
+	end
 	
 	local slotCorner = slotFrame:FindFirstChildOfClass("UICorner") or Instance.new("UICorner")
-	slotCorner.CornerRadius = UDim.new(0, 16)
-	slotCorner.Parent = slotFrame
+	if slotCorner.Parent ~= slotFrame then
+		slotCorner.CornerRadius = UDim.new(0, 16)
+		slotCorner.Parent = slotFrame
+	end
 	
 	local aspect = slotFrame:FindFirstChildOfClass("UIAspectRatioConstraint") or Instance.new("UIAspectRatioConstraint")
 	aspect.AspectRatio = 1
@@ -914,26 +847,42 @@ local function refreshSlots()
 			slot.stroke.Color = Color3.fromRGB(0, 0, 0)
 			slot.overlay.Visible = true
 			
-			local priceText = slot.lock:FindFirstChild("PriceLabel")
-			if priceText then
-				if i == 3 then
-					priceText.Text = "R$ " .. MonetizationConfig.SlotUnlockProducts.Slot3.price
-					priceText.TextColor3 = Color3.fromRGB(255, 215, 0)
+			if i == 3 then
+				slot.overlay.BackgroundTransparency = 0.5
+			elseif i == 4 then
+				if currentMax < 3 then
+					slot.overlay.BackgroundTransparency = 0.8
+				else
 					slot.overlay.BackgroundTransparency = 0.5
-				elseif i == 4 then
-					if currentMax < 3 then
-						priceText.Text = "Unlock Slot 3 First"
-						priceText.TextColor3 = Color3.fromRGB(255, 100, 100)
-						slot.overlay.BackgroundTransparency = 0.8
-					else
-						priceText.Text = "R$ " .. MonetizationConfig.SlotUnlockProducts.Slot4.price
-						priceText.TextColor3 = Color3.fromRGB(255, 215, 0)
-						slot.overlay.BackgroundTransparency = 0.5
+				end
+			end
+			
+			-- 이모지 대신 유저가 요청한 실제 이미지 에셋(17368080973)으로 교체
+			for _, desc in ipairs(slot.frame:GetDescendants()) do
+				if desc:IsA("TextLabel") and (string.find(desc.Text, "R%$") or string.find(desc.Text, "50") or string.find(desc.Text, "100") or string.find(desc.Text, "🔒")) then
+					desc.Text = ""
+					
+					if not desc.Parent:FindFirstChild("ScriptCreatedLockIcon") then
+						local img = Instance.new("ImageLabel")
+						img.Name = "ScriptCreatedLockIcon"
+						img.Size = UDim2.new(0.8, 0, 0.8, 0)
+						img.Position = UDim2.new(0.5, 0, 0.5, 0)
+						img.AnchorPoint = Vector2.new(0.5, 0.5)
+						img.BackgroundTransparency = 1
+						img.Image = "rbxassetid://17368080973"
+						img.ZIndex = 10
+						img.Parent = desc.Parent
 					end
 				end
 			end
 		else
 			slot.lock.Visible = false
+			
+			for _, desc in ipairs(slot.frame:GetDescendants()) do
+				if desc.Name == "ScriptCreatedLockIcon" then
+					desc:Destroy()
+				end
+			end
 			
 			local skillVal = equipped[i]
 			if skillVal then
@@ -1481,3 +1430,63 @@ paintballEffectRemote.OnClientEvent:Connect(function()
 		ts.Completed:Connect(function() paintOverlay.Visible = false end)
 	end
 end)
+
+-- ----------------------------------------------------
+-- 📱 RESPONSIVE UI TOGGLE (No Dynamic Positioning)
+-- ----------------------------------------------------
+-- 유저분께서 스튜디오에서 직접(하드코딩) 배치하신 UI를 그대로 사용합니다.
+-- 이 스크립트는 PC/모바일 환경에 맞춰 단축키 라벨과 부스터 버튼의 가시성(Visible)만 제어합니다.
+
+local mobileBoosterEvent = remotesFolder:FindFirstChild("MobileBoosterEvent")
+if not mobileBoosterEvent then
+	mobileBoosterEvent = Instance.new("BindableEvent")
+	mobileBoosterEvent.Name = "MobileBoosterEvent"
+	mobileBoosterEvent.Parent = remotesFolder
+end
+
+local isMobileView = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+
+-- 스튜디오에서 직접 만드신 MobileBoosterBtn을 찾아 이벤트만 연결합니다.
+local boosterBtn = gui:FindFirstChild("MobileBoosterBtn") or gui:FindFirstChild("SlotsContainer") and gui.SlotsContainer:FindFirstChild("MobileBoosterBtn")
+if boosterBtn and boosterBtn:IsA("GuiButton") then
+	boosterBtn.MouseButton1Down:Connect(function()
+		mobileBoosterEvent:Fire()
+	end)
+end
+
+local function updateUIVisibility()
+	-- 1. 모바일 부스터 버튼 가시성 처리 (스튜디오에 존재할 경우)
+	if boosterBtn then
+		-- PC, 모바일 모두 보여주기로 하셨다면 항상 true로 두셔도 됩니다.
+		-- 만약 PC에서는 숨기고 싶다면: boosterBtn.Visible = isMobileView
+		boosterBtn.Visible = true 
+	end
+	
+	-- 2. 스킬 단축키 라벨(Q, E, R, T) 가시성 처리
+	for i = 1, 4 do
+		if slots[i] and slots[i].frame then
+			local hotkeyLabel = slots[i].frame:FindFirstChild("HotkeyLabel")
+			if hotkeyLabel then 
+				-- 모바일에서는 단축키 숨김, PC에서는 표시
+				hotkeyLabel.Visible = not isMobileView 
+			end
+		end
+	end
+end
+
+UserInputService.LastInputTypeChanged:Connect(function(lastInputType)
+	local wasMobile = isMobileView
+	if lastInputType == Enum.UserInputType.Touch then
+		isMobileView = true
+	elseif lastInputType == Enum.UserInputType.Keyboard or lastInputType == Enum.UserInputType.MouseMovement then
+		isMobileView = false
+	end
+	
+	if wasMobile ~= isMobileView then
+		updateUIVisibility()
+	end
+end)
+
+-- 초기 1회 실행
+task.delay(0.5, updateUIVisibility)
+
