@@ -45,8 +45,12 @@ local clientSkillUses = {}
 
 -- Bind UI
 local gui = playerGui:WaitForChild("SkillActionGui")
--- container 변수에 의존하지 않도록 주석 처리 또는 무시
--- local container = gui:WaitForChild("SlotsContainer")
+
+local slotsContainer = gui:WaitForChild("SlotsContainer")
+slotsContainer.Visible = false -- 로딩 중 깜빡임 방지를 위해 일단 숨김 처리
+
+-- 보스님이 스튜디오에서 설정하신 UI 위치와 크기(고정값)를 100% 그대로 사용합니다.
+-- 더 이상 스크립트가 크기나 위치, 부모를 강제로 수정하지 않습니다.
 
 local slots = {}
 local hotkeys = { Enum.KeyCode.Q, Enum.KeyCode.E, Enum.KeyCode.R, Enum.KeyCode.T }
@@ -1122,6 +1126,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 				end)
 			end
 		end
+		task.wait(0.2)
 	end
 end)
 
@@ -1437,6 +1442,8 @@ end)
 -- 유저분께서 스튜디오에서 직접(하드코딩) 배치하신 UI를 그대로 사용합니다.
 -- 이 스크립트는 PC/모바일 환경에 맞춰 단축키 라벨과 부스터 버튼의 가시성(Visible)만 제어합니다.
 
+local updateUIVisibility -- 사전 선언
+
 local mobileBoosterEvent = remotesFolder:FindFirstChild("MobileBoosterEvent")
 if not mobileBoosterEvent then
 	mobileBoosterEvent = Instance.new("BindableEvent")
@@ -1444,42 +1451,225 @@ if not mobileBoosterEvent then
 	mobileBoosterEvent.Parent = remotesFolder
 end
 
-local isMobileView = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+local isMobileView = UserInputService.TouchEnabled
 
--- 스튜디오에서 직접 만드신 MobileBoosterBtn을 찾아 이벤트만 연결합니다.
-local boosterBtn = gui:FindFirstChild("MobileBoosterBtn") or gui:FindFirstChild("SlotsContainer") and gui.SlotsContainer:FindFirstChild("MobileBoosterBtn")
-if boosterBtn and boosterBtn:IsA("GuiButton") then
-	boosterBtn.MouseButton1Down:Connect(function()
-		mobileBoosterEvent:Fire()
-	end)
+local isMobileView = UserInputService.TouchEnabled
+
+-- 호버보드 탑승 상태를 공유받기 위해 StateChanged 리모트 이벤트 연결
+local stateRemote = remotesFolder:WaitForChild("StateChanged")
+local isMounted = false
+
+stateRemote.OnClientEvent:Connect(function(mounted)
+	isMounted = mounted
+	if updateUIVisibility then
+		updateUIVisibility()
+	end
+end)
+
+-- 커스텀 부스터 버튼은 이제 완전히 삭제했습니다! 로블록스 기본 점프 버튼만 사용합니다.
+local boosterBtn = gui:FindFirstChild("MobileBoosterBtn") or (gui:FindFirstChild("SlotsContainer") and gui.SlotsContainer:FindFirstChild("MobileBoosterBtn"))
+if boosterBtn then
+	boosterBtn:Destroy() -- 기존에 남아있던 흔적조차 삭제
 end
 
-local function updateUIVisibility()
-	-- 1. 모바일 부스터 버튼 가시성 처리 (스튜디오에 존재할 경우)
-	if boosterBtn then
-		-- PC, 모바일 모두 보여주기로 하셨다면 항상 true로 두셔도 됩니다.
-		-- 만약 PC에서는 숨기고 싶다면: boosterBtn.Visible = isMobileView
-		boosterBtn.Visible = true 
-	end
+-- 이전에 정의된 updateUIVisibility를 위에서 호출하기 위해 forward declaration이 없었으므로 전역 또는 로컬 할당 방식을 사용
+local function applyMobileLayout()
+	local slotsContainer = gui:FindFirstChild("SlotsContainer")
+	if slotsContainer then slotsContainer.Visible = false end
 	
-	-- 2. 스킬 단축키 라벨(Q, E, R, T) 가시성 처리
+	-- 실제 위치 이동은 아래의 폴링 루프(점프 버튼 좌표 추적)에서 담당합니다.
 	for i = 1, 4 do
 		if slots[i] and slots[i].frame then
-			local hotkeyLabel = slots[i].frame:FindFirstChild("HotkeyLabel")
-			if hotkeyLabel then 
-				-- 모바일에서는 단축키 숨김, PC에서는 표시
-				hotkeyLabel.Visible = not isMobileView 
+			local frame = slots[i].frame
+			
+			-- 백업
+			if not frame:GetAttribute("OrigSizeScaleX") then
+				frame:SetAttribute("OrigSizeScaleX", frame.Size.X.Scale)
+				frame:SetAttribute("OrigSizeOffsetX", frame.Size.X.Offset)
+				frame:SetAttribute("OrigSizeScaleY", frame.Size.Y.Scale)
+				frame:SetAttribute("OrigSizeOffsetY", frame.Size.Y.Offset)
+			end
+			
+			for _, desc in ipairs(frame:GetDescendants()) do
+				if desc:IsA("UICorner") then
+					if not desc:GetAttribute("OriginalCorner") then
+						desc:SetAttribute("OriginalCorner", desc.CornerRadius)
+					end
+					desc.CornerRadius = UDim.new(0.5, 0)
+				end
+			end
+			
+			local hotkeyLabel = frame:FindFirstChild("HotkeyLabel")
+			if hotkeyLabel then hotkeyLabel.Visible = false end
+			
+			-- 안전하게 메인 gui에 둡니다 (점프버튼 내부에 넣으면 캐릭터 리셋 시 같이 파괴됨)
+			frame.Parent = gui
+			frame.AnchorPoint = Vector2.new(0.5, 0.5)
+			frame.Size = UDim2.new(0, 40, 0, 40)
+			
+			-- 점프 버튼을 찾기 전까지 화면 좌측 상단(0,0)에서 깜빡이는 현상 방지를 위해 화면 밖으로 치워둠
+			frame.Position = UDim2.new(2, 0, 2, 0)
+		end
+	end
+	return true
+end
+
+local function applyPCLayout()
+	local slotsContainer = gui:FindFirstChild("SlotsContainer")
+	if slotsContainer then slotsContainer.Visible = true end
+	
+	for i = 1, 4 do
+		if slots[i] and slots[i].frame then
+			local frame = slots[i].frame
+			
+			for _, desc in ipairs(frame:GetDescendants()) do
+				if desc:IsA("UICorner") and desc:GetAttribute("OriginalCorner") then
+					desc.CornerRadius = desc:GetAttribute("OriginalCorner")
+				end
+			end
+			
+			if frame:GetAttribute("OrigSizeScaleX") then
+				frame.Size = UDim2.new(
+					frame:GetAttribute("OrigSizeScaleX"),
+					frame:GetAttribute("OrigSizeOffsetX"),
+					frame:GetAttribute("OrigSizeScaleY"),
+					frame:GetAttribute("OrigSizeOffsetY")
+				)
+			end
+			
+			local hotkeyLabel = frame:FindFirstChild("HotkeyLabel")
+			if hotkeyLabel then hotkeyLabel.Visible = true end
+			
+			if slotsContainer then
+				frame.Parent = slotsContainer
+				frame.AnchorPoint = Vector2.new(0, 0) 
 			end
 		end
 	end
 end
+
+updateUIVisibility = function()
+	if isMobileView then
+		applyMobileLayout()
+	else
+		applyPCLayout()
+	end
+end
+
+local function getMobileJumpButton(shouldDebug)
+	local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+	if not playerGui then if shouldDebug then warn("[MobileDebug] No PlayerGui") end return nil end
+	local touchGui = playerGui:FindFirstChild("TouchGui")
+	if not touchGui then if shouldDebug then warn("[MobileDebug] No TouchGui") end return nil end
+	local controlFrame = touchGui:FindFirstChild("TouchControlFrame")
+	if not controlFrame then if shouldDebug then warn("[MobileDebug] No TouchControlFrame") end return nil end
+	local jumpBtn = controlFrame:FindFirstChild("JumpButton")
+	if not jumpBtn then if shouldDebug then warn("[MobileDebug] No JumpButton") end return nil end
+	return jumpBtn
+end
+
+-- 점프버튼 좌표 동적 추적 시스템 (기종별 해상도/비율 완벽 대응)
+task.spawn(function()
+	local angles = {160, 205, 250, 295}
+	local debugTimer = 0
+	while true do
+		debugTimer = debugTimer + 0.2
+		local shouldDebug = false
+		if debugTimer >= 2.0 then
+			shouldDebug = true
+			debugTimer = 0
+		end
+		
+		if isMobileView then
+			local jumpBtn = getMobileJumpButton(shouldDebug)
+			if jumpBtn then
+				local absPos = jumpBtn.AbsolutePosition
+				local absSize = jumpBtn.AbsoluteSize
+				
+				if shouldDebug then
+					warn("[MobileDebug] JumpBtn Found! AbsPos:", absPos, "AbsSize:", absSize)
+				end
+				
+				-- 로딩 중이거나 가려져서 절대좌표가 0,0인 쓰레기값 상태는 무시
+				if absPos.X > 10 and absPos.Y > 10 then
+					-- 1. 화면 최좌측 상단(0,0)을 기준으로 한 점프버튼의 물리적 정중앙
+					local centerX = absPos.X + (absSize.X / 2)
+					local centerY = absPos.Y + (absSize.Y / 2)
+					
+					local screenX = gui.AbsoluteSize.X
+					local screenY = gui.AbsoluteSize.Y
+					
+					if shouldDebug then
+						warn("[MobileDebug] ScreenSize:", screenX, screenY, "Center:", centerX, centerY)
+					end
+					
+					if screenX > 0 and screenY > 0 then
+						-- 2. 절대 픽셀 좌표를 상대적인 Scale 비율로 변환! (아이패드 UIScale 버그 원천 차단)
+						local scaleX = centerX / screenX
+						local scaleY = centerY / screenY
+						
+						-- 3. 현재 화면에 적용된 UIScale을 찾아서, 오프셋(반지름)이 왜곡되지 않도록 보정
+						local uiScale = 1
+						local scaleObj = gui:FindFirstChildOfClass("UIScale")
+						if scaleObj then uiScale = scaleObj.Scale end
+						
+						if shouldDebug then
+							warn("[MobileDebug] ScaleX:", scaleX, "ScaleY:", scaleY, "UIScale:", uiScale)
+						end
+						
+						-- 핵심: 디바이스마다 달라지는 점프버튼의 '실제 크기(absSize.X)'를 기준으로 비율 계산
+						local jumpBtnSize = absSize.X
+						-- 반경은 점프버튼 크기의 95%
+						local dynamicRadius = jumpBtnSize * 0.95
+						-- 스킬 버튼 크기는 점프버튼 크기의 55%
+						local dynamicSkillSize = jumpBtnSize * 0.55
+						
+						for i = 1, 4 do
+							if slots[i] and slots[i].frame then
+								local frame = slots[i].frame
+								local angleRad = math.rad(angles[i])
+								
+								-- UIScale 역산 및 동적 반경 적용
+								local dx = (math.cos(angleRad) * dynamicRadius) / uiScale
+								local dy = (math.sin(angleRad) * dynamicRadius) / uiScale
+								
+								-- 부모가 바뀌었거나 크기가 안 맞으면 실시간 복구
+								if frame.Parent ~= gui then
+									frame.Parent = gui
+									frame.AnchorPoint = Vector2.new(0.5, 0.5)
+								end
+								
+								-- 점프버튼 크기에 비례하여 동적으로 버튼 크기 변경
+								frame.Size = UDim2.new(0, dynamicSkillSize / uiScale, 0, dynamicSkillSize / uiScale)
+								
+								-- 완벽한 호환성을 자랑하는 Scale + 보정 Offset 방식
+								frame.Position = UDim2.new(
+									scaleX, dx,
+									scaleY, dy
+								)
+								
+								if shouldDebug and i == 1 then
+									warn("[MobileDebug] Slot 1 Final Pos:", frame.Position, "Size:", frame.Size, "Visible:", frame.Visible)
+								end
+							end
+						end
+					end
+				end
+			end
+		end
+		task.wait(0.2)
+	end
+end)
 
 UserInputService.LastInputTypeChanged:Connect(function(lastInputType)
 	local wasMobile = isMobileView
 	if lastInputType == Enum.UserInputType.Touch then
 		isMobileView = true
 	elseif lastInputType == Enum.UserInputType.Keyboard or lastInputType == Enum.UserInputType.MouseMovement then
-		isMobileView = false
+		-- 캡처 스크린샷 튕김 방지: 스튜디오 안에서는 키보드를 눌러도 모바일 모드를 유지함!
+		if not UserInputService.TouchEnabled and not game:GetService("RunService"):IsStudio() then
+			isMobileView = false
+		end
 	end
 	
 	if wasMobile ~= isMobileView then

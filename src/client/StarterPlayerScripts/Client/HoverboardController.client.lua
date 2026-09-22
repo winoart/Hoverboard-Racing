@@ -215,48 +215,21 @@ local function createHUDUI()
 	guiScreen.Name = "HoverboardHUD"
 	guiScreen.ResetOnSpawn = false
 	guiScreen.DisplayOrder = 10
+	guiScreen.IgnoreGuiInset = true
 	guiScreen.Parent = playerGui
 
 	-- =========================================================================
-	-- 🏁 [1] TOP-LEFT: RANK BADGE & LEADERBOARD LIST
-	-- =========================================================================
-	local topLeftFrame = Instance.new("Frame")
-	topLeftFrame.Name = "TopLeftRankFrame"
-	topLeftFrame.Size = UDim2.new(0, 260, 0, 120)
-	topLeftFrame.Position = UDim2.new(0.02, 0, 0.03, 0)
-	topLeftFrame.BackgroundTransparency = 1
-	topLeftFrame.ZIndex = 10
-	topLeftFrame.Parent = guiScreen
-
-	-- Giant Gold 3D "1st" Rank Badge
-	rankBadgeLabel = Instance.new("TextLabel")
-	rankBadgeLabel.Name = "RankBadge"
-	rankBadgeLabel.Size = UDim2.new(0, 120, 0, 50)
-	rankBadgeLabel.Position = UDim2.new(0, 0, 0, 0)
-	rankBadgeLabel.BackgroundTransparency = 1
-	rankBadgeLabel.Font = Enum.Font.GothamBlack
-	rankBadgeLabel.Text = "1st"
-	rankBadgeLabel.TextColor3 = Color3.fromRGB(255, 205, 30)
-	rankBadgeLabel.TextSize = 48
-	rankBadgeLabel.TextXAlignment = Enum.TextXAlignment.Left
-	rankBadgeLabel.ZIndex = 12
-	rankBadgeLabel.Parent = topLeftFrame
-
-	local rankStroke = Instance.new("UIStroke")
-	rankStroke.Color = Color3.fromRGB(0, 0, 0)
-	rankStroke.Thickness = 3.0
-	rankStroke.Parent = rankBadgeLabel
-
-	-- =========================================================================
-	-- 🏁 DYNAMIC LEADERBOARD SYSTEM
+	-- 🏁 DYNAMIC LEADERBOARD SYSTEM (Top Center)
 	-- =========================================================================
 	local leaderboardContainer = Instance.new("Frame")
 	leaderboardContainer.Name = "LeaderboardContainer"
-	leaderboardContainer.Size = UDim2.new(1, 0, 0, 300)
-	leaderboardContainer.Position = UDim2.new(0, 0, 0, 54)
+	-- Responsive size for horizontal layout
+	leaderboardContainer.Size = UDim2.new(0.4, 0, 0.06, 0)
+	leaderboardContainer.Position = UDim2.new(0.5, 0, 0, 10)
+	leaderboardContainer.AnchorPoint = Vector2.new(0.5, 0)
 	leaderboardContainer.BackgroundTransparency = 1
 	leaderboardContainer.ZIndex = 11
-	leaderboardContainer.Parent = topLeftFrame
+	leaderboardContainer.Parent = guiScreen
 
 	-- Dictionary to hold player cards
 	local playerCardFrames = {}
@@ -269,62 +242,71 @@ local function createHUDUI()
 	end
 
 	local function createPlayerCard(playerName, isLocal)
-		local pCard = Instance.new("Frame")
+		local pCard = Instance.new("ImageLabel")
 		pCard.Name = "Card_" .. playerName
-		pCard.Size = UDim2.new(isLocal and 1 or 0.9, 0, 0, isLocal and 26 or 24)
-		pCard.BackgroundColor3 = isLocal and Color3.fromRGB(20, 25, 35) or Color3.fromRGB(15, 18, 26)
-		pCard.BackgroundTransparency = isLocal and 0.2 or 0.3
+		-- Use Scale for size so it adjusts on mobile
+		pCard.Size = UDim2.new(0.12, 0, 1, 0)
+		pCard.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 		pCard.BorderSizePixel = 0
 		pCard.ZIndex = 11
-		-- Initialize position off-screen or at 0
 		pCard.Position = UDim2.new(0, 0, 0, 0)
 		pCard.Parent = leaderboardContainer
+		pCard.ScaleType = Enum.ScaleType.Crop
+		
+		-- Fetch avatar thumbnail
+		task.spawn(function()
+			local p = Players:FindFirstChild(playerName)
+			if p then
+				local content, isReady = Players:GetUserThumbnailAsync(p.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
+				if isReady then pCard.Image = content end
+			else
+				pCard.Image = "rbxassetid://10492211918" -- Generic bot placeholder
+			end
+		end)
+
+		local aspect = Instance.new("UIAspectRatioConstraint")
+		aspect.AspectRatio = 1
+		aspect.Parent = pCard
 
 		local corner = Instance.new("UICorner")
-		corner.CornerRadius = UDim.new(0, 6)
+		corner.CornerRadius = UDim.new(0.5, 0)
 		corner.Parent = pCard
 
-		if isLocal then
-			local stroke = Instance.new("UIStroke")
-			stroke.Color = Color3.fromRGB(255, 200, 30)
-			stroke.Thickness = 1.5
-			stroke.Parent = pCard
-		end
+		local stroke = Instance.new("UIStroke")
+		stroke.Color = isLocal and Color3.fromRGB(255, 200, 30) or Color3.fromRGB(0, 0, 0)
+		stroke.Thickness = isLocal and 3.5 or 2
+		stroke.Parent = pCard
 
-		local nameLabel = Instance.new("TextLabel")
-		nameLabel.Name = "NameLabel"
-		nameLabel.Size = UDim2.new(1, -12, 1, 0)
-		nameLabel.Position = UDim2.new(0, 8, 0, 0)
-		nameLabel.BackgroundTransparency = 1
-		nameLabel.Font = Enum.Font.GothamBold
-		nameLabel.TextColor3 = isLocal and Color3.fromRGB(255, 230, 120) or Color3.fromRGB(180, 190, 205)
-		nameLabel.TextSize = isLocal and 13 or 12
-		nameLabel.TextXAlignment = Enum.TextXAlignment.Left
-		nameLabel.ZIndex = 12
-		nameLabel.Parent = pCard
-
-		return { frame = pCard, label = nameLabel }
+		return { frame = pCard }
 	end
 
 	local function updateRankings(sortedPlayerNames, isStartingLine)
-		for rank, pName in ipairs(sortedPlayerNames) do
+		-- [임시] UI 테스트를 위해 8명까지 가짜 플레이어 채우기
+		local fakeSorted = {}
+		for _, name in ipairs(sortedPlayerNames) do
+			table.insert(fakeSorted, name)
+		end
+		for i = #fakeSorted + 1, 8 do
+			table.insert(fakeSorted, "Bot_Test_" .. i)
+		end
+
+		for rank, pName in ipairs(fakeSorted) do
 			if not playerCardFrames[pName] then
 				playerCardFrames[pName] = createPlayerCard(pName, pName == LocalPlayer.DisplayName)
 			end
 			local cardData = playerCardFrames[pName]
 			
-			local displayRank = isStartingLine and "-" or tostring(rank)
-			cardData.label.Text = displayRank .. "  " .. pName
-			
-			local targetY = (rank - 1) * 30
-			local targetPos = UDim2.new(0, 0, 0, targetY)
-			
-			-- Smooth animation
-			TweenService:Create(cardData.frame, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Position = targetPos }):Play()
-			
-			-- Update top badge if it's me
-			if pName == LocalPlayer.DisplayName then
-				rankBadgeLabel.Text = isStartingLine and "-" or getRankSuffix(rank)
+			if rank <= 8 then
+				cardData.frame.Visible = true
+				
+				-- Horizontal spacing (each takes ~12.5% of container width)
+				local targetX = (rank - 1) * 0.125
+				local targetPos = UDim2.new(targetX, 0, 0, 0)
+				
+				-- Smooth animation for horizontal swapping
+				TweenService:Create(cardData.frame, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Position = targetPos }):Play()
+			else
+				cardData.frame.Visible = false
 			end
 		end
 	end
@@ -344,7 +326,7 @@ local function createHUDUI()
 	-- =========================================================================
 	local topRightFrame = Instance.new("Frame")
 	topRightFrame.Name = "TopRightRaceFrame"
-	topRightFrame.Size = UDim2.new(0, 240, 0, 100)
+	topRightFrame.Size = UDim2.new(0, 240, 0, 150)
 	topRightFrame.Position = UDim2.new(0.98, -240, 0.03, 0)
 	topRightFrame.BackgroundTransparency = 1
 	topRightFrame.ZIndex = 10
@@ -393,11 +375,17 @@ local function createHUDUI()
 	-- =========================================================================
 	local bottomCenterHUD = Instance.new("Frame")
 	bottomCenterHUD.Name = "BottomCenterHUD"
-	bottomCenterHUD.Size = UDim2.new(0, 360, 0, 90)
-	bottomCenterHUD.Position = UDim2.new(0.5, -180, 0.95, -90)
+	bottomCenterHUD.Size = UDim2.new(0, 360, 0, 40)
+	bottomCenterHUD.AnchorPoint = Vector2.new(0.5, 1)
+	-- 스킬 버튼(높이 60 + 여백 10 = 70px)보다 무조건 위에 있도록 절대값 -85픽셀로 고정
+	bottomCenterHUD.Position = UDim2.new(0.5, 0, 1, -85) 
 	bottomCenterHUD.BackgroundTransparency = 1
 	bottomCenterHUD.ZIndex = 10
 	bottomCenterHUD.Parent = guiScreen
+
+	local uiScale = Instance.new("UIScale")
+	uiScale.Scale = 0.75 -- Reduce size by 25%
+	uiScale.Parent = bottomCenterHUD
 
 	-- 1. N2O Booster Gauge (Top part)
 	local n2oLabel = Instance.new("TextLabel")
@@ -413,20 +401,22 @@ local function createHUDUI()
 	n2oLabel.Parent = bottomCenterHUD
 	
 	rebirthEffectLabel = Instance.new("TextLabel")
-	rebirthEffectLabel.Size = UDim2.new(0, 100, 0, 20)
-	rebirthEffectLabel.Position = UDim2.new(1, -25, 0, 0) -- right side of booster bar
+	rebirthEffectLabel.Size = UDim2.new(0, 150, 0, 20)
+	-- 부스터 게이지 우측 끝(X: 320)에 맞춰 위쪽(Y: -15)으로 배치
+	rebirthEffectLabel.AnchorPoint = Vector2.new(1, 1)
+	rebirthEffectLabel.Position = UDim2.new(0, 320, 0, 0)
 	rebirthEffectLabel.BackgroundTransparency = 1
-	rebirthEffectLabel.Font = Enum.Font.GothamBold
-	rebirthEffectLabel.Text = "환생효과 +0%"
-	rebirthEffectLabel.TextColor3 = Color3.fromRGB(0, 255, 100)
-	rebirthEffectLabel.TextSize = 12
-	rebirthEffectLabel.TextXAlignment = Enum.TextXAlignment.Left
+	rebirthEffectLabel.Font = Enum.Font.GothamBlack
+	rebirthEffectLabel.Text = "Rebirth +0.0 Km/s"
+	rebirthEffectLabel.TextColor3 = Color3.fromRGB(150, 255, 100) -- 더 밝고 가시성 높은 연두색
+	rebirthEffectLabel.TextSize = 20
+	rebirthEffectLabel.TextXAlignment = Enum.TextXAlignment.Right
 	rebirthEffectLabel.ZIndex = 11
 	rebirthEffectLabel.Parent = bottomCenterHUD
 	
 	local rStroke = Instance.new("UIStroke")
-	rStroke.Color = Color3.fromRGB(0, 50, 20)
-	rStroke.Thickness = 1
+	rStroke.Color = Color3.fromRGB(0, 0, 0) -- 완전한 검은색으로 대비 극대화
+	rStroke.Thickness = 2.5 -- 훨씬 두꺼운 테두리
 	rStroke.Parent = rebirthEffectLabel
 	
 	local boosterGaugeBg = Instance.new("Frame")
@@ -462,57 +452,26 @@ local function createHUDUI()
 	})
 	boosterGradient.Parent = boosterFillBar
 
-	-- 2. Speedometer Panel (Bottom part)
-	local speedPanel = Instance.new("Frame")
-	speedPanel.Name = "SpeedPanel"
-	speedPanel.Size = UDim2.new(0, 300, 0, 50)
-	speedPanel.Position = UDim2.new(0.5, -150, 0, 30)
-	speedPanel.BackgroundColor3 = Color3.fromRGB(15, 60, 80)
-	speedPanel.BackgroundTransparency = 0.4
-	speedPanel.BorderSizePixel = 0
-	speedPanel.ZIndex = 10
-	speedPanel.Parent = bottomCenterHUD
-	
-	-- Angular look for speed panel
-	local speedPanelCorner = Instance.new("UICorner")
-	speedPanelCorner.CornerRadius = UDim.new(0, 12)
-	speedPanelCorner.Parent = speedPanel
-	
-	local speedPanelStroke = Instance.new("UIStroke")
-	speedPanelStroke.Color = Color3.fromRGB(0, 200, 255)
-	speedPanelStroke.Thickness = 1.5
-	speedPanelStroke.Transparency = 0.5
-	speedPanelStroke.Parent = speedPanel
-
 	-- Digital Speed Number
 	speedNumLabel = Instance.new("TextLabel")
 	speedNumLabel.Name = "DigitalSpeedNum"
-	speedNumLabel.Size = UDim2.new(1, 0, 1, 0)
-	speedNumLabel.Position = UDim2.new(0, -20, 0, 0)
+	speedNumLabel.Size = UDim2.new(1, 0, 0, 48)
+	speedNumLabel.Position = UDim2.new(0, 0, 0, 86)
 	speedNumLabel.BackgroundTransparency = 1
 	speedNumLabel.Font = Enum.Font.GothamBlack
-	speedNumLabel.Text = "0.0"
+	speedNumLabel.Text = "0.0 Km/s"
 	speedNumLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 	speedNumLabel.TextSize = 42
-	speedNumLabel.TextXAlignment = Enum.TextXAlignment.Center
-	speedNumLabel.ZIndex = 13
-	speedNumLabel.Parent = speedPanel
+	speedNumLabel.TextXAlignment = Enum.TextXAlignment.Right
+	speedNumLabel.ZIndex = 12
+	speedNumLabel.Parent = topRightFrame
+
+	local speedStroke = Instance.new("UIStroke")
+	speedStroke.Color = Color3.fromRGB(0, 0, 0)
+	speedStroke.Thickness = 3.0
+	speedStroke.Parent = speedNumLabel
 	
-	-- Unit Label: km/h
-	local unitLabel = Instance.new("TextLabel")
-	unitLabel.Name = "KmLabel"
-	unitLabel.Size = UDim2.new(0, 50, 0, 20)
-	unitLabel.Position = UDim2.new(1, 5, 0.5, 0)
-	unitLabel.BackgroundTransparency = 1
-	unitLabel.Font = Enum.Font.GothamBold
-	unitLabel.Text = "km/h"
-	unitLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-	unitLabel.TextSize = 16
-	unitLabel.TextXAlignment = Enum.TextXAlignment.Left
-	unitLabel.ZIndex = 13
-	unitLabel.Parent = speedNumLabel
-	
-	-- Mode Badge Label (replaces the arc ring's text)
+	-- Mode Badge Label
 	speedModeLabel = Instance.new("TextLabel")
 	speedModeLabel.Name = "ModeBadge"
 	speedModeLabel.Size = UDim2.new(1, 0, 0, 15)
@@ -524,38 +483,6 @@ local function createHUDUI()
 	speedModeLabel.TextSize = 14
 	speedModeLabel.ZIndex = 12
 	speedModeLabel.Parent = bottomCenterHUD
-	
-	-- Left Blue Dashes
-	local leftDashes = Instance.new("Frame")
-	leftDashes.Size = UDim2.new(0, 30, 1, 0)
-	leftDashes.Position = UDim2.new(0, -35, 0, 0)
-	leftDashes.BackgroundTransparency = 1
-	leftDashes.Parent = speedPanel
-	
-	-- Right Blue Dashes
-	local rightDashes = Instance.new("Frame")
-	rightDashes.Size = UDim2.new(0, 30, 1, 0)
-	rightDashes.Position = UDim2.new(1, 5, 0, 0)
-	rightDashes.BackgroundTransparency = 1
-	rightDashes.Parent = speedPanel
-	
-	for i = 1, 5 do
-		local lDash = Instance.new("Frame")
-		lDash.Size = UDim2.new(1, -i*3, 0, 6)
-		lDash.Position = UDim2.new(0, i*3, 0, (i-1) * 9 + 4)
-		lDash.BackgroundColor3 = Color3.fromRGB(0, 240, 255)
-		lDash.BorderSizePixel = 0
-		lDash.ZIndex = 11
-		lDash.Parent = leftDashes
-		
-		local rDash = Instance.new("Frame")
-		rDash.Size = UDim2.new(1, -i*3, 0, 6)
-		rDash.Position = UDim2.new(0, 0, 0, (i-1) * 9 + 4)
-		rDash.BackgroundColor3 = Color3.fromRGB(0, 240, 255)
-		rDash.BorderSizePixel = 0
-		rDash.ZIndex = 11
-		rDash.Parent = rightDashes
-	end
 
 	-- (Bottom-Center Booster Gauge has been removed and replaced by the Arc Ring Gauge)
 	guiScreen.Enabled = false
@@ -573,6 +500,14 @@ stateRemote.OnClientEvent:Connect(function(mounted: boolean, boardModel: Model?,
 		lastSafePosition = nil -- Reset Fall Recovery to allow vertical teleport!
 		_G.introCamDist = 50.0
 		_G.introCamHeight = 30.0
+	else
+		-- 레이스가 아닐 때(대기실 등)는 점프 복구
+		local character = LocalPlayer.Character
+		local hum = character and character:FindFirstChildOfClass("Humanoid")
+		if hum then
+			hum.UseJumpPower = true
+			hum.JumpPower = 50 -- 기본 점프 파워
+		end
 	end
 
 	isMounted = mounted
@@ -592,7 +527,10 @@ stateRemote.OnClientEvent:Connect(function(mounted: boolean, boardModel: Model?,
 		local character = LocalPlayer.Character
 		local hum = character and character:FindFirstChildOfClass("Humanoid")
 		if hum then
-			hum:SetStateEnabled(Enum.HumanoidStateType.Jumping, false)
+			-- 기존에 Jumping 상태를 false로 꺼버려서 로블록스 모바일 기본 점프 버튼이 강제로 사라지는 문제가 있었습니다.
+			-- 점프 버튼을 살려두되 점프를 못하게(부스터로만 쓰게) 하려면, 상태는 켜두고 JumpPower를 0으로 만듭니다.
+			hum.UseJumpPower = true
+			hum.JumpPower = 0
 		end
 		
 		if not engineSound then
@@ -645,9 +583,9 @@ stateRemote.OnClientEvent:Connect(function(mounted: boolean, boardModel: Model?,
 					if forceIsRacing then
 						local initDist = _G.introCamDist or 50.0
 						local initHeight = _G.introCamHeight or 30.0
-						Camera.CFrame = CFrame.lookAt(currentPos - trackForwardDir * initDist + Vector3.new(0, initHeight, 0), currentPos + trackForwardDir * 25 + Vector3.new(0, 3.5, 0))
+						Camera.CFrame = CFrame.lookAt(currentPos - trackForwardDir * initDist + Vector3.new(0, initHeight, 0), currentPos + trackForwardDir * 25 + Vector3.new(0, -4.0, 0))
 					else
-						Camera.CFrame = CFrame.lookAt(currentPos - trackForwardDir * 16 + Vector3.new(0, 6.5, 0), currentPos + trackForwardDir * 25 + Vector3.new(0, 3.5, 0))
+						Camera.CFrame = CFrame.lookAt(currentPos - trackForwardDir * 16 + Vector3.new(0, 6.5, 0), currentPos + trackForwardDir * 25 + Vector3.new(0, -4.0, 0))
 					end
 				end
 				
@@ -727,8 +665,9 @@ RunService.Stepped:Connect(function(_, deltaTime)
 		if player == LocalPlayer and not isMounted then continue end
 
 		local joints = skaterJointsCache[player.UserId]
-		if not joints or not joints.Waist or not joints.Waist.Parent then
+		if not joints or joints.CharacterModel ~= character then
 			joints = {
+				CharacterModel = character,
 				Waist = character:FindFirstChild("Waist", true),
 				RightShoulder = character:FindFirstChild("RightShoulder", true),
 				LeftShoulder = character:FindFirstChild("LeftShoulder", true),
@@ -981,7 +920,7 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 			local rebirthData = RebirthConfig.GetRebirthData(currentRebirths)
 			
 			if rebirthEffectLabel then
-				rebirthEffectLabel.Text = string.format("환생효과 +%d%%", currentRebirths)
+				rebirthEffectLabel.Text = string.format("Rebirth +%.1f Km/s", rebirthData.BoostSpeedBonus)
 			end
 			
 			local currentMaxBoosterSpeed = HoverboardConfig.BOOSTER_WALKSPEED + rebirthData.BoostSpeedBonus
@@ -1151,28 +1090,28 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 			local windAttachment = rootPart:FindFirstChild("WindAttachment") :: Attachment?
 			local windParticles = windAttachment and windAttachment:FindFirstChild("WindParticles") :: ParticleEmitter?
 			if windParticles then
-				if isBoosting then
-					windParticles.Rate = 110
-					windParticles.Speed = NumberRange.new(40, 65)
-				else
-					windParticles.Rate = 0
+				if _G.lastWindBoostState ~= isBoosting then
+					_G.lastWindBoostState = isBoosting
+					if isBoosting then
+						windParticles.Rate = 110
+						windParticles.Speed = NumberRange.new(40, 65)
+					else
+						windParticles.Rate = 0
+					end
 				end
 			end
 
-			-- Steady non-flashing thruster lighting (Optimized to avoid GetDescendants every frame)
+			-- Steady non-flashing thruster lighting (Optimized to assign properties only once)
 			if not _G.boardLightsCached or _G.boardLightsCachedModel ~= boardModel then
 				_G.boardLightsCached = {}
 				_G.boardLightsCachedModel = boardModel
 				for _, desc in ipairs(boardModel:GetDescendants()) do
 					if desc:IsA("PointLight") then
+						desc.Brightness = 2.5
+						desc.Range = 8
 						table.insert(_G.boardLightsCached, desc)
 					end
 				end
-			end
-			
-			for _, light in ipairs(_G.boardLightsCached) do
-				light.Brightness = 2.5
-				light.Range = 8
 			end
 		end
 	end
@@ -1297,7 +1236,7 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 		local camHeight = _G.introCamHeight or targetCamHeight
 		
 		local desiredCamPos = hrp.Position - (wDir * camDist) + Vector3.new(0, camHeight, 0)
-		local lookAtTarget = hrp.Position + (wDir * 25.0) + Vector3.new(0, 3.5, 0)
+		local lookAtTarget = hrp.Position + (wDir * 25.0) + Vector3.new(0, -7.0, 0)
 
 		Camera.CFrame = CFrame.lookAt(desiredCamPos, lookAtTarget)
 
@@ -1336,7 +1275,7 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 	local displayKmh = displaySpeed
 
 	if speedNumLabel then
-		speedNumLabel.Text = string.format("%.1f", displayKmh)
+		speedNumLabel.Text = string.format("%.1f Km/s", displayKmh)
 		if displayBoost then
 			speedNumLabel.TextColor3 = Color3.fromRGB(255, 215, 0) -- Gold Number during Boost!
 		else

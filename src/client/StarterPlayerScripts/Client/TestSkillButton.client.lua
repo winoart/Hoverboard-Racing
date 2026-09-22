@@ -12,9 +12,9 @@ gui.ResetOnSpawn = false
 gui.Parent = PlayerGui
 
 local btn = Instance.new("TextButton")
-btn.Size = UDim2.new(0, 250, 0, 60)
-btn.Position = UDim2.new(0.5, -125, 0.7, 0)
-btn.Text = "⚡ 쏴라! 골든 프리즈!"
+btn.Size = UDim2.new(0, 120, 0, 40)
+btn.Position = UDim2.new(0, 20, 1, -60)
+btn.Text = "스타터팩"
 btn.Font = Enum.Font.FredokaOne
 btn.TextScaled = true
 btn.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
