@@ -538,3 +538,27 @@ RunService.RenderStepped:Connect(function()
 		end
 	end
 end)
+
+-- =========================================================================
+-- 📱 RESPONSIVE UI SCALING
+-- =========================================================================
+if bgFrame then
+	bgFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+	bgFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+	
+	local uiScale = bgFrame:FindFirstChildOfClass("UIScale") or Instance.new("UIScale", bgFrame)
+	local function updateResponsiveScale()
+		local viewport = workspace.CurrentCamera.ViewportSize
+		if viewport.X == 0 or viewport.Y == 0 then return end
+		local scale = math.min(viewport.X / 1280, viewport.Y / 720)
+		uiScale.Scale = math.clamp(scale, 0.4, 1.1)
+	end
+	
+	local resizeConn = workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateResponsiveScale)
+	updateResponsiveScale()
+	task.delay(0.1, updateResponsiveScale)
+	
+	invGui.Destroying:Connect(function()
+		if resizeConn then resizeConn:Disconnect() end
+	end)
+end

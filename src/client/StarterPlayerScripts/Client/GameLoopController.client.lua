@@ -201,7 +201,8 @@ local function createGameLoopUI()
 	headerBannerFrame = Instance.new("Frame")
 	headerBannerFrame.Name = "HeaderBanner"
 	headerBannerFrame.Size = UDim2.new(1, 0, 0, 50)
-	headerBannerFrame.Position = UDim2.new(0, 0, 0.02, 0)
+	headerBannerFrame.AnchorPoint = Vector2.new(0.5, 0)
+	headerBannerFrame.Position = UDim2.new(0.5, 0, 0.02, 0)
 	headerBannerFrame.BackgroundTransparency = 1
 	headerBannerFrame.BorderSizePixel = 0
 	headerBannerFrame.ZIndex = 30
@@ -260,7 +261,8 @@ local function createGameLoopUI()
 	votingModalFrame = Instance.new("Frame")
 	votingModalFrame.Name = "VotingModal"
 	votingModalFrame.Size = UDim2.new(0, 780, 0, 390)
-	votingModalFrame.Position = UDim2.new(0.5, -390, 0.5, -195)
+	votingModalFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+	votingModalFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
 	votingModalFrame.BackgroundColor3 = Color3.fromRGB(150, 240, 255) -- Cyan Glass
 	votingModalFrame.BackgroundTransparency = 0.5
 	votingModalFrame.BorderSizePixel = 0
@@ -527,7 +529,8 @@ local function createGameLoopUI()
 	loadingModalFrame = Instance.new("Frame")
 	loadingModalFrame.Name = "LoadingModal"
 	loadingModalFrame.Size = UDim2.new(1, 0, 0, 100)
-	loadingModalFrame.Position = UDim2.new(0, 0, 0.35, 0)
+	loadingModalFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+	loadingModalFrame.Position = UDim2.new(0.5, 0, 0.35, 0)
 	loadingModalFrame.BackgroundTransparency = 1
 	loadingModalFrame.BorderSizePixel = 0
 	loadingModalFrame.Visible = false
@@ -628,6 +631,37 @@ local function createGameLoopUI()
 	
 	errOkBtn.MouseButton1Click:Connect(function()
 		errorModalFrame.Visible = false
+	end)
+
+	-- =========================================================================
+	-- 📱 [5] RESPONSIVE UI SCALING
+	-- =========================================================================
+	local headerScale = Instance.new("UIScale", headerBannerFrame)
+	local voteScale = Instance.new("UIScale", votingModalFrame)
+	local loadScale = Instance.new("UIScale", loadingModalFrame)
+	local errorScale = Instance.new("UIScale", errorModalFrame)
+
+	local function updateResponsiveScale()
+		local viewport = workspace.CurrentCamera.ViewportSize
+		if viewport.X == 0 or viewport.Y == 0 then return end
+		
+		-- Base reference resolution: 1280x720
+		local scale = math.min(viewport.X / 1280, viewport.Y / 720)
+		local finalScale = math.clamp(scale, 0.4, 1.1) -- Limit how small or big it gets on mobile
+		
+		headerScale.Scale = finalScale
+		voteScale.Scale = finalScale
+		loadScale.Scale = finalScale
+		errorScale.Scale = finalScale
+	end
+
+	local resizeConn = workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateResponsiveScale)
+	updateResponsiveScale()
+	task.delay(0.1, updateResponsiveScale)
+	
+	-- Clean up on destroy
+	mainGuiScreen.Destroying:Connect(function()
+		if resizeConn then resizeConn:Disconnect() end
 	end)
 end
 

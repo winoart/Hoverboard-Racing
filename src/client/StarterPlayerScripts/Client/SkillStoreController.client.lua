@@ -78,8 +78,9 @@ if not bgFrame then
 	bgFrame.Parent = storeGui
 end
 
-bgFrame.Size = UDim2.new(0, 840, 0, 600)
-bgFrame.Position = UDim2.new(0.5, -420, 0.5, -300)
+bgFrame.Size = UDim2.new(0, 840, 0, 480)
+bgFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+bgFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
 bgFrame.BackgroundColor3 = Color3.fromRGB(150, 240, 255) -- Glass Sky Blue
 bgFrame.BackgroundTransparency = 0.5 -- Glass effect
 bgFrame.BorderSizePixel = 0
@@ -423,4 +424,24 @@ end)
 openStoreRemote.OnClientEvent:Connect(function()
 	refreshAllCards()
 	storeGui.Enabled = true
+end)
+
+-- =========================================================================
+-- 📱 RESPONSIVE UI SCALING
+-- =========================================================================
+local uiScale = Instance.new("UIScale", bgFrame)
+
+local function updateResponsiveScale()
+	local viewport = workspace.CurrentCamera.ViewportSize
+	if viewport.X == 0 or viewport.Y == 0 then return end
+	local scale = math.min(viewport.X / 1280, viewport.Y / 720)
+	uiScale.Scale = math.clamp(scale, 0.4, 1.1)
+end
+
+local resizeConn = workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateResponsiveScale)
+updateResponsiveScale()
+task.delay(0.1, updateResponsiveScale)
+
+storeGui.Destroying:Connect(function()
+	if resizeConn then resizeConn:Disconnect() end
 end)

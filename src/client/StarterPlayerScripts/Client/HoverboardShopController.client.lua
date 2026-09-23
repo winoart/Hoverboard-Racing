@@ -41,7 +41,8 @@ end
 
 -- Adjust frame sizes to ensure bottom legend fits cleanly
 bgFrame.Size = UDim2.new(0, 800, 0, 535)
-bgFrame.Position = UDim2.new(0.5, -400, 0.5, -267)
+bgFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+bgFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
 scrollFrame.Size = UDim2.new(1, -40, 0, 335)
 scrollFrame.Position = UDim2.new(0, 20, 0, 115)
 
@@ -435,6 +436,28 @@ restockRemote.OnClientEvent:Connect(function(newItems)
 		bindButtons()
 	end
 
-	-- Display Top Banner Toast to all players
 	showRestockBanner(newItems)
+end)
+
+-- =========================================================================
+-- 📱 RESPONSIVE UI SCALING
+-- =========================================================================
+local uiScale = Instance.new("UIScale", bgFrame)
+local toastScale = Instance.new("UIScale", toastGui)
+
+local function updateResponsiveScale()
+	local viewport = workspace.CurrentCamera.ViewportSize
+	if viewport.X == 0 or viewport.Y == 0 then return end
+	local scale = math.min(viewport.X / 1280, viewport.Y / 720)
+	local finalScale = math.clamp(scale, 0.4, 1.1)
+	uiScale.Scale = finalScale
+	toastScale.Scale = finalScale
+end
+
+local resizeConn = workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateResponsiveScale)
+updateResponsiveScale()
+task.delay(0.1, updateResponsiveScale)
+
+screenGui.Destroying:Connect(function()
+	if resizeConn then resizeConn:Disconnect() end
 end)

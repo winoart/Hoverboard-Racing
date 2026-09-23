@@ -75,7 +75,8 @@ local function createRebirthWindow()
 	local panel = Instance.new("Frame")
 	panel.Name = "Panel"
 	panel.Size = UDim2.new(0, 740, 0, 480)
-	panel.Position = UDim2.new(0.5, -370, 0.5, -240)
+	panel.AnchorPoint = Vector2.new(0.5, 0.5)
+	panel.Position = UDim2.new(0.5, 0, 0.5, 0)
 	panel.BackgroundColor3 = Color3.fromRGB(150, 240, 255)
 	panel.BackgroundTransparency = 0.5
 	panel.Parent = bg
@@ -307,6 +308,24 @@ local function createRebirthWindow()
 		end
 	end)
 
+	-- =========================================================================
+	-- 📱 RESPONSIVE UI SCALING
+	-- =========================================================================
+	local uiScale = Instance.new("UIScale", panel)
+	local function updateResponsiveScale()
+		local viewport = workspace.CurrentCamera.ViewportSize
+		if viewport.X == 0 or viewport.Y == 0 then return end
+		local scale = math.min(viewport.X / 1280, viewport.Y / 720)
+		uiScale.Scale = math.clamp(scale, 0.4, 1.1)
+	end
+	local resizeConn = workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateResponsiveScale)
+	updateResponsiveScale()
+	task.delay(0.1, updateResponsiveScale)
+	
+	screenGui.Destroying:Connect(function()
+		if resizeConn then resizeConn:Disconnect() end
+	end)
+
 	return rebirthWindow
 end
 
@@ -368,17 +387,14 @@ local function updateRebirthWindow()
 		if currentDist >= nextRebirthData.RequiredDistance then
 			doRebirthBtn.Text = "REBIRTH"
 			doRebirthBtn.BackgroundColor3 = Color3.fromRGB(100, 220, 110)
-			doRebirthBtn.Active = true
 		else
 			doRebirthBtn.Text = "REBIRTH"
 			doRebirthBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
-			doRebirthBtn.Active = false
 		end
 	else
 		setCardData("NextCard", -1, false)
 		doRebirthBtn.Text = "MAX REBIRTH REACHED!"
 		doRebirthBtn.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
-		doRebirthBtn.Active = false
 	end
 end
 

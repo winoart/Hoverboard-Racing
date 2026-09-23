@@ -79,19 +79,24 @@ if waitingRoom then
 			local promptPart = getCenterPart(shopStand)
 			if promptPart then
 				shopPrompt = Instance.new("ProximityPrompt")
-				shopPrompt.ActionText = "룰렛 열기"
-				shopPrompt.ObjectText = "호버보드 뽑기"
-				shopPrompt.KeyboardKeyCode = Enum.KeyCode.E
-				shopPrompt.RequiresLineOfSight = false
-				shopPrompt.MaxActivationDistance = 15
 				shopPrompt.Parent = promptPart
 			end
 		end
 		
 		if shopPrompt and shopPrompt:IsA("ProximityPrompt") then
-			shopPrompt.Triggered:Connect(function(player)
-				openStoreRemote:FireClient(player)
-			end)
+			shopPrompt.ActionText = "룰렛 열기"
+			shopPrompt.ObjectText = "호버보드 뽑기"
+			shopPrompt.KeyboardKeyCode = Enum.KeyCode.E
+			shopPrompt.RequiresLineOfSight = false
+			shopPrompt.MaxActivationDistance = 15
+			
+			-- 이미 연결되었는지 확인 (중복 연결 방지)
+			if not shopPrompt:GetAttribute("BoundToStore") then
+				shopPrompt:SetAttribute("BoundToStore", true)
+				shopPrompt.Triggered:Connect(function(player)
+					openStoreRemote:FireClient(player)
+				end)
+			end
 			print("🛒 [StoreServer] Bound static ProximityPrompt for HoverboardShopStand")
 		end
 	end
@@ -104,19 +109,23 @@ if waitingRoom then
 			local promptPart = getCenterPart(kioskStand)
 			if promptPart then
 				kioskPrompt = Instance.new("ProximityPrompt")
-				kioskPrompt.ActionText = "상점 열기"
-				kioskPrompt.ObjectText = "호버보드 키오스크"
-				kioskPrompt.KeyboardKeyCode = Enum.KeyCode.E
-				kioskPrompt.RequiresLineOfSight = false
-				kioskPrompt.MaxActivationDistance = 15
 				kioskPrompt.Parent = promptPart
 			end
 		end
 		
 		if kioskPrompt and kioskPrompt:IsA("ProximityPrompt") then
-			kioskPrompt.Triggered:Connect(function(player)
-				openHoverboardShopRemote:FireClient(player)
-			end)
+			kioskPrompt.ActionText = "상점 열기"
+			kioskPrompt.ObjectText = "호버보드 키오스크"
+			kioskPrompt.KeyboardKeyCode = Enum.KeyCode.E
+			kioskPrompt.RequiresLineOfSight = false
+			kioskPrompt.MaxActivationDistance = 15
+			
+			if not kioskPrompt:GetAttribute("BoundToStore") then
+				kioskPrompt:SetAttribute("BoundToStore", true)
+				kioskPrompt.Triggered:Connect(function(player)
+					openHoverboardShopRemote:FireClient(player)
+				end)
+			end
 			print("🛒 [StoreServer] Bound static ProximityPrompt for HoverboardKiosk")
 		end
 	end

@@ -48,13 +48,19 @@ local function setupStorePart(storeObj: Instance)
 	local prompt = storeObj:FindFirstChildOfClass("ProximityPrompt")
 	if not prompt then
 		prompt = Instance.new("ProximityPrompt")
-		prompt.ActionText = "상점 열기"
-		prompt.ObjectText = "스킬 상점"
-		prompt.KeyboardKeyCode = Enum.KeyCode.E
-		prompt.MaxActivationDistance = 10
-		prompt.RequiresLineOfSight = false
 		prompt.Parent = storeObj
+	end
+	
+	prompt.ActionText = "상점 열기"
+	prompt.ObjectText = "스킬 상점"
+	prompt.KeyboardKeyCode = Enum.KeyCode.E
+	prompt.MaxActivationDistance = 10
+	prompt.RequiresLineOfSight = false
 
+	-- 항상 Triggered 이벤트를 연결합니다. (기존에 연결된 함수가 없다면)
+	-- 중복 연결을 방지하기 위해 태그를 사용
+	if not prompt:GetAttribute("BoundToStore") then
+		prompt:SetAttribute("BoundToStore", true)
 		prompt.Triggered:Connect(function(player)
 			openStoreRemote:FireClient(player)
 		end)

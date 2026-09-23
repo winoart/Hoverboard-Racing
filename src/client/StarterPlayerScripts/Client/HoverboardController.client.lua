@@ -1776,10 +1776,10 @@ if showScoreboardRemote then
 		bg.ZIndex = 50
 		bg.Parent = guiScreen
 		
-		-- Scoreboard Panel
 		local panel = Instance.new("Frame")
 		panel.Size = UDim2.new(0, 600, 0, 520)
-		panel.Position = UDim2.new(0.5, -300, 0.5, -260)
+		panel.AnchorPoint = Vector2.new(0.5, 0.5)
+		panel.Position = UDim2.new(0.5, 0, 0.5, 0)
 		panel.BackgroundColor3 = Color3.fromRGB(150, 240, 255)
 		panel.BackgroundTransparency = 0.5
 		panel.ZIndex = 51
@@ -1969,8 +1969,22 @@ if showScoreboardRemote then
 		
 		scroll.CanvasSize = UDim2.new(0, 0, 0, #results * 45)
 		
+		-- =========================================================================
+		-- 📱 RESPONSIVE UI SCALING
+		-- =========================================================================
+		local uiScale = Instance.new("UIScale", panel)
+		local function updateResponsiveScale()
+			local viewport = workspace.CurrentCamera.ViewportSize
+			if viewport.X == 0 or viewport.Y == 0 then return end
+			local scale = math.min(viewport.X / 1280, viewport.Y / 720)
+			uiScale.Scale = math.clamp(scale, 0.4, 1.1)
+		end
+		local resizeConn = workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateResponsiveScale)
+		updateResponsiveScale()
+		
 		-- Destroy after 7 seconds
 		task.delay(7.5, function()
+			if resizeConn then resizeConn:Disconnect() end
 			if bg and bg.Parent then
 				bg:Destroy()
 			end

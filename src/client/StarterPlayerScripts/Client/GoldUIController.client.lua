@@ -95,7 +95,8 @@ end)
 local shopModal = Instance.new("Frame")
 shopModal.Name = "RobuxShopModal"
 shopModal.Size = UDim2.new(0, 720, 0, 500) -- 가로로 길게 조금 늘림
-shopModal.Position = UDim2.new(0.5, -360, 0.5, -250)
+shopModal.AnchorPoint = Vector2.new(0.5, 0.5)
+shopModal.Position = UDim2.new(0.5, 0, 0.5, 0)
 shopModal.BackgroundColor3 = Color3.fromRGB(150, 240, 255)
 shopModal.BackgroundTransparency = 0.5
 shopModal.Visible = false
@@ -392,3 +393,23 @@ LocalPlayer:GetAttributeChangedSignal("IsSpectating"):Connect(function()
 end)
 
 print("💰 [GoldUIController] Gold Display UI loaded.")
+
+-- =========================================================================
+-- 📱 RESPONSIVE UI SCALING
+-- =========================================================================
+local uiScale = Instance.new("UIScale", shopModal)
+
+local function updateResponsiveScale()
+	local viewport = workspace.CurrentCamera.ViewportSize
+	if viewport.X == 0 or viewport.Y == 0 then return end
+	local scale = math.min(viewport.X / 1280, viewport.Y / 720)
+	uiScale.Scale = math.clamp(scale, 0.4, 1.1)
+end
+
+local resizeConn = workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateResponsiveScale)
+updateResponsiveScale()
+task.delay(0.1, updateResponsiveScale)
+
+screenGui.Destroying:Connect(function()
+	if resizeConn then resizeConn:Disconnect() end
+end)
