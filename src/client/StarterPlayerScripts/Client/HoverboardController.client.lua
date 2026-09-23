@@ -11,6 +11,7 @@ local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
 local StarterGui = game:GetService("StarterGui")
+local GuiService = game:GetService("GuiService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
 
@@ -54,6 +55,7 @@ local fallCheckTimer = 0.0
 -- Nitro Booster State Variables
 local boosterGauge = 100.0 -- 0% to 100%
 local isBoosting = false
+local isMobileBoostDown = false
 
 -- Race State Variables
 local raceStartTime = 0.0
@@ -484,6 +486,87 @@ local function createHUDUI()
 	speedModeLabel.ZIndex = 12
 	speedModeLabel.Parent = bottomCenterHUD
 
+	-- =========================================================================
+	-- 📱 MOBILE BOOST BUTTON (Only if TouchEnabled)
+	-- Tracks the Roblox default JumpButton and overlays exactly on top of it
+	-- =========================================================================
+	if UserInputService.TouchEnabled then
+		local mobileBoostBtn = Instance.new("TextButton")
+		mobileBoostBtn.Name = "MobileBoostBtn"
+		mobileBoostBtn.Size = UDim2.new(0, 70, 0, 70) -- default, will be updated
+		mobileBoostBtn.Position = UDim2.new(1, -80, 1, -80) -- default fallback
+		mobileBoostBtn.AnchorPoint = Vector2.new(0.5, 0.5)
+		mobileBoostBtn.BackgroundColor3 = Color3.fromRGB(255, 180, 0)
+		mobileBoostBtn.Font = Enum.Font.FredokaOne
+		mobileBoostBtn.Text = "BOOST"
+		mobileBoostBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+		mobileBoostBtn.TextSize = 20
+		mobileBoostBtn.ZIndex = 20
+		mobileBoostBtn.Parent = guiScreen
+		
+		local btnCorner = Instance.new("UICorner")
+		btnCorner.CornerRadius = UDim.new(1, 0)
+		btnCorner.Parent = mobileBoostBtn
+
+		-- 점프버튼 위치/크기를 찾아서 BOOST 버튼을 정확히 그 위에 올리는 함수
+		local function snapToJumpButton()
+			local pGui = LocalPlayer:FindFirstChild("PlayerGui")
+			if not pGui then return end
+			local touchGui = pGui:FindFirstChild("TouchGui")
+			if not touchGui then return end
+			local controlFrame = touchGui:FindFirstChild("TouchControlFrame")
+			if not controlFrame then return end
+			local jumpBtn = controlFrame:FindFirstChild("JumpButton")
+			if not jumpBtn then return end
+			
+			local absPos = jumpBtn.AbsolutePosition
+			local absSize = jumpBtn.AbsoluteSize
+			if absPos.X <= 10 or absPos.Y <= 10 then return end
+			
+			-- GuiInset 보정: TouchGui는 IgnoreGuiInset=false, guiScreen은 true이므로 Y 오프셋 필요
+			local guiInset = GuiService:GetGuiInset()
+			
+			-- 화면 크기 대비 스케일 좌표로 변환
+			local screenSize = guiScreen.AbsoluteSize
+			if screenSize.X == 0 or screenSize.Y == 0 then return end
+			
+			local centerX = absPos.X + absSize.X / 2
+			local centerY = absPos.Y + absSize.Y / 2 + guiInset.Y -- 점프버튼 중심에 정확히 일치
+			
+			mobileBoostBtn.Position = UDim2.new(centerX / screenSize.X, 0, centerY / screenSize.Y, 0)
+			mobileBoostBtn.Size = UDim2.new(absSize.X / screenSize.X, 0, absSize.Y / screenSize.Y, 0)
+		end
+		
+		-- 0.5초마다 위치 동기화 (레이아웃이 바뀔 수 있으므로)
+		task.spawn(function()
+			while mobileBoostBtn and mobileBoostBtn.Parent do
+				snapToJumpButton()
+				task.wait(0.5)
+			end
+		end)
+		
+		local tweenInfo = TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+		mobileBoostBtn.InputBegan:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+				isMobileBoostDown = true
+				TweenService:Create(mobileBoostBtn, tweenInfo, {
+					BackgroundColor3 = Color3.fromRGB(255, 220, 50),
+					BackgroundTransparency = 0.15
+				}):Play()
+			end
+		end)
+		
+		mobileBoostBtn.InputEnded:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+				isMobileBoostDown = false
+				TweenService:Create(mobileBoostBtn, tweenInfo, {
+					BackgroundColor3 = Color3.fromRGB(255, 180, 0),
+					BackgroundTransparency = 0
+				}):Play()
+			end
+		end)
+	end
+
 	-- (Bottom-Center Booster Gauge has been removed and replaced by the Arc Ring Gauge)
 	guiScreen.Enabled = false
 end
@@ -854,10 +937,17 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 			currentWalkSpeed = 0.0
 			isBoosting = false
 		else
-			-- Movement Inputs
-			local isW = UserInputService:IsKeyDown(Enum.KeyCode.W) or UserInputService:IsKeyDown(Enum.KeyCode.Up)
-			local isS = UserInputService:IsKeyDown(Enum.KeyCode.S) or UserInputService:IsKeyDown(Enum.KeyCode.Down)
-			local isBoostKey = UserInputService:IsKeyDown(HoverboardConfig.BOOSTER_KEY) or UserInputService:IsKeyDown(Enum.KeyCode.Space)
+			-- Movement Inputs (Keyboard + Mobile Thumbstick via Camera-relative dot product)
+			-- Humanoid.MoveDirection is world-space, so we dot it with Camera vectors to get camera-relative input
+			local hMoveDir = humanoid and humanoid.MoveDirection or Vector3.zero
+			local camLook = Camera.CFrame.LookVector
+			local camRight = Camera.CFrame.RightVector
+			local fwdDot = hMoveDir:Dot(Vector3.new(camLook.X, 0, camLook.Z).Unit)
+			local rightDot = hMoveDir:Dot(Vector3.new(camRight.X, 0, camRight.Z).Unit)
+			
+			local isW = UserInputService:IsKeyDown(Enum.KeyCode.W) or UserInputService:IsKeyDown(Enum.KeyCode.Up) or fwdDot > 0.3
+			local isS = UserInputService:IsKeyDown(Enum.KeyCode.S) or UserInputService:IsKeyDown(Enum.KeyCode.Down) or fwdDot < -0.3
+			local isBoostKey = UserInputService:IsKeyDown(HoverboardConfig.BOOSTER_KEY) or UserInputService:IsKeyDown(Enum.KeyCode.Space) or isMobileBoostDown
 			
 			-- 레이스를 완주한 경우 조작을 막아 자연스럽게 감속되도록 유도
 			if isFinished then
@@ -865,6 +955,11 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 				isS = false
 				isBoostKey = false
 				isBoosting = false
+			end
+			
+			-- 모바일 부스터 버튼: isBoostKey 로 부스터 발동 (InputBegan 없이도 작동하도록)
+			if isBoostKey and not isBoosting and boosterGauge >= HoverboardConfig.BOOSTER_MIN_TO_USE then
+				isBoosting = true
 			end
 			
 			if isStunned then
@@ -886,8 +981,8 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 				stunLiftOffset = math.max(0, stunLiftOffset - (40 * deltaTime)) -- 스턴 종료 시 부드럽게 착지
 				
 				-- Steering Controls
-				local isA = UserInputService:IsKeyDown(Enum.KeyCode.A) or UserInputService:IsKeyDown(Enum.KeyCode.Left)
-				local isD = UserInputService:IsKeyDown(Enum.KeyCode.D) or UserInputService:IsKeyDown(Enum.KeyCode.Right)
+				local isA = UserInputService:IsKeyDown(Enum.KeyCode.A) or UserInputService:IsKeyDown(Enum.KeyCode.Left) or rightDot < -0.3
+				local isD = UserInputService:IsKeyDown(Enum.KeyCode.D) or UserInputService:IsKeyDown(Enum.KeyCode.Right) or rightDot > 0.3
 
 				local targetSteerRate = 0.0
 				
