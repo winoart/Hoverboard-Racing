@@ -24,18 +24,12 @@ local screenGui = playerGui:WaitForChild("GoldDisplayHUD")
 local goldFrame = screenGui:WaitForChild("GoldFrame")
 local goldIcon = goldFrame:WaitForChild("GoldIcon")
 local goldTextLabel = goldFrame:WaitForChild("GoldTextLabel")
-local addGoldButton = goldFrame:WaitForChild("AddGoldButton")
 
 local goldTextStroke = Instance.new("UIStroke")
 goldTextStroke.Color = Color3.fromRGB(0, 0, 0)
 goldTextStroke.Thickness = 3
 goldTextStroke.Parent = goldTextLabel
 
--- 폰트 사이즈가 강제로 작아지는 것 방지 및 화면 축소 시 짤림 방지
-goldTextLabel.TextScaled = true
-goldTextLabel.Size = UDim2.new(0, 400, 1, 0) -- 가로 제약을 아예 풀어버려서 항상 세로(높이) 높이에 맞춰서 최대 크기로 렌더링되게 함
-goldTextLabel.AutomaticSize = Enum.AutomaticSize.None
-goldTextLabel.TextXAlignment = Enum.TextXAlignment.Left
 
 local suffixes = {"", "K", "M", "B", "T", "Qa", "Qi"}
 
@@ -64,29 +58,8 @@ displayGold.Name = "DisplayGold"
 displayGold.Value = goldValue.Value
 displayGold.Parent = screenGui
 
-local function UpdatePlusButtonPosition()
-	if goldTextLabel and addGoldButton then
-		local textWidth = goldTextLabel.TextBounds.X
-		if textWidth > 0 then
-			addGoldButton.Position = UDim2.new(
-				goldTextLabel.Position.X.Scale, 
-				goldTextLabel.Position.X.Offset + textWidth + 10,
-				addGoldButton.Position.Y.Scale, 
-				addGoldButton.Position.Y.Offset
-			)
-		end
-	end
-end
-
 displayGold.Changed:Connect(function()
 	goldTextLabel.Text = FormatGold(math.floor(displayGold.Value))
-	task.spawn(UpdatePlusButtonPosition)
-end)
-
--- 화면 크기가 변해서 폰트 사이즈가 변할 때도 플러스 버튼 위치 갱신
-workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
-	task.wait(0.05)
-	UpdatePlusButtonPosition()
 end)
 
 local function UpdateGoldText()
@@ -111,12 +84,7 @@ screenGui:GetAttributeChangedSignal("PauseGoldUpdate"):Connect(function()
 end)
 
 -- Hover effect for plus button
-addGoldButton.MouseEnter:Connect(function()
-	TweenService:Create(addGoldButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(70, 220, 70)}):Play()
-end)
-addGoldButton.MouseLeave:Connect(function()
-	TweenService:Create(addGoldButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(50, 200, 50)}):Play()
-end)
+
 
 -- ROBUX 상점 UI 구성
 local shopModal = Instance.new("Frame")
@@ -379,7 +347,7 @@ end
 closeButton.MouseButton1Click:Connect(function()
 	shopModal.Visible = false
 end)
-addGoldButton.MouseButton1Click:Connect(toggleShop)
+
 
 task.spawn(function()
 	local function linkRobuxShop(btn)

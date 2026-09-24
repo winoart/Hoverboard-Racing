@@ -666,8 +666,8 @@ local function fireBlindFog(player: Player)
 		smoke.RiseVelocity = 0 -- 위로 솟구치지 않고 제자리에 머물게 함
 		smoke.Parent = attach
 		
-		-- 10초 뒤 연기 생성 중지
-		task.delay(10, function()
+		-- 4초 뒤 연기 생성 중지
+		task.delay(4, function()
 			smoke.Enabled = false
 		end)
 	end
@@ -717,9 +717,8 @@ local function fireBlindFog(player: Player)
 		end
 	end)
 	
-	-- Destroy after 4 seconds
+	-- Destroy after 4초 (에러 유발하는 fogParticle 삭제)
 	task.delay(4, function()
-		fogParticle.Enabled = false
 		
 		-- Clear everyone currently in fog
 		for userId, p in pairs(activePlayersInFog) do

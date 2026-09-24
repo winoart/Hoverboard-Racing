@@ -96,8 +96,8 @@ end
 
 local function updateMobileTextVisibility()
 	-- 창 크기(ViewportSize)로 판단하면 스튜디오 패널 때문에 창이 좁아졌을 때 모바일로 오작동함.
-	-- 기기 자체의 특성(터치 가능 여부)으로 확실하게 모바일(스몰 스크린)을 판별하도록 수정!
-	local isSmallScreen = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	-- 기기 자체의 특성(터치 가능 여부) 및 화면 세로 비율로 스튜디오 에뮬레이터에서도 모바일 판별을 완벽하게 지원
+	local isSmallScreen = (workspace.CurrentCamera.ViewportSize.Y < 600) or (UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled)
 	
 	-- (주의) 스튜디오 에뮬레이터 테스트를 위해 터치 인식이 켜지면 무조건 모바일로 간주하려면 아래 옵션 사용 가능
 	-- local isSmallScreen = UserInputService.TouchEnabled
@@ -136,10 +136,10 @@ local function lockBottomButtonsPosition()
 	local robuxBtn = getButton(robux)
 	
 	local function updateLayout()
-		local isSmallScreen = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+		local isSmallScreen = (workspace.CurrentCamera.ViewportSize.Y < 600) or (UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled)
 		
-		-- 모바일일 때는 간격을 4픽셀로 가깝게, PC일 때는 18픽셀로 넉넉하게
-		local gap = isSmallScreen and 4 or 18
+		-- 모바일일 때는 간격을 10픽셀로 살짝 띄우고, PC일 때는 18픽셀로 넉넉하게
+		local gap = isSmallScreen and 10 or 18
 		
 		-- 윗줄 버튼 모바일 위치 상승 (원본 Position은 Studio에 세팅된 값 유지, Offset만 조절)
 		if invBtn and invBtn:FindFirstChild("OriginalY") == nil then

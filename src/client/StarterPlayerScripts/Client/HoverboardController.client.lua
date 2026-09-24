@@ -48,6 +48,7 @@ local defaultFOV = 70
 local targetFOV = 70
 local currentWalkSpeed = 0.0
 local currentSteerRate = 0.0 -- Damped steering turn rate for smooth cornering and auto-straightening
+local isReversing = false -- 방금 전까지 후진 중이었는지를 기억하는 상태 변수
 local lastSafePosition: Vector3? = nil
 local lastSafeYaw = 0.0
 local fallCheckTimer = 0.0
@@ -1101,19 +1102,48 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 			gyro.CFrame = CFrame.Angles(0, currentHeadingYaw, 0)
 
 			if isBoosting then
-				boosterGauge = math.max(0, boosterGauge - (HoverboardConfig.BOOSTER_DRAIN_RATE * deltaTime))
-				currentWalkSpeed = currentMaxBoosterSpeed
-				if boosterGauge <= 0 then
+				-- 🛑 부스터 중 역방향 키(브레이크)를 누르면 부스터 즉시 강제 종료
+				if (isW and isReversing) or (isS and not isReversing) then
 					isBoosting = false
+				else
+					boosterGauge = math.max(0, boosterGauge - (HoverboardConfig.BOOSTER_DRAIN_RATE * deltaTime))
+					currentWalkSpeed = currentMaxBoosterSpeed
+					if boosterGauge <= 0 then
+						isBoosting = false
+					end
 				end
-			else
+			end
+
+			if not isBoosting then
+				-- 🏎️ 레이싱 게임 국룰: 전진 중 후진 키(S)를 누르면 '제동(브레이크)'이 먼저 걸리고, 멈춘 후 후진
+				-- 반대로 후진 중 전진 키(W)를 눌러도 제동 후 전진
+				if isW and isReversing and currentWalkSpeed > 5 then
+					-- 후진 중 전진키 누름 -> 브레이크
+					isS = false
+					isW = false 
+				elseif isS and not isReversing and currentWalkSpeed > 5 then
+					-- 전진 중 후진키 누름 -> 브레이크
+					isW = false
+					isS = false
+				else
+					-- 정상 가속 가능할 때만 방향 전환 허용
+					if isW then
+						isReversing = false
+					elseif isS then
+						isReversing = true
+					end
+				end
+
+				-- 제동 시에는 targetSpeed가 0이 됨
 				local targetSpeed = (isW or isS) and HoverboardConfig.RIDE_WALKSPEED or 0
 
 				if currentWalkSpeed < targetSpeed then
 					local accelRate = 36
 					currentWalkSpeed = math.min(targetSpeed, currentWalkSpeed + (accelRate * deltaTime))
 				elseif currentWalkSpeed > targetSpeed then
-					local decelRate = 60 -- 48에서 60으로 약간 상향하여 부드럽지만 너무 미끄러지지 않게 감속
+					-- 브레이크(역방향 키 입력) 중일 때는 제동력(decelRate)을 2배로 강하게 적용
+					local isBraking = (not isW and not isS) and (UserInputService:IsKeyDown(Enum.KeyCode.S) or UserInputService:IsKeyDown(Enum.KeyCode.Down))
+					local decelRate = isBraking and 120 or 60
 					currentWalkSpeed = math.max(targetSpeed, currentWalkSpeed - (decelRate * deltaTime))
 				end
 
@@ -1144,12 +1174,16 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 			if rootPart and currentWalkSpeed > 0.1 then
 				local wDir = hrp.CFrame.RightVector
 
-				local moveVector = wDir
-				if isS and not isW then
-					moveVector = -wDir
+				-- 현재 입력된 키에 따라 후진 상태 업데이트
+				if isW then
+					isReversing = false
+				elseif isS then
+					isReversing = true
 				end
 
-				-- W나 S를 떼더라도 currentWalkSpeed가 남아있는 동안 관성으로 계속 미끄러집니다.
+				local moveVector = isReversing and -wDir or wDir
+
+				-- W나 S를 떼더라도 currentWalkSpeed가 남아있는 동안 마지막으로 진행하던 방향(관성)으로 계속 미끄러집니다.
 				humanoid:Move(moveVector, false)
 			else
 				humanoid:Move(Vector3.zero, false)
