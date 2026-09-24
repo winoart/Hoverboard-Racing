@@ -555,10 +555,19 @@ local function fireOrbitalLaser(player: Player)
 			laserPillar.Size = Vector3.new(500, 15, 15) 
 			laserPillar.Color = Color3.fromRGB(100, 255, 255)
 			laserPillar.Material = Enum.Material.Neon
-			laserPillar.Anchored = true
+			laserPillar.Anchored = false -- Weld를 위해 고정 해제
 			laserPillar.CanCollide = false
+			laserPillar.Massless = true
 			laserPillar.CFrame = root.CFrame * CFrame.new(0, 250, 0) * CFrame.Angles(0, 0, math.pi/2)
-			laserPillar.Parent = Workspace
+			
+			local hitWeld = Instance.new("Weld")
+			hitWeld.Part0 = root
+			hitWeld.Part1 = laserPillar
+			hitWeld.C0 = CFrame.new(0, 250, 0) * CFrame.Angles(0, 0, math.pi/2)
+			hitWeld.Parent = laserPillar
+			
+			laserPillar.Parent = char
+			game.Debris:AddItem(laserPillar, 1.5) -- 1.5초 후 이펙트 삭제 (기존에 삭제가 누락되어 무한정 남아있던 버그 수정)
 			
 			local boomSound = Instance.new("Sound")
 			boomSound.SoundId = "rbxassetid://12222200" -- explosion
@@ -573,9 +582,26 @@ local function fireOrbitalLaser(player: Player)
 			end
 			
 			char:SetAttribute("StatusEffect_Stun", true)
+			
+			-- 호버보드 엔진 강제 정지 (물리적 고정)
+			local hoverboard = char:FindFirstChild("Hoverboard")
+			if hoverboard and hoverboard:IsA("Model") and hoverboard.PrimaryPart then
+				hoverboard.PrimaryPart.Anchored = true
+			else
+				root.Anchored = true
+			end
+			
 			task.delay(1.5, function()
 				if char and char.Parent then
 					char:SetAttribute("StatusEffect_Stun", false)
+					
+					-- 엔진 정지 해제
+					local hoverboard = char:FindFirstChild("Hoverboard")
+					if hoverboard and hoverboard:IsA("Model") and hoverboard.PrimaryPart then
+						hoverboard.PrimaryPart.Anchored = false
+					else
+						root.Anchored = false
+					end
 				end
 			end)
 			
@@ -691,8 +717,8 @@ local function fireBlindFog(player: Player)
 		end
 	end)
 	
-	-- Destroy after 10 seconds (기존 5초에서 증가)
-	task.delay(10, function()
+	-- Destroy after 4 seconds
+	task.delay(4, function()
 		fogParticle.Enabled = false
 		
 		-- Clear everyone currently in fog

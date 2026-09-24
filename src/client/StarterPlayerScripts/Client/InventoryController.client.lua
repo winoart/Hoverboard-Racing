@@ -31,17 +31,7 @@ local customModelsFolder = ReplicatedStorage:FindFirstChild("HoverboardModels")
 local hudGui = playerGui:WaitForChild("InventoryHUD")
 local toggleBtn = hudGui:WaitForChild("InventoryToggle")
 
--- Hover Effects on HUD
-local originalSize = toggleBtn.Size
-local hoverSize = UDim2.new(originalSize.X.Scale, originalSize.X.Offset + 8, originalSize.Y.Scale, originalSize.Y.Offset + 8)
-
-toggleBtn.MouseEnter:Connect(function()
-	TweenService:Create(toggleBtn, TweenInfo.new(0.15, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {Size = hoverSize}):Play()
-end)
-toggleBtn.MouseLeave:Connect(function()
-	TweenService:Create(toggleBtn, TweenInfo.new(0.15, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {Size = originalSize}):Play()
-end)
-
+-- Hover Effects on HUD (Removed per user request)
 -- State
 local currentTab = "Board"
 local selectedItem: any = nil

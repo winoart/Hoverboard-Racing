@@ -21,7 +21,8 @@ local LOUNGE_BUTTON_GUIS = {
 	"setting",
 	"Hover",
 	"HoverShop",
-	"UtilityBarGui"
+	"UtilityBarGui",
+	"InventoryHUD"
 }
 
 -- 상점, 인벤토리 등 팝업창 목록 (레이싱 진입 시 강제로 '끄기'만 하고 자동으로 '켜지'는 않음)
@@ -70,13 +71,6 @@ local function updateUIVisibility()
 		end
 	end
 	
-	-- 2. 태그(LoungeUI)가 부여된 개별 버튼/UI들 일괄 제어 (가장 깔끔한 방법)
-	for _, obj in ipairs(game:GetService("CollectionService"):GetTagged("LoungeUI")) do
-		-- 로컬 플레이어의 PlayerGui 안에 있는 인스턴스인지 확인
-		if obj:IsDescendantOf(PlayerGui) and obj:IsA("GuiObject") then
-			obj.Visible = shouldShowLoungeUI
-		end
-	end
 end
 
 -- 속성 변경 시 실시간 UI 갱신
@@ -86,5 +80,116 @@ LocalPlayer:GetAttributeChangedSignal("IsAFK"):Connect(updateUIVisibility)
 
 -- 초기 갱신
 updateUIVisibility()
+
+-- 모바일/작은 화면일 때 텍스트 라벨 숨기기 (반응형)
+local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
+
+local function applyVisibilityToGui(gui, isSmallScreen)
+	for _, desc in ipairs(gui:GetDescendants()) do
+		if desc:IsA("TextLabel") then
+			print("🔎 [Debug] Found TextLabel:", desc.Name, "in", gui.Name, "| Setting Visible to:", not isSmallScreen)
+			desc.Visible = not isSmallScreen
+		end
+	end
+end
+
+local function updateMobileTextVisibility()
+	-- 창 크기(ViewportSize)로 판단하면 스튜디오 패널 때문에 창이 좁아졌을 때 모바일로 오작동함.
+	-- 기기 자체의 특성(터치 가능 여부)으로 확실하게 모바일(스몰 스크린)을 판별하도록 수정!
+	local isSmallScreen = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	
+	-- (주의) 스튜디오 에뮬레이터 테스트를 위해 터치 인식이 켜지면 무조건 모바일로 간주하려면 아래 옵션 사용 가능
+	-- local isSmallScreen = UserInputService.TouchEnabled
+	
+	local mobileHideGuis = {"InventoryHUD", "Quest", "Rebirth", "RobuxShop"}
+	
+	for _, guiName in ipairs(mobileHideGuis) do
+		task.spawn(function()
+			local gui = PlayerGui:WaitForChild(guiName, 10)
+			if gui then
+				applyVisibilityToGui(gui, isSmallScreen)
+			end
+		end)
+	end
+end
+
+-- 아랫줄 버튼(Rebirth, RobuxShop) 위치 고정 및 모바일 간격 조절
+local function lockBottomButtonsPosition()
+	local inventory = PlayerGui:WaitForChild("InventoryHUD", 10)
+	local quest = PlayerGui:WaitForChild("Quest", 10)
+	local rebirth = PlayerGui:WaitForChild("Rebirth", 10)
+	local robux = PlayerGui:WaitForChild("RobuxShop", 10)
+	
+	if not (inventory and quest and rebirth and robux) then return end
+	
+	local function getButton(gui)
+		for _, desc in ipairs(gui:GetDescendants()) do
+			if desc:IsA("GuiButton") then return desc end
+		end
+		return nil
+	end
+	
+	local invBtn = getButton(inventory)
+	local questBtn = getButton(quest)
+	local rebBtn = getButton(rebirth)
+	local robuxBtn = getButton(robux)
+	
+	local function updateLayout()
+		local isSmallScreen = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+		
+		-- 모바일일 때는 간격을 4픽셀로 가깝게, PC일 때는 18픽셀로 넉넉하게
+		local gap = isSmallScreen and 4 or 18
+		
+		-- 윗줄 버튼 모바일 위치 상승 (원본 Position은 Studio에 세팅된 값 유지, Offset만 조절)
+		if invBtn and invBtn:FindFirstChild("OriginalY") == nil then
+			local ogY = Instance.new("NumberValue")
+			ogY.Name = "OriginalY"
+			ogY.Value = invBtn.Position.Y.Offset
+			ogY.Parent = invBtn
+		end
+		if questBtn and questBtn:FindFirstChild("OriginalY") == nil then
+			local ogY = Instance.new("NumberValue")
+			ogY.Name = "OriginalY"
+			ogY.Value = questBtn.Position.Y.Offset
+			ogY.Parent = questBtn
+		end
+		
+		if invBtn then
+			local ogY = invBtn:FindFirstChild("OriginalY").Value
+			invBtn.Position = UDim2.new(invBtn.Position.X.Scale, invBtn.Position.X.Offset, invBtn.Position.Y.Scale, isSmallScreen and (ogY - 50) or ogY)
+		end
+		if questBtn then
+			local ogY = questBtn:FindFirstChild("OriginalY").Value
+			questBtn.Position = UDim2.new(questBtn.Position.X.Scale, questBtn.Position.X.Offset, questBtn.Position.Y.Scale, isSmallScreen and (ogY - 50) or ogY)
+		end
+		
+		-- 아랫줄 버튼 윗줄 바로 아래로 고정
+		if invBtn and rebBtn then
+			rebBtn.AnchorPoint = Vector2.new(rebBtn.AnchorPoint.X, invBtn.AnchorPoint.Y)
+			rebBtn.Position = UDim2.new(rebBtn.Position.X.Scale, rebBtn.Position.X.Offset, invBtn.Position.Y.Scale, invBtn.Position.Y.Offset + invBtn.AbsoluteSize.Y + gap)
+		end
+		if questBtn and robuxBtn then
+			robuxBtn.AnchorPoint = Vector2.new(robuxBtn.AnchorPoint.X, questBtn.AnchorPoint.Y)
+			robuxBtn.Position = UDim2.new(robuxBtn.Position.X.Scale, robuxBtn.Position.X.Offset, questBtn.Position.Y.Scale, questBtn.Position.Y.Offset + questBtn.AbsoluteSize.Y + gap)
+		end
+	end
+
+	Workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+		task.wait(0.05) -- AbsoluteSize 갱신 대기 최소화
+		updateLayout()
+	end)
+	
+	if invBtn then invBtn:GetPropertyChangedSignal("AbsoluteSize"):Connect(updateLayout) end
+	if questBtn then questBtn:GetPropertyChangedSignal("AbsoluteSize"):Connect(updateLayout) end
+	
+	updateLayout() -- 딜레이 없이 즉시 실행하여 버튼 튀는 현상 제거
+end
+
+-- 해상도 변경 시 실시간 대응
+Workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateMobileTextVisibility)
+-- 초기 로딩 대응
+task.spawn(updateMobileTextVisibility)
+task.spawn(lockBottomButtonsPosition)
 
 print("🛡️ [UIManager] UI 중앙 제어 시스템 가동 완료!")
