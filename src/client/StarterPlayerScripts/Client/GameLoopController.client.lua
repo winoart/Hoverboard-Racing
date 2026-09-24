@@ -22,12 +22,6 @@ local headerTimerLabel: TextLabel? = nil
 local votingModalFrame: Frame? = nil
 local modalFooterTimerLabel: TextLabel? = nil
 
-local loadingModalFrame: Frame? = nil
-local loadingTitleLabel: TextLabel? = nil
-local loadingSubLabel: TextLabel? = nil
-local loadingFillBar: Frame? = nil
-local loadingPercentLabel: TextLabel? = nil
-
 local errorModalFrame: Frame? = nil
 
 type VoterInfo = { userId: number, name: string }
@@ -166,22 +160,6 @@ local function refreshDisplays()
 				votingModalFrame.Visible = true
 			else
 				votingModalFrame.Visible = false
-			end
-		end
-
-		-- Modal 2: 5s Animated Map Loading Screen Modal (and 30s Sync)
-		if loadingModalFrame then
-			if (currentPhase == "MAP_BUILDING" or currentPhase == "PLAYER_SYNC") and not LocalPlayer:GetAttribute("IsAFK") then
-				loadingModalFrame.Visible = true
-				if loadingSubLabel then
-					if currentPhase == "MAP_BUILDING" then
-						loadingSubLabel.Text = string.format("Loading Map (%ds)", math.max(0, phaseTimeLeft))
-					else
-						loadingSubLabel.Text = string.format("다른 플레이어들을 기다리는 중... (%ds)", math.max(0, phaseTimeLeft))
-					end
-				end
-			else
-				loadingModalFrame.Visible = false
 			end
 		end
 	end)
@@ -523,36 +501,7 @@ local function createGameLoopUI()
 		cardFrames[config.id] = card
 	end
 
-	-- =========================================================================
-	-- 🏗️ [3] MAP LOADING / SYNC TEXT UI
-	-- =========================================================================
-	loadingModalFrame = Instance.new("Frame")
-	loadingModalFrame.Name = "LoadingModal"
-	loadingModalFrame.Size = UDim2.new(1, 0, 0, 100)
-	loadingModalFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-	loadingModalFrame.Position = UDim2.new(0.5, 0, 0.35, 0)
-	loadingModalFrame.BackgroundTransparency = 1
-	loadingModalFrame.BorderSizePixel = 0
-	loadingModalFrame.Visible = false
-	loadingModalFrame.ZIndex = 50
-	loadingModalFrame.Parent = mainGuiScreen
 
-	loadingSubLabel = Instance.new("TextLabel")
-	loadingSubLabel.Name = "LoadingSub"
-	loadingSubLabel.Size = UDim2.new(1, 0, 1, 0)
-	loadingSubLabel.BackgroundTransparency = 1
-	loadingSubLabel.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
-	loadingSubLabel.Text = "다른 플레이어들을 기다리는 중... (30s)"
-	loadingSubLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-	loadingSubLabel.TextSize = 42
-	loadingSubLabel.ZIndex = 51
-	loadingSubLabel.Parent = loadingModalFrame
-	
-	local loadSubStroke = Instance.new("UIStroke")
-	loadSubStroke.Color = Color3.fromRGB(0, 0, 0)
-	loadSubStroke.Thickness = 5
-	loadSubStroke.Parent = loadingSubLabel
-	
 	-- =========================================================================
 	-- 🚨 [4] ERROR POPUP MODAL (Timeout Kick)
 	-- =========================================================================

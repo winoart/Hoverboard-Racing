@@ -377,10 +377,10 @@ local function createHUDUI()
 	-- =========================================================================
 	local bottomCenterHUD = Instance.new("Frame")
 	bottomCenterHUD.Name = "BottomCenterHUD"
-	bottomCenterHUD.Size = UDim2.new(0, 360, 0, 40)
+	bottomCenterHUD.Size = UDim2.new(0, 360, 0, 75) -- 늘어난 속도계 높이를 모두 포함하도록 컨테이너 확장 (40 -> 75)
 	bottomCenterHUD.AnchorPoint = Vector2.new(0.5, 1)
-	-- 스킬 버튼(높이 60 + 여백 10 = 70px)보다 무조건 위에 있도록 절대값 -85픽셀로 고정
-	bottomCenterHUD.Position = UDim2.new(0.5, 0, 1, -85) 
+	-- PC/모바일 관계없이 무조건 화면 최하단(98% 지점)에 고정되도록 변경하여 캐릭터와 안 겹치게 내림
+	bottomCenterHUD.Position = UDim2.new(0.5, 0, 0.98, 0)
 	bottomCenterHUD.BackgroundTransparency = 1
 	bottomCenterHUD.ZIndex = 10
 	bottomCenterHUD.Parent = guiScreen
@@ -454,24 +454,77 @@ local function createHUDUI()
 	})
 	boosterGradient.Parent = boosterFillBar
 
+	-- [ Winged Speedometer UI ]
+	local wingedSpeedFrame = Instance.new("Frame")
+	wingedSpeedFrame.Name = "WingedSpeedFrame"
+	wingedSpeedFrame.Size = UDim2.new(0, 260, 0, 40)
+	wingedSpeedFrame.Position = UDim2.new(0, 60, 0, 22) -- N2O 게이지 바로 아래
+	wingedSpeedFrame.BackgroundTransparency = 1
+	wingedSpeedFrame.ZIndex = 11
+	wingedSpeedFrame.Parent = bottomCenterHUD
+
+	local speedBox = Instance.new("Frame")
+	speedBox.Name = "SpeedBox"
+	speedBox.Size = UDim2.new(0, 180, 0, 50)
+	speedBox.AnchorPoint = Vector2.new(0.5, 0)
+	speedBox.Position = UDim2.new(0.5, 0, 0, 0)
+	speedBox.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+	speedBox.BackgroundTransparency = 0.5
+	speedBox.BorderSizePixel = 0
+	speedBox.Parent = wingedSpeedFrame
+
+	local speedStroke2 = Instance.new("UIStroke")
+	speedStroke2.Color = Color3.fromRGB(0, 255, 255)
+	speedStroke2.Thickness = 2
+	speedStroke2.Parent = speedBox
+
 	-- Digital Speed Number
 	speedNumLabel = Instance.new("TextLabel")
 	speedNumLabel.Name = "DigitalSpeedNum"
-	speedNumLabel.Size = UDim2.new(1, 0, 0, 48)
-	speedNumLabel.Position = UDim2.new(0, 0, 0, 86)
+	speedNumLabel.Size = UDim2.new(1, -55, 1, 0)
+	speedNumLabel.Position = UDim2.new(0, 0, 0, 0)
 	speedNumLabel.BackgroundTransparency = 1
 	speedNumLabel.Font = Enum.Font.GothamBlack
-	speedNumLabel.Text = "0.0 Km/s"
+	speedNumLabel.Text = "0.0"
 	speedNumLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 	speedNumLabel.TextSize = 42
-	speedNumLabel.TextXAlignment = Enum.TextXAlignment.Right
+	speedNumLabel.TextXAlignment = Enum.TextXAlignment.Center
 	speedNumLabel.ZIndex = 12
-	speedNumLabel.Parent = topRightFrame
+	speedNumLabel.Parent = speedBox
 
-	local speedStroke = Instance.new("UIStroke")
-	speedStroke.Color = Color3.fromRGB(0, 0, 0)
-	speedStroke.Thickness = 3.0
-	speedStroke.Parent = speedNumLabel
+	local kmhLabel = Instance.new("TextLabel")
+	kmhLabel.Size = UDim2.new(0, 55, 1, -8)
+	kmhLabel.Position = UDim2.new(1, -55, 0, 0)
+	kmhLabel.BackgroundTransparency = 1
+	kmhLabel.Font = Enum.Font.GothamBold
+	kmhLabel.Text = "km/h"
+	kmhLabel.TextColor3 = Color3.fromRGB(0, 255, 255)
+	kmhLabel.TextSize = 18
+	kmhLabel.TextXAlignment = Enum.TextXAlignment.Left
+	kmhLabel.TextYAlignment = Enum.TextYAlignment.Bottom
+	kmhLabel.Parent = speedBox
+
+	-- Left Wings
+	for i = 1, 3 do
+		local w = Instance.new("Frame")
+		w.Size = UDim2.new(0, 15 + i*10, 0, 10)
+		w.AnchorPoint = Vector2.new(1, 0)
+		w.Position = UDim2.new(0, 40 - 10, 0, (i-1)*16 + 5)
+		w.BackgroundColor3 = Color3.fromRGB(0, 255, 255)
+		w.BorderSizePixel = 0
+		w.Parent = wingedSpeedFrame
+	end
+
+	-- Right Wings
+	for i = 1, 3 do
+		local w = Instance.new("Frame")
+		w.Size = UDim2.new(0, 15 + i*10, 0, 10)
+		w.AnchorPoint = Vector2.new(0, 0)
+		w.Position = UDim2.new(1, -40 + 10, 0, (i-1)*16 + 5)
+		w.BackgroundColor3 = Color3.fromRGB(0, 255, 255)
+		w.BorderSizePixel = 0
+		w.Parent = wingedSpeedFrame
+	end
 	
 	-- Mode Badge Label
 	speedModeLabel = Instance.new("TextLabel")
@@ -1429,7 +1482,7 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 	local displayKmh = displaySpeed
 
 	if speedNumLabel then
-		speedNumLabel.Text = string.format("%.1f Km/s", displayKmh)
+		speedNumLabel.Text = string.format("%.1f", displayKmh)
 		if displayBoost then
 			speedNumLabel.TextColor3 = Color3.fromRGB(255, 215, 0) -- Gold Number during Boost!
 		else
