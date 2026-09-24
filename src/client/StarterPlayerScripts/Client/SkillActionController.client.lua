@@ -45,6 +45,8 @@ local clientSkillUses = {}
 
 -- Bind UI
 local gui = playerGui:WaitForChild("SkillActionGui")
+gui.DisplayOrder = 30 -- 모바일 TouchGui 및 카메라 터치 영역보다 위에 위치하여 터치 입력 보장
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
 local slotsContainer = gui:WaitForChild("SlotsContainer")
 slotsContainer.Visible = false -- 로딩 중 깜빡임 방지를 위해 일단 숨김 처리
@@ -543,6 +545,16 @@ local function playGlitchEffect()
 	end)
 end
 
+-- Function to get skill info from Config (bindSlot보다 먼저 선언되어야 함)
+local function getSkillInfo(skillId: string)
+	for _, skill in ipairs(SkillStoreConfig.Skills) do
+		if skill.id == skillId then
+			return skill
+		end
+	end
+	return nil
+end
+
 local function bindSlot(index)
 	local slotsContainer = gui:FindFirstChild("SlotsContainer")
 	local slotFrame = slotsContainer and slotsContainer:FindFirstChild("Slot" .. index) :: ImageButton?
@@ -551,6 +563,8 @@ local function bindSlot(index)
 		return
 	end
 	
+	slotFrame.ZIndex = 1
+
 	-- Dynamically create Icon if missing
 	local icon = slotFrame:FindFirstChild("Icon") :: ImageLabel?
 	if not icon then
@@ -570,6 +584,7 @@ local function bindSlot(index)
 		icon.Size = UDim2.new(1, -12, 1, -12)
 		icon.Position = UDim2.new(0.5, 0, 0.5, 0)
 		icon.AnchorPoint = Vector2.new(0.5, 0.5)
+		icon.ZIndex = 2
 	end
 
 	-- Find and clear any default labels left by the UI designer
@@ -751,8 +766,21 @@ local function bindSlot(index)
 		skillId = nil
 	}
 
+	-- 터치 가로채기 방지: 버튼의 자식 요소들은 입력을 소비하지 않도록 Active = false 처리
+	icon.Active = false
+	nameLabel.Active = false
+	if lock then lock.Active = false end
+	if overlay then overlay.Active = false end
+	if cdLabel then cdLabel.Active = false end
+	local usesLabel = slotFrame:FindFirstChild("UsesLabel") :: TextLabel?
+	if usesLabel then usesLabel.Active = false end
+	local hotkeyLabel = slotFrame:FindFirstChild("HotkeyLabel") :: TextLabel?
+	if hotkeyLabel then hotkeyLabel.Active = false end
 
-	slotFrame.MouseButton1Click:Connect(function()
+	slotFrame.Active = true
+	slotFrame.Selectable = true
+
+	local function handleSlotActivation()
 		if index == 3 and maxSkillSlots.Value < 3 then
 			MarketplaceService:PromptProductPurchase(LocalPlayer, MonetizationConfig.SlotUnlockProducts.Slot3.id)
 			return
@@ -765,69 +793,74 @@ local function bindSlot(index)
 			return
 		end
 		
-		if slots[index] and slots[index].skillId and (isRaceStarted and LocalPlayer:GetAttribute("IsRacing")) then
-			local skillId = slots[index].skillId
-			
-			
-			local sInfo = getSkillInfo(skillId)
-			if not sInfo then return end
-			
-			if sInfo.cooldownType == "Charges" then
-				local left = clientSkillUses[skillId] or sInfo.maxUses
-				if left <= 0 then return end
-			end
-			
-			local lastUsed = clientCooldowns[skillId]
-			local cooldown = sInfo.cooldownTime or 10
-
-			if lastUsed and (os.clock() - lastUsed) < cooldown then
-				print(SkillMessages.Messages.CooldownActive)
-				return
-			end
-			
-			clientCooldowns[skillId] = os.clock()
-			
-			local sInfo = getSkillInfo(skillId)
-			local sName = sInfo and sInfo.name or skillId
-			print("🔥 스킬 사용: " .. sName)
-			showSkillToast(sName)
-			
-			if skillId == "Skill_IceBomb" then
-				spawnLocalProjectileVisual(skillId)
-			end
-			
-			useSkillRemote:FireServer(skillId)
-			
-			-- Cooldown UI logic
-			slotFrame.overlay.Visible = true
-			slots[index].cdLabel.Visible = true
-			local conn
-			conn = game:GetService("RunService").RenderStepped:Connect(function()
-				local elapsed = os.clock() - clientCooldowns[skillId]
-				if elapsed >= cooldown then
-					slotFrame.overlay.Visible = false
-					slots[index].cdLabel.Visible = false
-					conn:Disconnect()
-				else
-					slots[index].cdLabel.Text = tostring(math.ceil(cooldown - elapsed))
-				end
-			end)
+		if not slots[index] or not slots[index].skillId then
+			print(string.format("[SkillAction] Slot %d is empty or no skillId", index))
+			return
 		end
-	end)
+
+		local isRacing = LocalPlayer:GetAttribute("IsRacing")
+		if not isRaceStarted or not isRacing then
+			print(string.format("[SkillAction] Slot %d ignored - isRaceStarted=%s, IsRacing=%s", index, tostring(isRaceStarted), tostring(isRacing)))
+			return
+		end
+
+		local skillId = slots[index].skillId
+		local sInfo = getSkillInfo(skillId)
+		if not sInfo then return end
+		
+		if sInfo.cooldownType == "Charges" then
+			local left = clientSkillUses[skillId] or sInfo.maxUses
+			if left <= 0 then return end
+		end
+		
+		local lastUsed = clientCooldowns[skillId]
+		local cooldown = sInfo.cooldownTime or 10
+
+		if lastUsed and (os.clock() - lastUsed) < cooldown then
+			print(SkillMessages.Messages.CooldownActive)
+			return
+		end
+		
+		clientCooldowns[skillId] = os.clock()
+		
+		local sName = sInfo and sInfo.name or skillId
+		print("🔥 스킬 사용: " .. sName)
+		showSkillToast(sName)
+		
+		if skillId == "Skill_IceBomb" then
+			spawnLocalProjectileVisual(skillId)
+		end
+		
+		useSkillRemote:FireServer(skillId)
+		
+		-- Cooldown UI logic (버그 수정: slotFrame.overlay 대신 slots[index].overlay 사용)
+		local currentOverlay = slots[index].overlay
+		local currentCdLabel = slots[index].cdLabel
+		if currentOverlay then currentOverlay.Visible = true end
+		if currentCdLabel then currentCdLabel.Visible = true end
+
+		local conn
+		conn = game:GetService("RunService").RenderStepped:Connect(function()
+			local elapsed = os.clock() - clientCooldowns[skillId]
+			if elapsed >= cooldown then
+				if currentOverlay then currentOverlay.Visible = false end
+				if currentCdLabel then currentCdLabel.Visible = false end
+				conn:Disconnect()
+			else
+				if currentCdLabel then
+					currentCdLabel.Text = tostring(math.ceil(cooldown - elapsed))
+				end
+			end
+		end)
+	end
+
+	-- 모바일 터치 및 마우스 클릭 완벽 대응 (Activated 사용)
+	slotFrame.Activated:Connect(handleSlotActivation)
+	slotFrame.MouseButton1Click:Connect(handleSlotActivation)
 end
 
 for i = 1, 4 do
 	bindSlot(i)
-end
-
--- Function to get skill info from Config
-local function getSkillInfo(skillId: string)
-	for _, skill in ipairs(SkillStoreConfig.Skills) do
-		if skill.id == skillId then
-			return skill
-		end
-	end
-	return nil
 end
 
 local function refreshSlots()
@@ -1506,6 +1539,8 @@ local function applyMobileLayout()
 			frame.Parent = gui
 			frame.AnchorPoint = Vector2.new(0.5, 0.5)
 			frame.Size = UDim2.new(0, 40, 0, 40)
+			frame.ZIndex = 1
+			frame.Active = true
 			
 			-- 점프 버튼을 찾기 전까지 화면 좌측 상단(0,0)에서 깜빡이는 현상 방지를 위해 화면 밖으로 치워둠
 			frame.Position = UDim2.new(2, 0, 2, 0)
@@ -1638,6 +1673,8 @@ task.spawn(function()
 									frame.Parent = gui
 									frame.AnchorPoint = Vector2.new(0.5, 0.5)
 								end
+								frame.ZIndex = 1
+								frame.Active = true
 								
 								-- 점프버튼 크기에 비례하여 동적으로 버튼 크기 변경
 								frame.Size = UDim2.new(0, dynamicSkillSize / uiScale, 0, dynamicSkillSize / uiScale)

@@ -884,8 +884,23 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 				local groundCheckRay = Workspace:Raycast(hrp.Position, Vector3.new(0, -150, 0), rayParams)
 				
 				if not groundCheckRay then
-					print("[DEBUG-FR] 트랙 이탈 감지! 아래에 트랙이 없습니다. 안전지대로 복구합니다. 낙하 깊이: " .. string.format("%.1f", lastSafePosition.Y - hrp.Position.Y))
-					hrp.CFrame = CFrame.new(lastSafePosition + Vector3.new(0, 5, 0))
+					print("[DEBUG-FR] 트랙 이탈 감지! 뒤로 물러난 안전지대로 복구합니다.")
+					
+					-- 1. 방향(lastSafeYaw)을 기준으로 뒤로 25스터드 물러난 벡터 계산
+					-- 호버보드의 전진 방향은 RightVector(우측 벡터) 입니다.
+					local forwardDir = CFrame.Angles(0, lastSafeYaw, 0).RightVector
+					local spawnPos = lastSafePosition - (forwardDir * 25)
+					
+					-- 2. 뒤로 물러난 위치가 허공일 수도 있으니 바닥을 한 번 더 찾습니다.
+					local spawnRay = Workspace:Raycast(spawnPos + Vector3.new(0, 10, 0), Vector3.new(0, -100, 0), rayParams)
+					if spawnRay then
+						spawnPos = spawnRay.Position
+					else
+						-- 뒤로 물러난 곳도 허공이라면 원래 안전지대를 씁니다.
+						spawnPos = lastSafePosition
+					end
+					
+					hrp.CFrame = CFrame.new(spawnPos + Vector3.new(0, 8, 0))
 					hrp.AssemblyLinearVelocity = Vector3.zero
 					hrp.AssemblyAngularVelocity = Vector3.zero
 					currentHeadingYaw = lastSafeYaw
@@ -893,7 +908,7 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 					isBoosting = false
 				else
 					-- 아래에 트랙이 있다면, 단순히 경사를 따라 내려가는 중이므로 기준점을 갱신합니다.
-					lastSafePosition = hrp.Position
+					lastSafePosition = groundCheckRay.Position
 				end
 			else
 				fallCheckTimer += deltaTime
@@ -903,7 +918,8 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 					local rayDirection = Vector3.new(0, -15, 0)
 					local result = Workspace:Raycast(rayOrigin, rayDirection, rayParams)
 					if result then
-						lastSafePosition = hrp.Position
+						-- hrp.Position(공중 위치)가 아닌, 실제 바닥 위치(result.Position)를 저장해야 무한 낙하를 방지합니다.
+						lastSafePosition = result.Position
 						lastSafeYaw = currentHeadingYaw
 					end
 				end
@@ -1313,8 +1329,9 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 		
 		local wDir = _G.smoothCamDir
 
-		local targetCamDist = 16.0
-		local targetCamHeight = 6.5
+		local baseCamDist = 16.0 + (_G.userZoomOffset or 0)
+		local targetCamDist = baseCamDist
+		local targetCamHeight = 6.5 + ((_G.userZoomOffset or 0) * 0.3) -- 줌아웃 할수록 시야가 살짝 높아짐
 		
 		if _G.introCamDist then
 			local lerpSpeed = 1.2
@@ -1331,6 +1348,48 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 		local camHeight = _G.introCamHeight or targetCamHeight
 		
 		local desiredCamPos = hrp.Position - (wDir * camDist) + Vector3.new(0, camHeight, 0)
+		
+		-- 🛡️ 벽 충돌 방지 (Raycast)
+		local headPos = hrp.Position + Vector3.new(0, 1.5, 0)
+		local rayDir = desiredCamPos - headPos
+		
+		local ignoreList = {character}
+		if targetChar then table.insert(ignoreList, targetChar) end
+		-- 다른 플레이어들과 겹칠 때 시점이 튀지 않도록 모두 예외 처리
+		for _, p in ipairs(Players:GetPlayers()) do
+			if p.Character then table.insert(ignoreList, p.Character) end
+		end
+
+		local maxPierces = 5
+		local currentOrigin = headPos
+		local currentDir = rayDir
+		
+		for i = 1, maxPierces do
+			local rayParams = RaycastParams.new()
+			rayParams.FilterDescendantsInstances = ignoreList
+			rayParams.FilterType = Enum.RaycastFilterType.Exclude
+			rayParams.IgnoreWater = true
+			
+			local wallCheck = Workspace:Raycast(currentOrigin, currentDir, rayParams)
+			if wallCheck then
+				local hitPart = wallCheck.Instance
+				-- 투명벽(가이드라인)이거나 충돌이 없는 이펙트/장식 등은 무시합니다.
+				if hitPart.Transparency >= 0.9 or not hitPart.CanCollide then
+					table.insert(ignoreList, hitPart)
+					-- 뚫고 지나가서 남은 거리만큼 다시 레이캐스트
+					currentOrigin = wallCheck.Position + (currentDir.Unit * 0.01)
+					currentDir = desiredCamPos - currentOrigin
+					if currentDir.Magnitude < 0.1 then break end
+				else
+					-- 시야를 가리는 진짜 벽에 부딪힘
+					desiredCamPos = wallCheck.Position - (rayDir.Unit * 0.5)
+					break
+				end
+			else
+				break
+			end
+		end
+		
 		local lookAtTarget = hrp.Position + (wDir * 25.0) + Vector3.new(0, -7.0, 0)
 
 		Camera.CFrame = CFrame.lookAt(desiredCamPos, lookAtTarget)
@@ -1692,6 +1751,17 @@ countdownRemote.OnClientEvent:Connect(function(count: number)
 	TweenService:Create(label, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
 		Size = UDim2.new(0, 400, 0, 150)
 	}):Play()
+end)
+
+-- Handle MouseWheel Zoom
+UserInputService.InputChanged:Connect(function(input, gameProcessed)
+	if gameProcessed or not isMounted then return end
+	if input.UserInputType == Enum.UserInputType.MouseWheel then
+		if not _G.userZoomOffset then _G.userZoomOffset = 0 end
+		-- Scroll up (Position.Z > 0) -> Zoom In (negative offset)
+		-- Scroll down (Position.Z < 0) -> Zoom Out (positive offset)
+		_G.userZoomOffset = math.clamp(_G.userZoomOffset - (input.Position.Z * 2.5), -6, 20)
+	end
 end)
 
 -- Trigger One-Tap Continuous Booster on Spacebar press
