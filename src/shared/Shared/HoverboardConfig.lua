@@ -72,14 +72,12 @@ HoverboardConfig.Boards = {
 		BANK_SMOOTHNESS = 18,
 		PITCH_ANGLE = 8,
 		
-		-- Aesthetics & Colors (To be customized by user, placeholder White & Gold)
-		DECK_PRIMARY_COLOR = Color3.fromRGB(245, 245, 245),
-		DECK_SECONDARY_COLOR = Color3.fromRGB(255, 215, 0),
-		GRIP_PAD_COLOR = Color3.fromRGB(200, 200, 200),
-		THRUSTER_COLOR = Color3.fromRGB(255, 223, 0),
-		HEADLIGHT_COLOR = Color3.fromRGB(255, 255, 255),
-		
-		-- Dimensions
+		-- Aesthetics & Colors (Golden Star Casual Design)
+		DECK_PRIMARY_COLOR = Color3.fromRGB(255, 215, 0),     -- Bright Golden Yellow
+		DECK_SECONDARY_COLOR = Color3.fromRGB(255, 255, 255), -- Crisp White Accents
+		GRIP_PAD_COLOR = Color3.fromRGB(90, 100, 120),        -- Soft Slate Blue-Grey
+		THRUSTER_COLOR = Color3.fromRGB(255, 230, 80),        -- Glowing Sun Yellow
+		HEADLIGHT_COLOR = Color3.fromRGB(255, 255, 255),      -- Bright White Glow
 		BOARD_WIDTH = 4.6,
 		BOARD_LENGTH = 1.8,
 		BOARD_THICKNESS = 0.4,

@@ -96,11 +96,9 @@ end
 
 local function updateMobileTextVisibility()
 	-- 창 크기(ViewportSize)로 판단하면 스튜디오 패널 때문에 창이 좁아졌을 때 모바일로 오작동함.
-	-- 기기 자체의 특성(터치 가능 여부) 및 화면 세로 비율로 스튜디오 에뮬레이터에서도 모바일 판별을 완벽하게 지원
-	local isSmallScreen = (workspace.CurrentCamera.ViewportSize.Y < 600) or (UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled)
-	
-	-- (주의) 스튜디오 에뮬레이터 테스트를 위해 터치 인식이 켜지면 무조건 모바일로 간주하려면 아래 옵션 사용 가능
-	-- local isSmallScreen = UserInputService.TouchEnabled
+	-- PC 창을 작게 줄였을 때(Output창 등) 버튼 글씨가 사라지는 문제 수정
+	-- 터치가 되면서 키보드가 없는 순수 모바일 환경일 때만 글씨를 숨기도록 변경합니다.
+	local isSmallScreen = (UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled)
 	
 	local mobileHideGuis = {"InventoryHUD", "Quest", "Rebirth", "RobuxShop"}
 	

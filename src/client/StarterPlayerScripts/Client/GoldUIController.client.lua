@@ -349,31 +349,7 @@ closeButton.MouseButton1Click:Connect(function()
 end)
 
 
-task.spawn(function()
-	local function linkRobuxShop(btn)
-		btn.MouseButton1Click:Connect(toggleShop)
-	end
-
-	local robuxShopBtn = nil
-	local shopGui = playerGui:FindFirstChild("RobuxShop")
-	if shopGui then
-		local btn = shopGui:FindFirstChild("RobuxShop")
-		if btn and btn:IsA("GuiButton") then
-			robuxShopBtn = btn
-		end
-	end
-	
-	if robuxShopBtn then
-		linkRobuxShop(robuxShopBtn)
-	end
-	
-	-- In case it is added later
-	playerGui.DescendantAdded:Connect(function(desc)
-		if desc:IsA("GuiButton") and (desc.Name == "RobuxShop" or desc.Name == "RobuxShopBtn") then
-			linkRobuxShop(desc)
-		end
-	end)
-end)
+-- (이전 구버전 상점 UI 연결 코드가 삭제됨)
 
 
 -- (기존에 레이싱 진입 시 골드창을 끄던 로직을 제거하여 항상 보이게 함)

@@ -94,6 +94,10 @@ Players.PlayerAdded:Connect(function(player)
 	questDataJSON.Value = "{}"
 	questDataJSON.Parent = player
 	
+	local firstJoinTime = Instance.new("IntValue")
+	firstJoinTime.Name = "FirstJoinTime"
+	firstJoinTime.Parent = player
+	
 	-- Load Data
 	local success, data = pcall(function()
 		return PlayerDataStore:GetAsync(tostring(player.UserId))
@@ -106,7 +110,7 @@ Players.PlayerAdded:Connect(function(player)
 		rebirths.Value = data.Rebirths or 0
 		lastAttendanceDate.Value = data.LastAttendanceDate or ""
 		attendanceStreak.Value = data.AttendanceStreak or 0
-		
+		firstJoinTime.Value = data.FirstJoinTime or os.time()
 		
 		-- Load Boards
 		equippedBoardId.Value = data.EquippedHoverboardId or "DefaultHoverboard"
@@ -190,6 +194,7 @@ Players.PlayerAdded:Connect(function(player)
 		rebirths.Value = 0
 		lastAttendanceDate.Value = ""
 		attendanceStreak.Value = 0
+		firstJoinTime.Value = os.time()
 		
 		equippedBoardId.Value = "DefaultHoverboard"
 		local b = Instance.new("StringValue")
@@ -235,13 +240,14 @@ Players.PlayerRemoving:Connect(function(player)
 	local lastDate = player:FindFirstChild("LastAttendanceDate") :: StringValue
 	local streak = player:FindFirstChild("AttendanceStreak") :: IntValue
 	local dataLoaded = player:FindFirstChild("DataLoaded") :: BoolValue
+	local firstJoinTime = player:FindFirstChild("FirstJoinTime") :: IntValue
 
 	if not dataLoaded or not dataLoaded.Value then
 		warn("🚨 [DataServer] Data for " .. player.Name .. " was not fully loaded. Aborting save to prevent data loss.")
 		return
 	end
 
-	if gold and ownedBoardsFolder and equippedBoardId and ownedSkillsFolder and equippedSkillsFolder and maxSkillSlots then
+	if gold and ownedBoardsFolder and equippedBoardId and ownedSkillsFolder and equippedSkillsFolder and maxSkillSlots and firstJoinTime then
 		local bList = {}
 		for _, child in ipairs(ownedBoardsFolder:GetChildren()) do
 			table.insert(bList, child.Name)
@@ -268,7 +274,8 @@ Players.PlayerRemoving:Connect(function(player)
 			EquippedSkills = eList,
 			MaxSkillSlots = maxSkillSlots.Value,
 			LastAttendanceDate = lastDate and lastDate.Value or "",
-			AttendanceStreak = streak and streak.Value or 0
+			AttendanceStreak = streak and streak.Value or 0,
+			FirstJoinTime = firstJoinTime.Value
 		}
 		
 		local HttpService = game:GetService("HttpService")

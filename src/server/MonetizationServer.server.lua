@@ -34,20 +34,20 @@ if not getActivePromosFunc then
 	getActivePromosFunc.Parent = remotesFolder
 end
 
--- 캐시된 수량 및 프로모션 정보
-local cachedPromotions = {}
+-- 캐시된 수량 및 상점 전체 데이터
+local cachedShopData = {}
 local cachedStocks = {}
 
 local function reloadPromotions()
 	local success, result = pcall(function()
-		return AdminConfigStore:GetAsync("RobuxPromotions")
+		return AdminConfigStore:GetAsync("ShopData_v2")
 	end)
-	if success and result and type(result) == "table" and #result > 0 then
-		cachedPromotions = result
-		print("🔄 [MonetizationServer] DataStore에서 최신 프로모션 데이터를 로드했습니다.")
+	if success and result and type(result) == "table" and result.Events then
+		cachedShopData = result
+		print("🔄 [MonetizationServer] DataStore에서 최신 상점 데이터를 로드했습니다.")
 	else
-		-- DataStore가 비어있으면 기본 하드코딩된 Config로 초기화 (최초 세팅)
-		cachedPromotions = MonetizationConfig.RobuxPromotions
+		-- DataStore가 비어있으면 기본 Config로 초기화 (최초 세팅)
+		cachedShopData = MonetizationConfig.ShopData
 	end
 end
 
@@ -56,26 +56,29 @@ reloadPromotions()
 
 -- 타 서버에서 프로모션 변경 시 알림 수신
 pcall(function()
-	MessagingService:SubscribeAsync("RobuxPromotionsUpdated", function(message)
-		print("📡 [MonetizationServer] 타 서버 변경 알림 수신, 프로모션 데이터를 새로고침합니다.")
+	MessagingService:SubscribeAsync("ShopDataUpdated", function(message)
+		print("📡 [MonetizationServer] 타 서버 변경 알림 수신, 상점 데이터를 새로고침합니다.")
 		reloadPromotions()
 	end)
 end)
 
 getActivePromosFunc.OnServerInvoke = function(player)
-	return cachedPromotions
+	return cachedShopData
 end
 
 local function fetchAllStocks()
-	for _, product in ipairs(cachedPromotions) do
-		if product.maxQuantity then
-			local success, result = pcall(function()
-				return ShopStockDataStore:GetAsync(tostring(product.id))
-			end)
-			if success then
-				local sold = (result :: number) or 0
-				local remaining = product.maxQuantity - sold
-				cachedStocks[tostring(product.id)] = math.max(0, remaining)
+	-- Event 탭 상품들 중 한정 수량이 있는 것만 확인
+	if cachedShopData.Events then
+		for _, product in ipairs(cachedShopData.Events) do
+			if product.maxQuantity then
+				local success, result = pcall(function()
+					return ShopStockDataStore:GetAsync(tostring(product.id))
+				end)
+				if success then
+					local sold = (result :: number) or 0
+					local remaining = product.maxQuantity - sold
+					cachedStocks[tostring(product.id)] = math.max(0, remaining)
+				end
 			end
 		end
 	end
@@ -102,30 +105,20 @@ local function processReceipt(receiptInfo)
 	
 	local purchasedProductId = receiptInfo.ProductId
 	
-	-- 슬롯 잠금 해제 처리 (이건 고정 상품이라 MonetizationConfig 참고)
-	if purchasedProductId == MonetizationConfig.SlotUnlockProducts.Slot3.id then
-		local maxSkillSlots = player:FindFirstChild("MaxSkillSlots")
-		if maxSkillSlots and maxSkillSlots.Value < 3 then
-			maxSkillSlots.Value = 3
-			return Enum.ProductPurchaseDecision.PurchaseGranted
-		end
-		return Enum.ProductPurchaseDecision.PurchaseGranted
-	elseif purchasedProductId == MonetizationConfig.SlotUnlockProducts.Slot4.id then
-		local maxSkillSlots = player:FindFirstChild("MaxSkillSlots")
-		if maxSkillSlots and maxSkillSlots.Value < 4 then
-			maxSkillSlots.Value = 4
-			return Enum.ProductPurchaseDecision.PurchaseGranted
-		end
-		return Enum.ProductPurchaseDecision.PurchaseGranted
-	end
-	
-	-- 프로모션 상품 탐색 (라이브 데이터 기준)
+	-- 상품 탐색 (Events, Passes, Golds 모든 탭에서 탐색)
 	local purchasedProduct = nil
-	for _, product in ipairs(cachedPromotions) do
-		if product.id == purchasedProductId then
-			purchasedProduct = product
-			break
+	local categoryList = {cachedShopData.Events, cachedShopData.Passes, cachedShopData.Golds}
+	
+	for _, category in ipairs(categoryList) do
+		if category then
+			for _, product in ipairs(category) do
+				if product.id == purchasedProductId then
+					purchasedProduct = product
+					break
+				end
+			end
 		end
+		if purchasedProduct then break end
 	end
 	
 	if purchasedProduct then
@@ -178,7 +171,7 @@ local function processReceipt(receiptInfo)
 						local goldValue = leaderstats:FindFirstChild("Gold")
 						if goldValue and goldValue:IsA("IntValue") then
 							goldValue.Value += reward.value
-							print("💰 " .. player.Name .. " obtained " .. reward.value .. " Gold from " .. purchasedProduct.promotionName)
+							print("💰 " .. player.Name .. " obtained " .. reward.value .. " Gold from " .. (purchasedProduct.promotionName or purchasedProduct.name))
 						end
 					end
 				elseif reward.type == "Hoverboard" then
@@ -190,7 +183,7 @@ local function processReceipt(receiptInfo)
 							local newTag = Instance.new("BoolValue")
 							newTag.Name = tostring(reward.value)
 							newTag.Parent = ownedBoards
-							print("🏄 " .. player.Name .. " obtained Hoverboard: " .. reward.value .. " from " .. purchasedProduct.promotionName)
+							print("🏄 " .. player.Name .. " obtained Hoverboard: " .. reward.value .. " from " .. (purchasedProduct.promotionName or purchasedProduct.name))
 						else
 							print("🏄 " .. player.Name .. " already owns Hoverboard: " .. reward.value)
 						end
@@ -203,12 +196,25 @@ local function processReceipt(receiptInfo)
 							local newTag = Instance.new("BoolValue")
 							newTag.Name = tostring(reward.value)
 							newTag.Parent = ownedSkills
-							print("⭐ " .. player.Name .. " obtained Premium Skill: " .. reward.value .. " from " .. purchasedProduct.promotionName)
+							print("⭐ " .. player.Name .. " obtained Premium Skill: " .. reward.value .. " from " .. (purchasedProduct.promotionName or purchasedProduct.name))
 						else
 							print("⭐ " .. player.Name .. " already owns Premium Skill: " .. reward.value)
 						end
 					end
 				end
+			end
+		end
+
+		-- 패스 특수 처리 로직 (이름 기반 또는 ID 기반)
+		if purchasedProduct.name == "R 슬롯 잠금 해제" then
+			local maxSkillSlots = player:FindFirstChild("MaxSkillSlots")
+			if maxSkillSlots and maxSkillSlots.Value < 3 then
+				maxSkillSlots.Value = 3
+			end
+		elseif purchasedProduct.name == "T 슬롯 잠금 해제" then
+			local maxSkillSlots = player:FindFirstChild("MaxSkillSlots")
+			if maxSkillSlots and maxSkillSlots.Value < 4 then
+				maxSkillSlots.Value = 4
 			end
 		end
 		

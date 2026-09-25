@@ -8,8 +8,7 @@ local DataStoreService = game:GetService("DataStoreService")
 local MessagingService = game:GetService("MessagingService")
 
 local ADMIN_USERS = {
-	winoart2025 = true,
-	honey1012abc = true
+	winoart2025 = true
 }
 
 local AdminConfigStore = DataStoreService:GetDataStore("AdminConfig_v1")
@@ -63,34 +62,39 @@ getPromoFunc.OnServerInvoke = function(player)
 	if not isAdmin(player) then return nil end
 	
 	local success, result = pcall(function()
-		return AdminConfigStore:GetAsync("RobuxPromotions")
+		return AdminConfigStore:GetAsync("ShopData_v2")
 	end)
 	
 	if success then
-		return result or {}
+		if result and type(result) == "table" and result.Events then
+			return result
+		else
+			-- 기본 구조 반환
+			return { Events = {}, Passes = {}, Golds = {} }
+		end
 	else
-		warn("🚨 [AdminServer] 프로모션 데이터 로드 실패", result)
-		return {}
+		warn("🚨 [AdminServer] 상점 데이터 로드 실패", result)
+		return { Events = {}, Passes = {}, Golds = {} }
 	end
 end
 
--- 프로모션 데이터 저장 (관리자 패널용)
+-- 상점 데이터 저장 (관리자 패널용)
 updatePromoFunc.OnServerInvoke = function(player, newData)
 	if not isAdmin(player) then return false, "권한이 없습니다." end
 	
 	local success, err = pcall(function()
-		AdminConfigStore:SetAsync("RobuxPromotions", newData)
+		AdminConfigStore:SetAsync("ShopData_v2", newData)
 	end)
 	
 	if success then
-		print("👑 [AdminServer] " .. player.Name .. "님이 프로모션 데이터를 업데이트했습니다.")
+		print("👑 [AdminServer] " .. player.Name .. "님이 상점 데이터를 업데이트했습니다.")
 		-- 다른 서버들에 변경 사항 알림
 		pcall(function()
-			MessagingService:PublishAsync("RobuxPromotionsUpdated", "Updated")
+			MessagingService:PublishAsync("ShopDataUpdated", "Updated")
 		end)
 		return true, "성공적으로 저장되었습니다."
 	else
-		warn("🚨 [AdminServer] 프로모션 데이터 저장 실패:", err)
+		warn("🚨 [AdminServer] 상점 데이터 저장 실패:", err)
 		return false, "저장 실패: " .. tostring(err)
 	end
 end
