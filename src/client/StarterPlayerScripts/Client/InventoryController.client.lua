@@ -257,14 +257,30 @@ local function updateRightColumn()
 end
 
 if actionBtn then
+	local function playInventorySound(isEquipping)
+		local sound = Instance.new("Sound")
+		if isEquipping then
+			sound.SoundId = "rbxassetid://120577963256631" -- 장착 소리
+		else
+			sound.SoundId = "rbxassetid://124307033081669" -- 해제 소리
+		end
+		sound.Volume = 0.8
+		sound.Parent = workspace
+		sound:Play()
+		game:GetService("Debris"):AddItem(sound, 3)
+	end
+
 	actionBtn.MouseButton1Click:Connect(function()
 		if not selectedItem then return end
 		local info = selectedItem
 		
 		if selectedItemType == "Board" then
 			if checkOwnsBoard(info.id) then
+				local wasEquipped = checkEquippedBoard(info.id)
 				local success, msg = equipBoardRemote:InvokeServer(info.id)
-				if not success and msg then
+				if success then
+					playInventorySound(not wasEquipped)
+				elseif not success and msg then
 					pcall(function()
 						game:GetService("StarterGui"):SetCore("SendNotification", {
 							Title = "Notification",
@@ -276,8 +292,11 @@ if actionBtn then
 			end
 		else
 			if checkOwnsSkill(info.id) then
+				local wasEquipped = checkEquippedSkill(info.id)
 				local success, msg = equipSkillRemote:InvokeServer(info.id)
-				if not success and msg then
+				if success then
+					playInventorySound(not wasEquipped)
+				elseif not success and msg then
 					pcall(function()
 						game:GetService("StarterGui"):SetCore("SendNotification", {
 							Title = "Notification",
