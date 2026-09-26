@@ -201,7 +201,11 @@ local function initializeShop()
 			clone.PriceButton.MouseButton1Click:Connect(function()
 				local pId = tonumber(item.id) or 0
 				if pId > 0 then
-					MarketplaceService:PromptProductPurchase(player, pId)
+					if item.isGamePass then
+						MarketplaceService:PromptGamePassPurchase(player, pId)
+					else
+						MarketplaceService:PromptProductPurchase(player, pId)
+					end
 				else
 					warn("상품 ID가 유효하지 않습니다: " .. tostring(item.id))
 				end
@@ -270,7 +274,11 @@ local function initializeShop()
 			clone.PriceButton.MouseButton1Click:Connect(function()
 				local pId = tonumber(item.id) or 0
 				if pId > 0 then
-					MarketplaceService:PromptProductPurchase(player, pId)
+					if item.isGamePass then
+						MarketplaceService:PromptGamePassPurchase(player, pId)
+					else
+						MarketplaceService:PromptProductPurchase(player, pId)
+					end
 				else
 					warn("상품 ID가 유효하지 않습니다: " .. tostring(item.id))
 				end

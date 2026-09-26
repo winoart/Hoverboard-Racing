@@ -45,16 +45,25 @@ MonetizationConfig.ShopData = {
 	},
 	Passes = {
 		{
-			id = 123456789,
-			name = "R 슬롯 잠금 해제",
+			id = 11111111, -- TODO: 실제 게임 패스 ID로 교체하세요
+			name = "x2 Distance",
 			icon = "rbxassetid://13110903322",
-			price = 300,
+			price = 399,
+			isGamePass = true
 		},
 		{
-			id = 987654321,
-			name = "T 슬롯 잠금 해제",
+			id = 22222222, -- TODO: 실제 게임 패스 ID로 교체하세요
+			name = "x2 Acceleration",
 			icon = "rbxassetid://13110903322",
-			price = 500,
+			price = 299,
+			isGamePass = true
+		},
+		{
+			id = 33333333, -- TODO: 실제 게임 패스 ID로 교체하세요
+			name = "x2 Race Prize",
+			icon = "rbxassetid://13110903322",
+			price = 499,
+			isGamePass = true
 		}
 	},
 	Golds = {
