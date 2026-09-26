@@ -448,6 +448,47 @@ local function showSkillToast(skillName: string)
 	end)
 end
 
+local function showSystemToast(message: string)
+	local toast = Instance.new("TextLabel")
+	toast.Size = UDim2.new(0.8, 0, 0, 40)
+	toast.Position = UDim2.new(0.5, 0, 0.7, 0)
+	toast.AnchorPoint = Vector2.new(0.5, 0.5)
+	toast.BackgroundTransparency = 1
+	toast.TextTransparency = 1
+	toast.Font = Enum.Font.FredokaOne
+	toast.Text = message
+	toast.TextColor3 = Color3.fromRGB(255, 255, 255)
+	toast.TextScaled = true
+	
+	local constraint = Instance.new("UITextSizeConstraint")
+	constraint.MaxTextSize = 24
+	constraint.Parent = toast
+
+	toast.Parent = fullScreenGui
+	
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = Color3.fromRGB(0, 0, 0)
+	stroke.Thickness = 2
+	stroke.Transparency = 1
+	stroke.Parent = toast
+	
+	TweenService:Create(toast, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { 
+		Position = UDim2.new(0.5, 0, 0.65, 0),
+		TextTransparency = 0 
+	}):Play()
+	TweenService:Create(stroke, TweenInfo.new(0.3), { Transparency = 0 }):Play()
+	
+	task.delay(2.0, function()
+		if not toast.Parent then return end
+		local t = TweenService:Create(toast, TweenInfo.new(0.5), { TextTransparency = 1 })
+		TweenService:Create(stroke, TweenInfo.new(0.5), { Transparency = 1 }):Play()
+		t:Play()
+		t.Completed:Connect(function()
+			toast:Destroy()
+		end)
+	end)
+end
+
 local function showWarningToast(message: string)
 	local config = SkillMessages.Design.WarningToast
 	local toast = Instance.new("TextLabel")
@@ -781,14 +822,19 @@ local function bindSlot(index)
 	slotFrame.Selectable = true
 
 	local function handleSlotActivation()
+		local isRacing = LocalPlayer:GetAttribute("IsRacing")
+		local racingNow = isRacing == true
+
 		if index == 3 and maxSkillSlots.Value < 3 then
-			MarketplaceService:PromptProductPurchase(LocalPlayer, MonetizationConfig.SlotUnlockProducts.Slot3.id)
+			if racingNow then return end
+			MarketplaceService:PromptGamePassPurchase(LocalPlayer, MonetizationConfig.ShopData.Passes[1].id)
 			return
 		elseif index == 4 and maxSkillSlots.Value < 4 then
+			if racingNow then return end
 			if maxSkillSlots.Value < 3 then
-				showSkillToast(SkillMessages.Messages.NeedSlot3First)
+				showSystemToast(SkillMessages.Messages.NeedSlot3First)
 			else
-				MarketplaceService:PromptProductPurchase(LocalPlayer, MonetizationConfig.SlotUnlockProducts.Slot4.id)
+				MarketplaceService:PromptGamePassPurchase(LocalPlayer, MonetizationConfig.ShopData.Passes[2].id)
 			end
 			return
 		end
@@ -856,7 +902,6 @@ local function bindSlot(index)
 
 	-- 모바일 터치 및 마우스 클릭 완벽 대응 (Activated 사용)
 	slotFrame.Activated:Connect(handleSlotActivation)
-	slotFrame.MouseButton1Click:Connect(handleSlotActivation)
 end
 
 for i = 1, 4 do
@@ -866,12 +911,10 @@ end
 local function refreshSlots()
 	local equipped = equippedSkillsFolder:GetChildren()
 	local currentMax = maxSkillSlots.Value
-	print("🛠️ [SkillActionController] refreshSlots called. Equipped count:", #equipped, "CurrentMax:", currentMax)
 	
 	for i = 1, 4 do
 		local slot = slots[i]
 		if not slot then 
-			print("🛠️ [SkillActionController] Slot", i, "not found in slots table")
 			continue 
 		end
 		
@@ -923,12 +966,10 @@ local function refreshSlots()
 			
 			local skillVal = equipped[i]
 			if skillVal then
-				print("🛠️ [SkillActionController] Slot", i, "Equipped:", skillVal.Name)
 				slot.skillId = skillVal.Name
 				
 				local info = getSkillInfo(skillVal.Name)
 				if info then
-					print("🛠️ [SkillActionController] Slot", i, "Found Info:", info.name)
 					slot.icon.Image = info.imageId
 					slot.nameLabel.Text = info.name
 					slot.stroke.Color = Color3.fromRGB(0, 0, 0)
@@ -946,7 +987,6 @@ local function refreshSlots()
 						slot.overlay.Visible = false
 					end
 				else
-					print("⚠️ [SkillActionController] Slot", i, "Missing Info for:", skillVal.Name)
 					slot.skillId = nil
 					slot.icon.Image = ""
 					slot.nameLabel.Text = ""
@@ -1621,10 +1661,6 @@ task.spawn(function()
 				local absPos = jumpBtn.AbsolutePosition
 				local absSize = jumpBtn.AbsoluteSize
 				
-				if shouldDebug then
-					warn("[MobileDebug] JumpBtn Found! AbsPos:", absPos, "AbsSize:", absSize)
-				end
-				
 				-- 로딩 중이거나 가려져서 절대좌표가 0,0인 쓰레기값 상태는 무시
 				if absPos.X > 10 and absPos.Y > 10 then
 					-- 1. 화면 최좌측 상단(0,0)을 기준으로 한 점프버튼의 물리적 정중앙
@@ -1633,10 +1669,6 @@ task.spawn(function()
 					
 					local screenX = gui.AbsoluteSize.X
 					local screenY = gui.AbsoluteSize.Y
-					
-					if shouldDebug then
-						warn("[MobileDebug] ScreenSize:", screenX, screenY, "Center:", centerX, centerY)
-					end
 					
 					if screenX > 0 and screenY > 0 then
 						-- 2. 절대 픽셀 좌표를 상대적인 Scale 비율로 변환! (아이패드 UIScale 버그 원천 차단)
@@ -1647,10 +1679,6 @@ task.spawn(function()
 						local uiScale = 1
 						local scaleObj = gui:FindFirstChildOfClass("UIScale")
 						if scaleObj then uiScale = scaleObj.Scale end
-						
-						if shouldDebug then
-							warn("[MobileDebug] ScaleX:", scaleX, "ScaleY:", scaleY, "UIScale:", uiScale)
-						end
 						
 						-- 핵심: 디바이스마다 달라지는 점프버튼의 '실제 크기(absSize.X)'를 기준으로 비율 계산
 						local jumpBtnSize = absSize.X
@@ -1685,9 +1713,6 @@ task.spawn(function()
 									scaleY, dy
 								)
 								
-								if shouldDebug and i == 1 then
-									warn("[MobileDebug] Slot 1 Final Pos:", frame.Position, "Size:", frame.Size, "Visible:", frame.Visible)
-								end
 							end
 						end
 					end

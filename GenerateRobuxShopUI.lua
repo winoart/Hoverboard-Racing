@@ -56,7 +56,7 @@ title.Name = "Title"
 title.Size = UDim2.new(1, 0, 1, 0)
 title.BackgroundTransparency = 1
 title.FontFace = montserratExtraBold
-title.Text = "로복스 상점"
+title.Text = "Robux Shop"
 title.TextColor3 = Color3.fromRGB(255, 255, 255)
 title.TextSize = 36
 title.ZIndex = 3
@@ -170,7 +170,7 @@ local function createScroll(name, visible, cellSize)
 end
 
 -- EventScroll 1x1 (approx 5:3 ratio for banner)
-createScroll("EventScroll", true, UDim2.new(1, -20, 0, 300)) 
+createScroll("EventScroll", true, UDim2.new(1, -20, 0, 250)) 
 createScroll("PassScroll", false, UDim2.new(0.5, -20, 0, 150)) 
 createScroll("GoldScroll", false, UDim2.new(0.5, -20, 0, 150)) 
 
@@ -261,14 +261,15 @@ Instance.new("UIStroke", hookText).Thickness = 3
 
 local timerLabel = Instance.new("TextLabel")
 timerLabel.Name = "TimerLabel"
-timerLabel.Size = UDim2.new(0, 200, 0, 40)
-timerLabel.Position = UDim2.new(1, -220, 0, 20)
+timerLabel.Size = UDim2.new(0, 250, 0, 40)
+timerLabel.Position = UDim2.new(1, -270, 0, 5)
 timerLabel.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-timerLabel.BackgroundTransparency = 0.5
+timerLabel.BackgroundTransparency = 1
 timerLabel.FontFace = montserratExtraBold
-timerLabel.Text = "24:00:00 남음"
+timerLabel.RichText = true
+timerLabel.Text = "24<font color='#FFFFFF'>h</font> 00<font color='#FFFFFF'>m</font> 00<font color='#FFFFFF'>s</font>"
 timerLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
-timerLabel.TextSize = 20
+timerLabel.TextSize = 28
 timerLabel.ZIndex = 3
 timerLabel.Parent = eventTemplate
 Instance.new("UICorner", timerLabel).CornerRadius = UDim.new(0, 8)
@@ -277,8 +278,8 @@ Instance.new("UIStroke", timerLabel).Thickness = 2
 -- Rewards Container (A, B, C slots)
 local rewardsContainer = Instance.new("Frame")
 rewardsContainer.Name = "RewardsContainer"
-rewardsContainer.Size = UDim2.new(0, 360, 0, 110)
-rewardsContainer.Position = UDim2.new(1, -380, 1, -190)
+rewardsContainer.Size = UDim2.new(0, 300, 0, 90)
+rewardsContainer.Position = UDim2.new(1, -320, 1, -155)
 rewardsContainer.BackgroundTransparency = 1
 rewardsContainer.ZIndex = 3
 rewardsContainer.Parent = eventTemplate
@@ -293,10 +294,11 @@ rLayout.Parent = rewardsContainer
 local function createSlot(name, parent)
 	local slot = Instance.new("Frame")
 	slot.Name = name
-	slot.Size = UDim2.new(0, 110, 0, 110)
+	slot.Size = UDim2.new(0, 90, 0, 90)
 	slot.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
 	slot.BackgroundTransparency = 0.6
 	slot.Visible = false -- 기본적으로 숨김 (데이터가 있을 때만 표시)
+	slot.ZIndex = 4
 	slot.Parent = parent
 	Instance.new("UICorner", slot).CornerRadius = UDim.new(0, 12)
 	local sStroke = Instance.new("UIStroke", slot)
@@ -310,18 +312,20 @@ local function createSlot(name, parent)
 	icon.Position = UDim2.new(0, 10, 0, 10)
 	icon.BackgroundTransparency = 1
 	icon.ScaleType = Enum.ScaleType.Fit
+	icon.ZIndex = 5
 	icon.Parent = slot
 	
 	local label = Instance.new("TextLabel")
 	label.Name = "Label"
-	label.Size = UDim2.new(1, -8, 0, 34)
-	label.Position = UDim2.new(0, 4, 1, -38)
+	label.Size = UDim2.new(1, -8, 0, 30)
+	label.Position = UDim2.new(0, 4, 1, -34)
 	label.BackgroundTransparency = 1
 	label.FontFace = montserratExtraBold
 	label.Text = "Reward"
 	label.TextColor3 = Color3.fromRGB(255, 245, 180) -- 살짝 은은한 골드빛으로 눈에 띄게
 	label.TextScaled = true
 	label.TextWrapped = true
+	label.ZIndex = 5
 	label.Parent = slot
 	
 	local lStroke = Instance.new("UIStroke", label)
@@ -335,8 +339,8 @@ createSlot("GoldReward", rewardsContainer)
 
 local ePriceBtn = Instance.new("TextButton")
 ePriceBtn.Name = "PriceButton"
-ePriceBtn.Size = UDim2.new(0, 200, 0, 50)
-ePriceBtn.Position = UDim2.new(1, -220, 1, -70)
+ePriceBtn.Size = UDim2.new(0, 180, 0, 40)
+ePriceBtn.Position = UDim2.new(1, -210, 1, -55)
 ePriceBtn.BackgroundColor3 = Color3.fromRGB(100, 220, 110) -- 밝은 녹색
 ePriceBtn.Text = ""
 ePriceBtn.ZIndex = 4
@@ -351,7 +355,7 @@ ePriceText.BackgroundTransparency = 1
 ePriceText.FontFace = montserratExtraBold
 ePriceText.Text = "R$ 500"
 ePriceText.TextColor3 = Color3.fromRGB(255, 255, 255)
-ePriceText.TextSize = 32
+ePriceText.TextSize = 28
 ePriceText.ZIndex = 5
 ePriceText.Parent = ePriceBtn
 Instance.new("UIStroke", ePriceText).Thickness = 3
@@ -390,13 +394,13 @@ itemIcon.Parent = itemTemplate
 
 local itemName = Instance.new("TextLabel")
 itemName.Name = "ItemName"
-itemName.Size = UDim2.new(1, -130, 0, 35)
+itemName.Size = UDim2.new(1, -130, 0, 50)
 itemName.Position = UDim2.new(0, 120, 0, 20)
 itemName.BackgroundTransparency = 1
 itemName.FontFace = montserratExtraBold
-itemName.Text = "아이템 이름"
+itemName.Text = "Item Name"
 itemName.TextColor3 = Color3.fromRGB(30, 30, 30) -- 다크 그레이
-itemName.TextSize = 24
+itemName.TextSize = 32
 itemName.TextXAlignment = Enum.TextXAlignment.Left
 itemName.ZIndex = 3
 itemName.Parent = itemTemplate

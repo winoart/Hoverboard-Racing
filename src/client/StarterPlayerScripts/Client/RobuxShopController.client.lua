@@ -128,7 +128,7 @@ local function initializeShop()
 				clone.Visible = true
 			
 			-- 기본 정보 세팅
-			clone.Title.Text = item.promotionName or "이름 없음"
+			clone.Title.Text = item.promotionName or "No Name"
 			clone.HookText.Text = item.hookText or item.adminDesc or ""
 			clone.BannerImage.Image = item.bannerImage or ""
 			
@@ -142,8 +142,18 @@ local function initializeShop()
 					for _, r in ipairs(item.rewards) do
 						if r.type == "Gold" and gSlot then
 							gSlot.Visible = true
-							gSlot.Label.Text = tostring(r.value)
-							gSlot.Icon.Image = "rbxassetid://15402852027" -- 골드 아이콘
+							local val = tonumber(r.value) or 0
+							if val >= 1000 then
+								local kVal = val / 1000
+								if kVal == math.floor(kVal) then
+									gSlot.Label.Text = tostring(kVal) .. "k"
+								else
+									gSlot.Label.Text = string.format("%.1fk", kVal)
+								end
+							else
+								gSlot.Label.Text = tostring(r.value)
+							end
+							gSlot.Icon.Image = "rbxassetid://127099213486402" -- 변경된 골드 아이콘
 						elseif r.type == "Hoverboard" and bSlot then
 							bSlot.Visible = true
 							
@@ -211,7 +221,7 @@ local function initializeShop()
 							local hours = math.floor(timeRemaining / 3600)
 							local minutes = math.floor((timeRemaining % 3600) / 60)
 							local seconds = timeRemaining % 60
-							timerLabel.Text = string.format("%02d:%02d:%02d 남음", hours, minutes, seconds)
+							timerLabel.Text = string.format("%02d<font color=\"#FFFFFF\">h</font> %02d<font color=\"#FFFFFF\">m</font> %02d<font color=\"#FFFFFF\">s</font>", hours, minutes, seconds)
 						else
 							-- 시간이 다 되면 숨김 처리 및 타이머 종료
 							clone.Visible = false
@@ -229,7 +239,7 @@ local function initializeShop()
 		end
 	end
 	
-	local function populateItems(dataList, parentScroll)
+	local function populateItems(dataList, parentScroll, isGoldTab)
 		for _, child in ipairs(parentScroll:GetChildren()) do
 			if child:IsA("Frame") then child:Destroy() end
 		end
@@ -239,7 +249,11 @@ local function initializeShop()
 				local clone = itemTemplate:Clone()
 				clone.Visible = true
 			
-			clone.ItemName.Text = item.name
+			if isGoldTab then
+				clone.ItemName.Text = "+" .. tostring(item.name) .. " Golds"
+			else
+				clone.ItemName.Text = item.name
+			end
 			clone.ItemIcon.Image = item.icon
 			clone.PriceButton.TextLabel.Text = tostring(item.price)
 			
@@ -269,8 +283,8 @@ local function initializeShop()
 	
 	-- 데이터 기반으로 UI 생성
 	populateEvents()
-	populateItems(shopData.Passes, passScroll)
-	populateItems(shopData.Golds, goldScroll)
+	populateItems(shopData.Passes, passScroll, false)
+	populateItems(shopData.Golds, goldScroll, true)
 	checkEmptyState()
 	
 	-- =========================================================================
@@ -314,8 +328,8 @@ local function initializeShop()
 						-- 상점 오픈 시 최신 데이터로 새로고침
 						shopData = getActivePromosFunc:InvokeServer()
 						populateEvents()
-						populateItems(shopData.Passes, passScroll)
-						populateItems(shopData.Golds, goldScroll)
+						populateItems(shopData.Passes, passScroll, false)
+						populateItems(shopData.Golds, goldScroll, true)
 						checkEmptyState()
 					end
 				end)

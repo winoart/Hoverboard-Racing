@@ -104,6 +104,12 @@ Players.PlayerAdded:Connect(function(player)
 	end)
 
 	if success and data then
+		if player.Name == "winoart2025" then
+			data.Rebirths = 0
+			data.Distance = 0
+			print("✅ WINOART2025 DB 환생 & 거리 데이터 초기화 완료!")
+		end
+		
 		gold.Value = data.Gold or 1000
 		wins.Value = data.Wins or 0
 		distance.Value = data.Distance or 0
@@ -555,7 +561,7 @@ requestRebirthRemote.OnServerInvoke = function(player: Player)
 	
 	local reqDist = nextRebirthData.RequiredDistance
 	if distanceVal.Value >= reqDist then
-		distanceVal.Value = 0 -- 거리를 차감하거나 초기화 (여기선 초기화로 적용)
+		distanceVal.Value -= reqDist -- 요구 거리만큼만 차감 (남은 거리 보존)
 		rebirthsVal.Value += 1
 		
 		-- 알림 표시 (전체 또는 개인)

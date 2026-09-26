@@ -289,17 +289,112 @@ local function createRebirthWindow()
 	btnTextStroke.Thickness = 3
 	btnTextStroke.Parent = doRebirthBtn
 	
+	local function playRebirthCelebration()
+		local screenGui = Instance.new("ScreenGui")
+		screenGui.Name = "RebirthCelebrationGui"
+		screenGui.DisplayOrder = 100
+		screenGui.Parent = PlayerGui
+		
+		-- Sound
+		local sound = Instance.new("Sound")
+		sound.SoundId = "rbxassetid://138090716" -- Classic Win
+		sound.Volume = 0.8
+		sound.Parent = screenGui
+		sound:Play()
+		
+		-- Popup Text
+		local textLabel = Instance.new("TextLabel")
+		textLabel.Size = UDim2.new(0, 0, 0, 0)
+		textLabel.Position = UDim2.new(0.5, 0, 0.4, 0)
+		textLabel.AnchorPoint = Vector2.new(0.5, 0.5)
+		textLabel.BackgroundTransparency = 1
+		textLabel.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
+		textLabel.Text = "REBIRTH!"
+		textLabel.TextColor3 = Color3.fromRGB(255, 215, 0) -- Gold
+		textLabel.TextScaled = true
+		textLabel.Parent = screenGui
+		
+		local stroke = Instance.new("UIStroke")
+		stroke.Color = Color3.fromRGB(0, 0, 0)
+		stroke.Thickness = 6
+		stroke.Parent = textLabel
+		
+		-- Pop animation
+		TweenService:Create(textLabel, TweenInfo.new(0.6, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out), {
+			Size = UDim2.new(0, 600, 0, 200),
+			Position = UDim2.new(0.5, 0, 0.5, 0)
+		}):Play()
+		
+		-- Confetti
+		local colors = {
+			Color3.fromRGB(255, 50, 50),
+			Color3.fromRGB(50, 255, 50),
+			Color3.fromRGB(50, 50, 255),
+			Color3.fromRGB(255, 255, 50),
+			Color3.fromRGB(255, 50, 255),
+			Color3.fromRGB(50, 255, 255)
+		}
+		
+		local rng = Random.new()
+		for i = 1, 60 do
+			local confetti = Instance.new("Frame")
+			confetti.Size = UDim2.new(0, rng:NextInteger(10, 20), 0, rng:NextInteger(10, 20))
+			local startX = rng:NextNumber(0, 1)
+			confetti.Position = UDim2.new(startX, 0, -0.1, 0)
+			confetti.BackgroundColor3 = colors[rng:NextInteger(1, #colors)]
+			confetti.Rotation = rng:NextInteger(0, 360)
+			confetti.BorderSizePixel = 0
+			confetti.Parent = screenGui
+			
+			local duration = rng:NextNumber(2.5, 4.5)
+			local endX = startX + rng:NextNumber(-0.2, 0.2)
+			local endRot = confetti.Rotation + rng:NextInteger(360, 1080)
+			
+			local tween = TweenService:Create(confetti, TweenInfo.new(duration, Enum.EasingStyle.Linear, Enum.EasingDirection.In), {
+				Position = UDim2.new(endX, 0, 1.1, 0),
+				Rotation = endRot
+			})
+			
+			task.delay(rng:NextNumber(0, 0.5), function()
+				tween:Play()
+			end)
+		end
+		
+		-- Fade out text and destroy
+		task.delay(3, function()
+			local fade = TweenService:Create(textLabel, TweenInfo.new(1), {TextTransparency = 1})
+			local fadeStroke = TweenService:Create(stroke, TweenInfo.new(1), {Transparency = 1})
+			fade:Play()
+			fadeStroke:Play()
+			
+			fade.Completed:Connect(function()
+				screenGui:Destroy()
+			end)
+		end)
+	end
+
 	doRebirthBtn.MouseButton1Click:Connect(function()
-		local success, msg = requestRebirthRemote:InvokeServer()
+		local pcallSuccess, success, msg = pcall(function()
+			return requestRebirthRemote:InvokeServer()
+		end)
+		
+		if not pcallSuccess then
+			msg = "Server Error"
+			success = false
+		end
+		
 		if success then
 			doRebirthBtn.Text = "REBIRTH SUCCESS!"
 			doRebirthBtn.BackgroundColor3 = Color3.fromRGB(50, 255, 50)
+			
+			playRebirthCelebration()
+			
 			task.delay(1.5, function()
 				if rebirthWindow then rebirthWindow.Visible = false end
 				isWindowOpen = false
 			end)
 		else
-			-- doRebirthBtn.Text = msg -- Removed so it just says "환생하기" as requested by user
+			doRebirthBtn.Text = msg or "Failed" -- Show error message to debug
 			doRebirthBtn.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
 			task.delay(1.5, function()
 				doRebirthBtn.Text = "REBIRTH"

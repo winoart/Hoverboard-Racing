@@ -88,7 +88,6 @@ local Workspace = game:GetService("Workspace")
 local function applyVisibilityToGui(gui, isSmallScreen)
 	for _, desc in ipairs(gui:GetDescendants()) do
 		if desc:IsA("TextLabel") then
-			print("🔎 [Debug] Found TextLabel:", desc.Name, "in", gui.Name, "| Setting Visible to:", not isSmallScreen)
 			desc.Visible = not isSmallScreen
 		end
 	end

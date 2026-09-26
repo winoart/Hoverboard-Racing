@@ -118,12 +118,7 @@ local function switchTab(tabName)
 	end
 end
 
-if boardsTabBtn then
-	bindClick(boardsTabBtn, function() switchTab("Board") end)
-end
-if skillsTabBtn then
-	bindClick(skillsTabBtn, function() switchTab("Skill") end)
-end
+-- (Bindings moved to bottom to prevent race condition)
 
 switchTab("Board")
 
@@ -197,8 +192,8 @@ local function updateRightColumn()
 	
 	if not selectedItem then
 		if rImage then rImage.Image = "" end
-		if rName then rName.Text = "Select an Item" end
-		if rDesc then rDesc.Text = "Description text will appear here. Please select an item from the list on the left." end
+		if rName then rName.Text = (currentTab == "Skill") and "Select a Skill" or "Select a Hoverboard" end
+		if rDesc then rDesc.Text = (currentTab == "Skill") and "Description text will appear here. Please select a skill from the list on the left." or "Description text will appear here. Please select a hoverboard from the list on the left." end
 		if rViewport then rViewport.Visible = false end
 		if rImage then rImage.Visible = true end
 		if actionBtn then actionBtn.Visible = false end
@@ -248,13 +243,13 @@ local function updateRightColumn()
 		if rViewport then rViewport.Visible = false end
 	end
 	
-	-- 아이콘 바운스(플로팅) 애니메이션 효과 추가
+	-- ?袁⑹뵠??獄쏅뗄??????쨮?? ?醫딅빍筌롫뗄?????ｋ궢 ?곕떽?
 	if rImage then
 		local startTick = tick()
 		local basePos = UDim2.new(0.05, 0, 0.05, 0)
 		local conn = RunService.RenderStepped:Connect(function()
 			local t = tick() - startTick
-			local bounce = math.sin(t * 2.5) * 0.04 -- 속도 2.5, 진폭 4% (천천히 부드럽게)
+			local bounce = math.sin(t * 2.5) * 0.04 -- ??얜즲 2.5, 筌욊쑵猷?4% (筌ｌ뮇荑???봔??뺤쓦野?
 			rImage.Position = UDim2.new(basePos.X.Scale, basePos.X.Offset, basePos.Y.Scale + bounce, basePos.Y.Offset)
 		end)
 		table.insert(renderConnections, conn)
@@ -333,7 +328,7 @@ local function createInvCard(item, itemType, parentScroll, layoutOrder)
 		img.Position = UDim2.new(0, 10, 0, 10)
 		img.BackgroundTransparency = 1
 		img.ScaleType = Enum.ScaleType.Fit
-		img.ZIndex = 10 -- 노란색 배경(Viewport)보다 무조건 위에 뜨도록 ZIndex 10
+		img.ZIndex = 10 -- ?紐???獄쏄퀗瑗?Viewport)癰귣????얜똻?쒎쳞??袁⑸퓠 ??ㅻ즲嚥?ZIndex 10
 		img.Parent = cardBtn
 	else
 		img.ZIndex = 10
@@ -341,7 +336,7 @@ local function createInvCard(item, itemType, parentScroll, layoutOrder)
 	
 	local vpf = cardBtn:FindFirstChild("Viewport")
 	
-	-- 보스 요청: 스킬에서도 호버보드처럼 예쁜 노란색 박스가 보이게 해달라!
+	-- 癰귣똻???遺욧퍕: ??쎄텢?癒?퐣???紐껋쒔癰귣?諭띰㎗?롮쓥 ??됯굡 ?紐???獄쏅벡?ゅ첎? 癰귣똻?졾칰??????
 	if itemType == "Board" then
 		img.Visible = true
 		img.Image = item.imageId
@@ -354,7 +349,7 @@ local function createInvCard(item, itemType, parentScroll, layoutOrder)
 	
 	local nameLabel = cardBtn:FindFirstChild("ItemName", true)
 	if nameLabel then 
-		nameLabel.Text = string.gsub(item.name, "%s*%([a-zA-Z가-힣%s]+%)", "")
+		nameLabel.Text = string.gsub(item.name, "%s*%([a-zA-Z揶쎛-??s]+%)", "")
 		nameLabel.Font = Enum.Font.FredokaOne
 	end
 	
@@ -371,7 +366,7 @@ local function createInvCard(item, itemType, parentScroll, layoutOrder)
 	checkIcon.BackgroundTransparency = 1
 	checkIcon.Image = "rbxassetid://17368190066"
 	checkIcon.Visible = false
-	checkIcon.ZIndex = 10 -- 카드의 모든 요소(ZIndex 8,9)보다 위에 오도록 설정
+	checkIcon.ZIndex = 10 -- 燁삳?諭??筌뤴뫀諭??遺용꺖(ZIndex 8,9)癰귣????袁⑸퓠 ??삳즲嚥???쇱젟
 	checkIcon.Parent = cardBtn
 	
 	table.insert(allCards, {card = cardBtn, stroke = cardStroke, item = item, itemType = itemType, checkIcon = checkIcon, img = img})
@@ -386,7 +381,7 @@ local function refreshCardsVisibility()
 		local isOwned = data.itemType == "Board" and checkOwnsBoard(data.item.id) or checkOwnsSkill(data.item.id)
 		local isEquipped = data.itemType == "Board" and checkEquippedBoard(data.item.id) or checkEquippedSkill(data.item.id)
 		
-		data.card.Visible = isOwned and true or false -- 보유한 아이템만 표시
+		data.card.Visible = isOwned and true or false -- 癰귣똻????袁⑹뵠??뺤춸 ??뽯뻻
 		data.checkIcon.Visible = isEquipped
 	end
 	if selectedItem then updateRightColumn() end
@@ -403,7 +398,7 @@ local function initializeInventoryCards()
 	local ownBoard = LocalPlayer:WaitForChild("OwnedHoverboards")
 	local ownSkill = LocalPlayer:WaitForChild("OwnedSkills")
 
-	-- UIGridLayout SortOrder를 LayoutOrder로 강제 설정
+	-- UIGridLayout SortOrder??LayoutOrder嚥?揶쏅벡????쇱젟
 	if boardsScroll then
 		local grid = boardsScroll:FindFirstChildOfClass("UIGridLayout")
 		if grid then grid.SortOrder = Enum.SortOrder.LayoutOrder end
@@ -414,12 +409,12 @@ local function initializeInventoryCards()
 	end
 
 	if boardsScroll then
-		-- 1. 블루토닉(DefaultHoverboard) 무조건 맨 앞 (LayoutOrder = 0)
+		-- 1. ?됰뗀竊?醫딅빏(DefaultHoverboard) ?얜똻?쒎쳞?筌???(LayoutOrder = 0)
 		local defaultBoard = getItemById(StoreConfig.Items, "DefaultHoverboard")
 		if defaultBoard then
 			createInvCard(defaultBoard, "Board", boardsScroll, 0)
 		end
-		-- 2. 획득한 호버보드를 OwnedHoverboards 폴더 순서(획득 순)대로
+		-- 2. ??얜굣???紐껋쒔癰귣?諭띄몴?OwnedHoverboards ??????뽮퐣(??얜굣 ????嚥?
 		local boardOrder = 1
 		for _, child in ipairs(ownBoard:GetChildren()) do
 			if child.Name ~= "DefaultHoverboard" then
@@ -430,7 +425,7 @@ local function initializeInventoryCards()
 				end
 			end
 		end
-		-- 새로 획득 시 카드 동적 추가
+		-- ??덉쨮 ??얜굣 ??燁삳?諭???덉읅 ?곕떽?
 		local nextBoardOrder = boardOrder
 		ownBoard.ChildAdded:Connect(function(child)
 			if child.Name ~= "DefaultHoverboard" then
@@ -445,7 +440,7 @@ local function initializeInventoryCards()
 	end
 
 	if skillsScroll then
-		-- 스킬은 OwnedSkills 폴더 순서(획득 순)대로
+		-- ??쎄텢?? OwnedSkills ??????뽮퐣(??얜굣 ????嚥?
 		local skillOrder = 0
 		for _, child in ipairs(ownSkill:GetChildren()) do
 			local item = getItemById(SkillStoreConfig.Skills, child.Name)
@@ -454,7 +449,7 @@ local function initializeInventoryCards()
 				skillOrder += 1
 			end
 		end
-		-- 새로 획득 시 카드 동적 추가
+		-- ??덉쨮 ??얜굣 ??燁삳?諭???덉읅 ?곕떽?
 		local nextSkillOrder = skillOrder
 		ownSkill.ChildAdded:Connect(function(child)
 			local item = getItemById(SkillStoreConfig.Skills, child.Name)
@@ -491,7 +486,7 @@ phaseRemote.OnClientEvent:Connect(function(phase, timeLeft)
 	if phase == "INTERMISSION" or phase == "MAP_VOTING" then
 		hudGui.Enabled = true
 	else
-		-- 레이스 중(RACE_MATCH 등)이라도, 늦게 접속해 대기실에 있는 유저나 트레드밀 훈련 중인 유저는 인벤토리가 보여야 합니다.
+		-- ??됱뵠??餓?RACE_MATCH ??????? ??苡??臾믩꺗????疫꿸퀣?????덈뮉 ?醫????紐껋쟿??? ??덉졃 餓λ쵐???醫????紐껉뭣?醫듼봺揶쎛 癰귣똻肉????몃빍??
 		local isRacing = LocalPlayer:GetAttribute("IsRacing") == true
 		local isSpectating = LocalPlayer:GetAttribute("IsSpectating") == true
 		
@@ -516,13 +511,13 @@ LocalPlayer:GetAttributeChangedSignal("IsSpectating"):Connect(function()
 	end
 end)
 
--- 인벤토리 리스트에 있는 모든 카드의 아이콘에도 바운스 애니메이션(물결 효과) 적용
+-- ?紐껉뭣?醫듼봺 ?귐딅뮞?紐꾨퓠 ??덈뮉 筌뤴뫀諭?燁삳?諭???袁⑹뵠?꾩꼷肉??獄쏅뗄????醫딅빍筌롫뗄????얠눊猿???ｋ궢) ?怨몄뒠
 RunService.RenderStepped:Connect(function()
 	local t = tick()
 	for i, data in ipairs(allCards) do
 		if data.img and data.card.Visible then
-			-- 각 카드마다 i(인덱스) 값으로 위상 차이를 줘서 파도치듯(Wave) 부드럽게 움직이게 합니다.
-			-- 진폭 4픽셀, 속도 3
+			-- 揶?燁삳?諭띰쭕?덈뼄 i(?紐껊쑔?? 揶쏅??앮에??袁⑷맒 筌△뫁?좂몴?餓μ꼷苑????즲燁살꼶踰?Wave) ?봔??뺤쓦野???筌욊낯?졾칰???몃빍??
+			-- 筌욊쑵猷?4???, ??얜즲 3
 			local bounce = math.sin(t * 3 + (i * 0.5)) * 4
 			data.img.Position = UDim2.new(0, 10, 0, 10 + bounce)
 		end
@@ -530,7 +525,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- =========================================================================
--- 📱 RESPONSIVE UI SCALING
+-- ?踰?RESPONSIVE UI SCALING
 -- =========================================================================
 if bgFrame then
 	bgFrame.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -552,3 +547,27 @@ if bgFrame then
 		if resizeConn then resizeConn:Disconnect() end
 	end)
 end
+
+-- ?뱦 蹂댁뒪 ?붿껌: ?몃깽?좊━瑜??댁뿀?????곗륫 ?곸꽭 ?⑤꼸??鍮꾩뼱?덉? ?딄퀬, ?뷀뤃?몃줈 ?꾩옱 ?μ갑???꾩씠?쒖씠 ?⑤룄濡??먮룞 ?좏깮 湲곕뒫 異붽?
+local function autoSelectEquipped()
+	if currentTab == "Board" then
+		local eq = LocalPlayer:FindFirstChild("EquippedHoverboardId")
+		if eq and eq.Value ~= "" then
+			local item = getItemById(StoreConfig.Items, eq.Value)
+			if item then selectItem(item, "Board") end
+		end
+	elseif currentTab == "Skill" then
+		selectedItem = nil
+		updateRightColumn()
+		for _, data in ipairs(allCards) do
+			if data.stroke then data.stroke.Thickness = 5 end
+		end
+	end
+end
+
+invGui:GetPropertyChangedSignal("Enabled"):Connect(function()
+	if invGui.Enabled then autoSelectEquipped() end
+end)
+
+if boardsTabBtn then bindClick(boardsTabBtn, function() switchTab("Board"); autoSelectEquipped() end) end
+if skillsTabBtn then bindClick(skillsTabBtn, function() switchTab("Skill"); autoSelectEquipped() end) end
