@@ -570,7 +570,7 @@ local function playGlitchEffect()
 	-- Play a short loud zap sound
 	local zapSound = Instance.new("Sound")
 	zapSound.SoundId = "rbxassetid://138084050" -- Glitch/zap
-	zapSound.Volume = 1
+	zapSound.Volume = 0
 	zapSound.Parent = workspace
 	zapSound:Play()
 	game.Debris:AddItem(zapSound, 3)
@@ -1130,7 +1130,7 @@ empEffectRemote.OnClientEvent:Connect(function(casterName: string)
 		showWarningToast(SkillMessages.Messages.EMPReady)
 		local zapSound = Instance.new("Sound")
 		zapSound.SoundId = "rbxassetid://138084050" -- Glitch/zap
-		zapSound.Volume = 0.5
+		zapSound.Volume = 0
 		zapSound.Parent = workspace
 		zapSound:Play()
 		game.Debris:AddItem(zapSound, 3)

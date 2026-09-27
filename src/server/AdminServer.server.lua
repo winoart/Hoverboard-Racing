@@ -69,12 +69,14 @@ getPromoFunc.OnServerInvoke = function(player)
 		if result and type(result) == "table" and result.Events then
 			return result
 		else
-			-- 기본 구조 반환
-			return { Events = {}, Passes = {}, Golds = {} }
+			-- 데이터스토어가 비어있을 경우, 초기 설정값 반환
+			local MonetizationConfig = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("MonetizationConfig"))
+			return MonetizationConfig.ShopData
 		end
 	else
 		warn("🚨 [AdminServer] 상점 데이터 로드 실패", result)
-		return { Events = {}, Passes = {}, Golds = {} }
+		local MonetizationConfig = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("MonetizationConfig"))
+		return MonetizationConfig.ShopData
 	end
 end
 

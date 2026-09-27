@@ -385,8 +385,8 @@ addStripesPattern(itemTemplate)
 
 local itemIcon = Instance.new("ImageLabel")
 itemIcon.Name = "ItemIcon"
-itemIcon.Size = UDim2.new(0, 90, 0, 90)
-itemIcon.Position = UDim2.new(0, 20, 0.5, -45)
+itemIcon.Size = UDim2.new(0, 120, 0, 120)
+itemIcon.Position = UDim2.new(0, 15, 0.5, -60)
 itemIcon.BackgroundTransparency = 1
 itemIcon.ScaleType = Enum.ScaleType.Fit
 itemIcon.ZIndex = 3
@@ -394,8 +394,8 @@ itemIcon.Parent = itemTemplate
 
 local itemName = Instance.new("TextLabel")
 itemName.Name = "ItemName"
-itemName.Size = UDim2.new(1, -130, 0, 50)
-itemName.Position = UDim2.new(0, 120, 0, 20)
+itemName.Size = UDim2.new(1, -155, 0, 50)
+itemName.Position = UDim2.new(0, 145, 0, 20)
 itemName.BackgroundTransparency = 1
 itemName.FontFace = montserratExtraBold
 itemName.Text = "Item Name"
@@ -412,8 +412,8 @@ iNameStroke.Thickness = 2
 
 local iPriceBtn = Instance.new("TextButton")
 iPriceBtn.Name = "PriceButton"
-iPriceBtn.Size = UDim2.new(1, -140, 0, 45)
-iPriceBtn.Position = UDim2.new(0, 120, 1, -60)
+iPriceBtn.Size = UDim2.new(1, -165, 0, 45)
+iPriceBtn.Position = UDim2.new(0, 145, 1, -60)
 iPriceBtn.BackgroundColor3 = Color3.fromRGB(100, 220, 110)
 iPriceBtn.Text = ""
 iPriceBtn.ZIndex = 4

@@ -423,10 +423,13 @@ local function buildAdminUI()
 		local item = currentSelectedIndex and list[currentSelectedIndex] or nil
 		
 		local isEvent = (currentTab == "Events")
+		local hasRewards = (currentTab ~= "Passes")
 		
 		boxStart.Visible = isEvent; lblStart.Visible = isEvent
 		boxEnd.Visible = isEvent; lblEnd.Visible = isEvent
 		boxDesc.Visible = isEvent; lblDesc.Visible = isEvent
+		
+		boxGoldReward.Visible = hasRewards; lblGoldReward.Visible = hasRewards
 		boxBoardReward.Visible = isEvent; lblBoardReward.Visible = isEvent
 		boxSkillReward.Visible = isEvent; lblSkillReward.Visible = isEvent
 		

@@ -47,21 +47,24 @@ MonetizationConfig.ShopData = {
 		{
 			id = 11111111, -- TODO: 실제 게임 패스 ID로 교체하세요
 			name = "x2 Distance",
-			icon = "rbxassetid://13110903322",
+			icon = "rbxassetid://125863660385587",
+			bgImage = "rbxassetid://95450354520470",
 			price = 399,
 			isGamePass = true
 		},
 		{
 			id = 22222222, -- TODO: 실제 게임 패스 ID로 교체하세요
 			name = "x2 Acceleration",
-			icon = "rbxassetid://13110903322",
+			icon = "rbxassetid://93211987843177",
+			bgImage = "rbxassetid://95450354520470",
 			price = 299,
 			isGamePass = true
 		},
 		{
 			id = 33333333, -- TODO: 실제 게임 패스 ID로 교체하세요
 			name = "x2 Race Prize",
-			icon = "rbxassetid://13110903322",
+			icon = "rbxassetid://137384526153093",
+			bgImage = "rbxassetid://95450354520470",
 			price = 499,
 			isGamePass = true
 		}

@@ -98,6 +98,10 @@ local leaderNameLabel1: TextLabel? = nil
 -- Top-Right UI References
 local timerLabel: TextLabel? = nil
 local lapNumLabel: TextLabel? = nil
+local buffsContainer: Frame? = nil
+
+-- Helper Functions
+local updateBuffIcon: ((buffId: string, iconId: string, text: string, color: Color3, layoutOrder: number) -> ())? = nil
 
 -- Bottom-Right Speedometer References
 local speedNumLabel: TextLabel? = nil
@@ -374,6 +378,64 @@ local function createHUDUI()
 	lapStroke.Parent = lapNumLabel
 
 	-- =========================================================================
+	-- 🚀 ACTIVE BUFFS CONTAINER (Under Laps)
+	-- =========================================================================
+	buffsContainer = Instance.new("Frame")
+	buffsContainer.Name = "BuffsContainer"
+	buffsContainer.Size = UDim2.new(1, 0, 0, 36)
+	buffsContainer.Position = UDim2.new(0, 0, 0, 95) -- 랩 텍스트 바로 아래
+	buffsContainer.BackgroundTransparency = 1
+	buffsContainer.ZIndex = 12
+	buffsContainer.Parent = topRightFrame
+	
+	local buffListLayout = Instance.new("UIListLayout")
+	buffListLayout.FillDirection = Enum.FillDirection.Horizontal
+	buffListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
+	buffListLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+	buffListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	buffListLayout.Padding = UDim.new(0, 8)
+	buffListLayout.Parent = buffsContainer
+
+	-- Helper function to add/update a buff icon
+	updateBuffIcon = function(buffId: string, iconId: string, text: string, color: Color3, layoutOrder: number)
+		if not buffsContainer then return end
+		local existing = buffsContainer:FindFirstChild(buffId)
+		if not existing then
+			existing = Instance.new("Frame")
+			existing.Name = buffId
+			existing.Size = UDim2.new(0, 36, 0, 36) -- 원형 초소형 사이즈 (한 줄에 4개 거뜬)
+			existing.BackgroundTransparency = 0.3
+			existing.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+			existing.ZIndex = 12
+			
+			local corner = Instance.new("UICorner")
+			corner.CornerRadius = UDim.new(1, 0) -- 완벽한 원형
+			corner.Parent = existing
+			
+			local stroke = Instance.new("UIStroke")
+			stroke.Color = color
+			stroke.Thickness = 2
+			stroke.Parent = existing
+			
+			local icon = Instance.new("ImageLabel")
+			icon.Name = "Icon"
+			icon.Size = UDim2.new(0, 24, 0, 24)
+			icon.Position = UDim2.new(0.5, 0, 0.5, 0)
+			icon.AnchorPoint = Vector2.new(0.5, 0.5)
+			icon.BackgroundTransparency = 1
+			icon.Image = iconId
+			icon.ZIndex = 13
+			icon.Parent = existing
+			
+			existing.Parent = buffsContainer
+		end
+		
+		existing.LayoutOrder = layoutOrder
+		existing.UIStroke.Color = color
+		-- (텍스트는 생략하여 공간 절약)
+	end
+
+	-- =========================================================================
 	-- 🏎️ [3] BOTTOM-CENTER: NITRO GAUGE + SPEEDOMETER
 	-- =========================================================================
 	local bottomCenterHUD = Instance.new("Frame")
@@ -416,6 +478,7 @@ local function createHUDUI()
 	rebirthEffectLabel.TextXAlignment = Enum.TextXAlignment.Right
 	rebirthEffectLabel.ZIndex = 11
 	rebirthEffectLabel.Parent = bottomCenterHUD
+	rebirthEffectLabel.Visible = true
 	
 	local rStroke = Instance.new("UIStroke")
 	rStroke.Color = Color3.fromRGB(0, 0, 0) -- 완전한 검은색으로 대비 극대화
@@ -901,11 +964,6 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 		engineSound.PlaybackSpeed = 0.6 + (speedRatio * 0.4) -- 0.6 ~ 1.0
 		-- 호버보드 주행 소리가 묻히지 않도록 기존 대비 2배 더 증폭 (매우 큼)
 		engineSound.Volume = 0.8 + (speedRatio * 2.4) -- 0.8 ~ 3.2
-		
-		if isBoosting then
-			engineSound.PlaybackSpeed = engineSound.PlaybackSpeed + 0.3
-			engineSound.Volume = engineSound.Volume + 0.4
-		end
 	end
 
 	if boostSound then
@@ -1000,6 +1058,41 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 
 		-- velocity and currentSpeed are now calculated above the if block
 
+		local currentRebirths = 0
+		local leaderstats = LocalPlayer:FindFirstChild("leaderstats")
+		if leaderstats then
+			local rebirthsVal = leaderstats:FindFirstChild("Rebirths") :: IntValue
+			if rebirthsVal then
+				currentRebirths = rebirthsVal.Value
+			end
+		end
+		local rebirthData = RebirthConfig.GetRebirthData(currentRebirths)
+		
+		if rebirthEffectLabel then
+			rebirthEffectLabel.Text = string.format("Rebirth +%.1f Km/s", rebirthData.BoostSpeedBonus)
+			rebirthEffectLabel.Visible = (rebirthData.BoostSpeedBonus > 0)
+		end
+		
+		-- 테스트용 게임패스 버프 시뮬레이션
+		-- TODO: 나중에 실제 MarketPlaceService 체크로 교체
+		local ownsAccePass = true
+		local ownsGoldPass = true
+		local ownsDistancePass = true
+		
+		if updateBuffIcon then
+			if ownsAccePass then
+				updateBuffIcon("AcceBuff", "rbxassetid://93211987843177", "", Color3.fromRGB(255, 150, 0), 2)
+			end
+			if ownsGoldPass then
+				updateBuffIcon("GoldBuff", "rbxassetid://137384526153093", "", Color3.fromRGB(255, 215, 0), 3)
+			end
+			if ownsDistancePass then
+				updateBuffIcon("DistanceBuff", "rbxassetid://125863660385587", "", Color3.fromRGB(0, 200, 255), 4)
+			end
+		end
+		
+		local currentMaxBoosterSpeed = HoverboardConfig.BOOSTER_WALKSPEED + rebirthData.BoostSpeedBonus
+
 		-- Prevent Movement & Steering during Start Countdown (레이스 시작 전 대기 상태)
 		if not isRaceStarted and not isFinished then
 			humanoid.WalkSpeed = 0
@@ -1074,21 +1167,6 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 				currentHeadingYaw += currentSteerRate * deltaTime
 			end
 
-			local currentRebirths = 0
-			local leaderstats = LocalPlayer:FindFirstChild("leaderstats")
-			if leaderstats then
-				local rebirthsVal = leaderstats:FindFirstChild("Rebirths") :: IntValue
-				if rebirthsVal then
-					currentRebirths = rebirthsVal.Value
-				end
-			end
-			local rebirthData = RebirthConfig.GetRebirthData(currentRebirths)
-			
-			if rebirthEffectLabel then
-				rebirthEffectLabel.Text = string.format("Rebirth +%.1f Km/s", rebirthData.BoostSpeedBonus)
-			end
-			
-			local currentMaxBoosterSpeed = HoverboardConfig.BOOSTER_WALKSPEED + rebirthData.BoostSpeedBonus
 
 			local gyro = hrp:FindFirstChild("SteeringGyro") :: BodyGyro?
 			if not gyro then
@@ -1139,6 +1217,9 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 
 				if currentWalkSpeed < targetSpeed then
 					local accelRate = 36
+					if ownsAccePass then
+						accelRate = accelRate * 2 -- 가속력 2배 게임패스 적용
+					end
 					currentWalkSpeed = math.min(targetSpeed, currentWalkSpeed + (accelRate * deltaTime))
 				elseif currentWalkSpeed > targetSpeed then
 					-- 브레이크(역방향 키 입력) 중일 때는 제동력(decelRate)을 2배로 강하게 적용

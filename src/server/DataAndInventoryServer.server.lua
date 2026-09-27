@@ -104,11 +104,6 @@ Players.PlayerAdded:Connect(function(player)
 	end)
 
 	if success and data then
-		if player.Name == "winoart2025" then
-			data.Rebirths = 0
-			data.Distance = 0
-			print("✅ WINOART2025 DB 환생 & 거리 데이터 초기화 완료!")
-		end
 		
 		gold.Value = data.Gold or 1000
 		wins.Value = data.Wins or 0
