@@ -50,8 +50,19 @@ local function updateUIVisibility()
 	local isRacing = LocalPlayer:GetAttribute("IsRacing") == true
 	local isSpectating = LocalPlayer:GetAttribute("IsSpectating") == true
 	
-	-- 레이싱 중이거나 관전 중일 때는 대기실 메뉴 버튼들을 모두 가림
-	local shouldShowLoungeUI = not (isRacing or isSpectating)
+	local char = LocalPlayer.Character
+	local isDead = false
+	if char then
+		local hum = char:FindFirstChild("Humanoid")
+		if hum and hum.Health <= 0 then
+			isDead = true
+		end
+	else
+		isDead = true
+	end
+	
+	-- 레이싱 중이거나, 관전 중이거나, 캐릭터가 죽은 상태일 때는 대기실 메뉴 버튼들을 모두 가림
+	local shouldShowLoungeUI = not (isRacing or isSpectating or isDead)
 	
 	-- 1. 대기실 기본 버튼들 (돌아오면 켜져야 함)
 	for _, guiName in ipairs(LOUNGE_BUTTON_GUIS) do
@@ -70,13 +81,24 @@ local function updateUIVisibility()
 			end
 		end
 	end
-	
 end
 
 -- 속성 변경 시 실시간 UI 갱신
 LocalPlayer:GetAttributeChangedSignal("IsRacing"):Connect(updateUIVisibility)
 LocalPlayer:GetAttributeChangedSignal("IsSpectating"):Connect(updateUIVisibility)
 LocalPlayer:GetAttributeChangedSignal("IsAFK"):Connect(updateUIVisibility)
+
+LocalPlayer.CharacterAdded:Connect(function(char)
+	updateUIVisibility()
+	local hum = char:WaitForChild("Humanoid", 5)
+	if hum then
+		hum.Died:Connect(updateUIVisibility)
+	end
+end)
+if LocalPlayer.Character then
+	local hum = LocalPlayer.Character:FindFirstChild("Humanoid")
+	if hum then hum.Died:Connect(updateUIVisibility) end
+end
 
 -- 초기 갱신
 updateUIVisibility()
@@ -113,74 +135,85 @@ end
 
 -- 아랫줄 버튼(Rebirth, RobuxShop) 위치 고정 및 모바일 간격 조절
 local function lockBottomButtonsPosition()
-	local inventory = PlayerGui:WaitForChild("InventoryHUD", 10)
-	local quest = PlayerGui:WaitForChild("Quest", 10)
-	local rebirth = PlayerGui:WaitForChild("Rebirth", 10)
-	local robux = PlayerGui:WaitForChild("RobuxShop", 10)
-	
-	if not (inventory and quest and rebirth and robux) then return end
-	
-	local function getButton(gui)
+	local function getButton(guiName)
+		local gui = PlayerGui:FindFirstChild(guiName)
+		if not gui then return nil end
+		
+		-- Disable ResetOnSpawn just in case
+		gui.ResetOnSpawn = false
+		
 		for _, desc in ipairs(gui:GetDescendants()) do
 			if desc:IsA("GuiButton") then return desc end
 		end
 		return nil
 	end
 	
-	local invBtn = getButton(inventory)
-	local questBtn = getButton(quest)
-	local rebBtn = getButton(rebirth)
-	local robuxBtn = getButton(robux)
-	
 	local function updateLayout()
-		local isSmallScreen = (workspace.CurrentCamera.ViewportSize.Y < 600) or (UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled)
+		local invBtn = getButton("InventoryHUD")
+		local questBtn = getButton("Quest")
+		local rebBtn = getButton("Rebirth")
+		local robuxBtn = getButton("RobuxShop")
 		
-		-- 모바일일 때는 간격을 10픽셀로 살짝 띄우고, PC일 때는 18픽셀로 넉넉하게
+		if not (invBtn and questBtn and rebBtn and robuxBtn) then return end
+		
+		local isSmallScreen = (workspace.CurrentCamera.ViewportSize.Y < 600) or (UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled)
 		local gap = isSmallScreen and 10 or 18
 		
-		-- 윗줄 버튼 모바일 위치 상승 (원본 Position은 Studio에 세팅된 값 유지, Offset만 조절)
-		if invBtn and invBtn:FindFirstChild("OriginalY") == nil then
+		if invBtn:FindFirstChild("OriginalY") == nil then
 			local ogY = Instance.new("NumberValue")
 			ogY.Name = "OriginalY"
 			ogY.Value = invBtn.Position.Y.Offset
 			ogY.Parent = invBtn
 		end
-		if questBtn and questBtn:FindFirstChild("OriginalY") == nil then
+		if questBtn:FindFirstChild("OriginalY") == nil then
 			local ogY = Instance.new("NumberValue")
 			ogY.Name = "OriginalY"
 			ogY.Value = questBtn.Position.Y.Offset
 			ogY.Parent = questBtn
 		end
 		
-		if invBtn then
-			local ogY = invBtn:FindFirstChild("OriginalY").Value
-			invBtn.Position = UDim2.new(invBtn.Position.X.Scale, invBtn.Position.X.Offset, invBtn.Position.Y.Scale, isSmallScreen and (ogY - 50) or ogY)
-		end
-		if questBtn then
-			local ogY = questBtn:FindFirstChild("OriginalY").Value
-			questBtn.Position = UDim2.new(questBtn.Position.X.Scale, questBtn.Position.X.Offset, questBtn.Position.Y.Scale, isSmallScreen and (ogY - 50) or ogY)
-		end
+		local invOgY = invBtn:FindFirstChild("OriginalY").Value
+		invBtn.Position = UDim2.new(invBtn.Position.X.Scale, invBtn.Position.X.Offset, invBtn.Position.Y.Scale, isSmallScreen and (invOgY - 50) or invOgY)
 		
-		-- 아랫줄 버튼 윗줄 바로 아래로 고정
-		if invBtn and rebBtn then
-			rebBtn.AnchorPoint = Vector2.new(rebBtn.AnchorPoint.X, invBtn.AnchorPoint.Y)
-			rebBtn.Position = UDim2.new(rebBtn.Position.X.Scale, rebBtn.Position.X.Offset, invBtn.Position.Y.Scale, invBtn.Position.Y.Offset + invBtn.AbsoluteSize.Y + gap)
-		end
-		if questBtn and robuxBtn then
-			robuxBtn.AnchorPoint = Vector2.new(robuxBtn.AnchorPoint.X, questBtn.AnchorPoint.Y)
-			robuxBtn.Position = UDim2.new(robuxBtn.Position.X.Scale, robuxBtn.Position.X.Offset, questBtn.Position.Y.Scale, questBtn.Position.Y.Offset + questBtn.AbsoluteSize.Y + gap)
-		end
+		local questOgY = questBtn:FindFirstChild("OriginalY").Value
+		questBtn.Position = UDim2.new(questBtn.Position.X.Scale, questBtn.Position.X.Offset, questBtn.Position.Y.Scale, isSmallScreen and (questOgY - 50) or questOgY)
+		
+		rebBtn.AnchorPoint = Vector2.new(rebBtn.AnchorPoint.X, invBtn.AnchorPoint.Y)
+		rebBtn.Position = UDim2.new(rebBtn.Position.X.Scale, rebBtn.Position.X.Offset, invBtn.Position.Y.Scale, invBtn.Position.Y.Offset + invBtn.AbsoluteSize.Y + gap)
+		
+		robuxBtn.AnchorPoint = Vector2.new(robuxBtn.AnchorPoint.X, questBtn.AnchorPoint.Y)
+		robuxBtn.Position = UDim2.new(robuxBtn.Position.X.Scale, robuxBtn.Position.X.Offset, questBtn.Position.Y.Scale, questBtn.Position.Y.Offset + questBtn.AbsoluteSize.Y + gap)
 	end
 
 	Workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
-		task.wait(0.05) -- AbsoluteSize 갱신 대기 최소화
+		task.wait(0.05)
 		updateLayout()
 	end)
 	
-	if invBtn then invBtn:GetPropertyChangedSignal("AbsoluteSize"):Connect(updateLayout) end
-	if questBtn then questBtn:GetPropertyChangedSignal("AbsoluteSize"):Connect(updateLayout) end
+	local player = game.Players.LocalPlayer
+	local playerGui = player:WaitForChild("PlayerGui")
 	
-	updateLayout() -- 딜레이 없이 즉시 실행하여 버튼 튀는 현상 제거
+	playerGui.ChildAdded:Connect(function(child)
+		if child.Name == "RobuxShop" or child.Name == "Rebirth" or child.Name == "InventoryHUD" or child.Name == "Quest" then
+			task.defer(updateLayout)
+		end
+	end)
+	
+	player.CharacterAdded:Connect(function()
+		task.defer(updateLayout)
+	end)
+	
+	-- 초기 정렬 대기
+	task.spawn(function()
+		task.wait(1)
+		updateLayout()
+		
+		-- 크기 변경 감지 연결
+		local invBtn = getButton("InventoryHUD")
+		local questBtn = getButton("Quest")
+		if invBtn then invBtn:GetPropertyChangedSignal("AbsoluteSize"):Connect(updateLayout) end
+		if questBtn then questBtn:GetPropertyChangedSignal("AbsoluteSize"):Connect(updateLayout) end
+	end)
 end
 
 -- 해상도 변경 시 실시간 대응

@@ -1,4 +1,4 @@
---!strict
+﻿--!strict
 -- InventoryController.client.luau
 -- Displays the Unified Inventory UI for equipping Hoverboards and Skills
 
@@ -243,13 +243,13 @@ local function updateRightColumn()
 		if rViewport then rViewport.Visible = false end
 	end
 	
-	-- ?袁⑹뵠??獄쏅뗄??????쨮?? ?醫딅빍筌롫뗄?????ｋ궢 ?곕떽?
+	-- ?熬곣뫗逾???꾩룆???????夷?? ??ル봾鍮띸춯濡ル뾼?????節뗪땁 ?怨뺣뼺?
 	if rImage then
 		local startTick = tick()
 		local basePos = UDim2.new(0.05, 0, 0.05, 0)
 		local conn = RunService.RenderStepped:Connect(function()
 			local t = tick() - startTick
-			local bounce = math.sin(t * 2.5) * 0.04 -- ??얜즲 2.5, 筌욊쑵猷?4% (筌ｌ뮇荑???봔??뺤쓦野?
+			local bounce = math.sin(t * 2.5) * 0.04 -- ???쒖┣ 2.5, 嶺뚯쉳?든뙴?4% (嶺뚳퐣裕뉓뜎???遊붋??類ㅼ벀??
 			rImage.Position = UDim2.new(basePos.X.Scale, basePos.X.Offset, basePos.Y.Scale + bounce, basePos.Y.Offset)
 		end)
 		table.insert(renderConnections, conn)
@@ -260,9 +260,9 @@ if actionBtn then
 	local function playInventorySound(isEquipping)
 		local sound = Instance.new("Sound")
 		if isEquipping then
-			sound.SoundId = "rbxassetid://120577963256631" -- 장착 소리
+			sound.SoundId = "rbxassetid://120577963256631" -- ?μ갑 ?뚮━
 		else
-			sound.SoundId = "rbxassetid://124307033081669" -- 해제 소리
+			sound.SoundId = "rbxassetid://124307033081669" -- ?댁젣 ?뚮━
 		end
 		sound.Volume = 0.8
 		sound.Parent = workspace
@@ -347,7 +347,7 @@ local function createInvCard(item, itemType, parentScroll, layoutOrder)
 		img.Position = UDim2.new(0, 10, 0, 10)
 		img.BackgroundTransparency = 1
 		img.ScaleType = Enum.ScaleType.Fit
-		img.ZIndex = 10 -- ?紐???獄쏄퀗瑗?Viewport)癰귣????얜똻?쒎쳞??袁⑸퓠 ??ㅻ즲嚥?ZIndex 10
+		img.ZIndex = 10 -- ?筌????꾩룄?쀧몭?Viewport)?곌랜?????쒕샍??롮퀪??熬곣뫖?????살┣??ZIndex 10
 		img.Parent = cardBtn
 	else
 		img.ZIndex = 10
@@ -355,7 +355,7 @@ local function createInvCard(item, itemType, parentScroll, layoutOrder)
 	
 	local vpf = cardBtn:FindFirstChild("Viewport")
 	
-	-- 癰귣똻???遺욧퍕: ??쎄텢?癒?퐣???紐껋쒔癰귣?諭띰㎗?롮쓥 ??됯굡 ?紐???獄쏅벡?ゅ첎? 癰귣똻?졾칰??????
+	-- ?곌랜?????븐슙?? ???꾪뀬???????筌뤾퍔?붺솻洹?獄?씛??濡?뱿 ????덧 ?筌????꾩룆踰??낆쾸? ?곌랜??議얠물???????
 	if itemType == "Board" then
 		img.Visible = true
 		img.Image = item.imageId
@@ -368,7 +368,7 @@ local function createInvCard(item, itemType, parentScroll, layoutOrder)
 	
 	local nameLabel = cardBtn:FindFirstChild("ItemName", true)
 	if nameLabel then 
-		nameLabel.Text = string.gsub(item.name, "%s*%([a-zA-Z揶쎛-??s]+%)", "")
+		nameLabel.Text = string.gsub(item.name, "%s*%([a-zA-Z?띠럾?-??s]+%)", "")
 		nameLabel.Font = Enum.Font.FredokaOne
 	end
 	
@@ -385,7 +385,7 @@ local function createInvCard(item, itemType, parentScroll, layoutOrder)
 	checkIcon.BackgroundTransparency = 1
 	checkIcon.Image = "rbxassetid://17368190066"
 	checkIcon.Visible = false
-	checkIcon.ZIndex = 10 -- 燁삳?諭??筌뤴뫀諭??遺용꺖(ZIndex 8,9)癰귣????袁⑸퓠 ??삳즲嚥???쇱젟
+	checkIcon.ZIndex = 10 -- ?곸궠?獄??嶺뚮ㅄ維獄???븐슜爰?ZIndex 8,9)?곌랜????熬곣뫖?????녹┣?????깆젧
 	checkIcon.Parent = cardBtn
 	
 	table.insert(allCards, {card = cardBtn, stroke = cardStroke, item = item, itemType = itemType, checkIcon = checkIcon, img = img})
@@ -400,7 +400,7 @@ local function refreshCardsVisibility()
 		local isOwned = data.itemType == "Board" and checkOwnsBoard(data.item.id) or checkOwnsSkill(data.item.id)
 		local isEquipped = data.itemType == "Board" and checkEquippedBoard(data.item.id) or checkEquippedSkill(data.item.id)
 		
-		data.card.Visible = isOwned and true or false -- 癰귣똻????袁⑹뵠??뺤춸 ??뽯뻻
+		data.card.Visible = isOwned and true or false -- ?곌랜??????熬곣뫗逾??類ㅼ떳 ??戮?뻣
 		data.checkIcon.Visible = isEquipped
 	end
 	if selectedItem then updateRightColumn() end
@@ -417,7 +417,7 @@ local function initializeInventoryCards()
 	local ownBoard = LocalPlayer:WaitForChild("OwnedHoverboards")
 	local ownSkill = LocalPlayer:WaitForChild("OwnedSkills")
 
-	-- UIGridLayout SortOrder??LayoutOrder嚥?揶쏅벡????쇱젟
+	-- UIGridLayout SortOrder??LayoutOrder???띠룆踰?????깆젧
 	if boardsScroll then
 		local grid = boardsScroll:FindFirstChildOfClass("UIGridLayout")
 		if grid then grid.SortOrder = Enum.SortOrder.LayoutOrder end
@@ -428,12 +428,12 @@ local function initializeInventoryCards()
 	end
 
 	if boardsScroll then
-		-- 1. ?됰뗀竊?醫딅빏(DefaultHoverboard) ?얜똻?쒎쳞?筌???(LayoutOrder = 0)
+		-- 1. ??곕?塋??ル봾鍮?DefaultHoverboard) ??쒕샍??롮퀪?嶺???(LayoutOrder = 0)
 		local defaultBoard = getItemById(StoreConfig.Items, "DefaultHoverboard")
 		if defaultBoard then
 			createInvCard(defaultBoard, "Board", boardsScroll, 0)
 		end
-		-- 2. ??얜굣???紐껋쒔癰귣?諭띄몴?OwnedHoverboards ??????뽮퐣(??얜굣 ????嚥?
+		-- 2. ???쒓덫???筌뤾퍔?붺솻洹?獄?쓣紐?OwnedHoverboards ???????戮?맋(???쒓덫 ??????
 		local boardOrder = 1
 		for _, child in ipairs(ownBoard:GetChildren()) do
 			if child.Name ~= "DefaultHoverboard" then
@@ -444,7 +444,7 @@ local function initializeInventoryCards()
 				end
 			end
 		end
-		-- ??덉쨮 ??얜굣 ??燁삳?諭???덉읅 ?곕떽?
+		-- ???됱Ŧ ???쒓덫 ???곸궠?獄????됱쓤 ?怨뺣뼺?
 		local nextBoardOrder = boardOrder
 		ownBoard.ChildAdded:Connect(function(child)
 			if child.Name ~= "DefaultHoverboard" then
@@ -459,7 +459,7 @@ local function initializeInventoryCards()
 	end
 
 	if skillsScroll then
-		-- ??쎄텢?? OwnedSkills ??????뽮퐣(??얜굣 ????嚥?
+		-- ???꾪뀬?? OwnedSkills ???????戮?맋(???쒓덫 ??????
 		local skillOrder = 0
 		for _, child in ipairs(ownSkill:GetChildren()) do
 			local item = getItemById(SkillStoreConfig.Skills, child.Name)
@@ -468,7 +468,7 @@ local function initializeInventoryCards()
 				skillOrder += 1
 			end
 		end
-		-- ??덉쨮 ??얜굣 ??燁삳?諭???덉읅 ?곕떽?
+		-- ???됱Ŧ ???쒓덫 ???곸궠?獄????됱쓤 ?怨뺣뼺?
 		local nextSkillOrder = skillOrder
 		ownSkill.ChildAdded:Connect(function(child)
 			local item = getItemById(SkillStoreConfig.Skills, child.Name)
@@ -502,15 +502,13 @@ end)
 -- Game Phase Integration
 local phaseRemote = hoverRemotes:WaitForChild("GamePhaseChanged") :: RemoteEvent
 phaseRemote.OnClientEvent:Connect(function(phase, timeLeft)
-	if phase == "INTERMISSION" or phase == "MAP_VOTING" then
-		hudGui.Enabled = true
+	local char = LocalPlayer.Character; local isDead = (not char) or (char:FindFirstChild("Humanoid") and char.Humanoid.Health <= 0); if (phase == "INTERMISSION" or phase == "MAP_VOTING") and not isDead then hudGui.Enabled = true
 	else
-		-- ??됱뵠??餓?RACE_MATCH ??????? ??苡??臾믩꺗????疫꿸퀣?????덈뮉 ?醫????紐껋쟿??? ??덉졃 餓λ쵐???醫????紐껉뭣?醫듼봺揶쎛 癰귣똻肉????몃빍??
+		-- ???깅턄??繞?RACE_MATCH ???????? ??????얜?爰?????リ옇???????덈츎 ??????筌뤾퍔???? ???됱죨 繞벿살탳????????筌뤾퍒萸??ル벣遊뷸뤆?쎛 ?곌랜?삭굢????紐껊퉵??
 		local isRacing = LocalPlayer:GetAttribute("IsRacing") == true
 		local isSpectating = LocalPlayer:GetAttribute("IsSpectating") == true
 		
-		if isRacing or isSpectating then
-			hudGui.Enabled = false
+		if isRacing or isSpectating or isDead then hudGui.Enabled = false
 			invGui.Enabled = false
 		else
 			hudGui.Enabled = true
@@ -530,13 +528,13 @@ LocalPlayer:GetAttributeChangedSignal("IsSpectating"):Connect(function()
 	end
 end)
 
--- ?紐껉뭣?醫듼봺 ?귐딅뮞?紐꾨퓠 ??덈뮉 筌뤴뫀諭?燁삳?諭???袁⑹뵠?꾩꼷肉??獄쏅뗄????醫딅빍筌롫뗄????얠눊猿???ｋ궢) ?怨몄뒠
+-- ?筌뤾퍒萸??ル벣遊??洹먮봾裕?筌뤾쑬?????덈츎 嶺뚮ㅄ維獄??곸궠?獄???熬곣뫗逾?袁⑷섭????꾩룆??????ル봾鍮띸춯濡ル뾼?????좊닁????節뗪땁) ??⑤챷??
 RunService.RenderStepped:Connect(function()
 	local t = tick()
 	for i, data in ipairs(allCards) do
 		if data.img and data.card.Visible then
-			-- 揶?燁삳?諭띰쭕?덈뼄 i(?紐껊쑔?? 揶쏅??앮에??袁⑷맒 筌△뫁?좂몴?餓μ꼷苑????즲燁살꼶踰?Wave) ?봔??뺤쓦野???筌욊낯?졾칰???몃빍??
-			-- 筌욊쑵猷?4???, ??얜즲 3
+			-- ???곸궠?獄?씛彛??덈펲 i(?筌뤾퍓??? ?띠룆????뿉??熬곣뫕留?嶺뚢뼰維?醫귣ご?繞벿쇨섭?????利꿰뇖?닿섬甕?Wave) ?遊붋??類ㅼ벀????嶺뚯쉳??議얠물???紐껊퉵??
+			-- 嶺뚯쉳?든뙴?4???, ???쒖┣ 3
 			local bounce = math.sin(t * 3 + (i * 0.5)) * 4
 			data.img.Position = UDim2.new(0, 10, 0, 10 + bounce)
 		end
@@ -544,7 +542,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- =========================================================================
--- ?踰?RESPONSIVE UI SCALING
+-- ?甕?RESPONSIVE UI SCALING
 -- =========================================================================
 if bgFrame then
 	bgFrame.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -567,7 +565,7 @@ if bgFrame then
 	end)
 end
 
--- ?뱦 蹂댁뒪 ?붿껌: ?몃깽?좊━瑜??댁뿀?????곗륫 ?곸꽭 ?⑤꼸??鍮꾩뼱?덉? ?딄퀬, ?뷀뤃?몃줈 ?꾩옱 ?μ갑???꾩씠?쒖씠 ?⑤룄濡??먮룞 ?좏깮 湲곕뒫 異붽?
+-- ?諭?癰귣똻???遺욧퍕: ?紐껉뭣?醫듼봺????곷??????怨쀫? ?怨멸쉭 ??ㅺ섯????쑴堉??? ??꾪? ?酉琉?紐껋쨮 ?袁⑹삺 ?關媛???袁⑹뵠??뽰뵠 ??ㅻ즲嚥??癒?짗 ?醫뤾문 疫꿸퀡???곕떽?
 local function autoSelectEquipped()
 	if currentTab == "Board" then
 		local eq = LocalPlayer:FindFirstChild("EquippedHoverboardId")
@@ -590,3 +588,4 @@ end)
 
 if boardsTabBtn then bindClick(boardsTabBtn, function() switchTab("Board"); autoSelectEquipped() end) end
 if skillsTabBtn then bindClick(skillsTabBtn, function() switchTab("Skill"); autoSelectEquipped() end) end
+

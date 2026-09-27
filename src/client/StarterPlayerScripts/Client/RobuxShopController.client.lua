@@ -201,6 +201,14 @@ local function initializeShop()
 			clone.PriceButton.MouseButton1Click:Connect(function()
 				local pId = tonumber(item.id) or 0
 				if pId > 0 then
+					-- [테스트 시뮬레이션] 임시 게임패스 ID인 경우 가상 구매 처리
+					if pId == 11111111 or pId == 22222222 or pId == 33333333 then
+						player:SetAttribute("OwnsPass_" .. tostring(pId), true)
+						clone.PriceButton.TextLabel.Text = "OWNED"
+						clone.PriceButton.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
+						return
+					end
+
 					if item.isGamePass then
 						MarketplaceService:PromptGamePassPurchase(player, pId)
 					else
@@ -274,6 +282,14 @@ local function initializeShop()
 			clone.PriceButton.MouseButton1Click:Connect(function()
 				local pId = tonumber(item.id) or 0
 				if pId > 0 then
+					-- [테스트 시뮬레이션] 임시 게임패스 ID인 경우 가상 구매 처리
+					if pId == 11111111 or pId == 22222222 or pId == 33333333 then
+						player:SetAttribute("OwnsPass_" .. tostring(pId), true)
+						clone.PriceButton.TextLabel.Text = "OWNED"
+						clone.PriceButton.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
+						return
+					end
+
 					if item.isGamePass then
 						MarketplaceService:PromptGamePassPurchase(player, pId)
 					else
@@ -318,11 +334,11 @@ local function initializeShop()
 	end)
 	
 	-- 상점 열기 버튼 연결 (UI 생성 및 함수 정의 완료 후 호출)
-	task.spawn(function()
-		local oldShopGui = playerGui:WaitForChild("RobuxShop", 10)
-		if oldShopGui then
+	local function bindShopButton()
+		local shopToggleGui = playerGui:FindFirstChild("RobuxShop")
+		if shopToggleGui then
 			local btn = nil
-			for _, desc in ipairs(oldShopGui:GetDescendants()) do
+			for _, desc in ipairs(shopToggleGui:GetDescendants()) do
 				if desc:IsA("GuiButton") then
 					btn = desc
 					break
@@ -343,6 +359,22 @@ local function initializeShop()
 				end)
 			end
 		end
+	end
+	
+	task.spawn(function()
+		-- 초기 1회 바인드
+		task.wait(1)
+		bindShopButton()
+		
+		-- 리스폰 시 재생성된 버튼에 즉시 다시 바인드
+		playerGui.ChildAdded:Connect(function(child)
+			if child.Name == "RobuxShop" then
+				task.defer(bindShopButton)
+			end
+		end)
+		player.CharacterAdded:Connect(function()
+			task.defer(bindShopButton)
+		end)
 	end)
 end
 
