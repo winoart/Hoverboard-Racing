@@ -160,10 +160,10 @@ local function createRebirthWindow()
 	infoContainer.Parent = panel
 
 	-- Layout: Prev, Current, Next
-	local function createCard(name, pos, color)
+	local function createCard(name, pos, color, imageId)
 		local card = Instance.new("Frame")
 		card.Name = name
-		card.Size = UDim2.new(0, 210, 1, 0)
+		card.Size = UDim2.new(0, 260, 1, 0)
 		card.Position = pos
 		card.BackgroundColor3 = color
 		card.Parent = infoContainer
@@ -200,17 +200,26 @@ local function createRebirthWindow()
 		table.insert(keypoints, NumberSequenceKeypoint.new(1, 1))
 		grad.Transparency = NumberSequence.new(keypoints)
 
+		local crest = Instance.new("ImageLabel")
+		crest.Name = "CrestImage"
+		crest.Size = UDim2.new(0, 160, 0, 160)
+		crest.Position = UDim2.new(0.5, -80, 0, -15)
+		crest.BackgroundTransparency = 1
+		crest.Image = imageId
+		crest.ZIndex = 2
+		crest.Parent = card
+
 		local rTitle = Instance.new("TextLabel")
 		rTitle.Name = "RebirthLevel"
 		rTitle.Size = UDim2.new(1, 0, 0, 40)
-		rTitle.Position = UDim2.new(0, 0, 0, 15)
+		rTitle.Position = UDim2.new(0, 0, 0.5, -20) -- 숫자를 위로 올려 방패 중앙에 배치
 		rTitle.BackgroundTransparency = 1
 		rTitle.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
-		rTitle.Text = "Rebirth X"
+		rTitle.Text = "X"
 		rTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
-		rTitle.TextSize = 32
-		rTitle.ZIndex = 2
-		rTitle.Parent = card
+		rTitle.TextSize = 42 -- 숫자 크기 살짝 조정
+		rTitle.ZIndex = 3
+		rTitle.Parent = crest
 		
 		local rtStroke = Instance.new("UIStroke")
 		rtStroke.Color = Color3.fromRGB(0, 0, 0)
@@ -219,13 +228,14 @@ local function createRebirthWindow()
 		
 		local benefit = Instance.new("TextLabel")
 		benefit.Name = "BenefitText"
-		benefit.Size = UDim2.new(1, -20, 0, 150)
-		benefit.Position = UDim2.new(0, 10, 0, 70)
+		benefit.Size = UDim2.new(1, -20, 0, 110)
+		benefit.Position = UDim2.new(0, 10, 0, 135)
 		benefit.BackgroundTransparency = 1
 		benefit.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
 		benefit.Text = "Benefit Details"
 		benefit.TextColor3 = Color3.new(1, 1, 1)
 		benefit.TextSize = 22
+		benefit.RichText = true
 		benefit.TextWrapped = true
 		benefit.TextYAlignment = Enum.TextYAlignment.Center
 		benefit.ZIndex = 2
@@ -239,29 +249,24 @@ local function createRebirthWindow()
 		return card
 	end
 
-	createCard("PrevCard", UDim2.new(0, 0, 0, 0), Color3.fromRGB(70, 80, 90))
-	createCard("CurrentCard", UDim2.new(0.5, -105, 0, 0), Color3.fromRGB(255, 140, 20))
-	createCard("NextCard", UDim2.new(1, -210, 0, 0), Color3.fromRGB(40, 180, 255))
+	createCard("CurrentCard", UDim2.new(0, 20, 0, 0), Color3.fromRGB(245, 175, 25), "rbxassetid://133639398193053") -- 골드 (Golden)
+	createCard("NextCard", UDim2.new(1, -280, 0, 0), Color3.fromRGB(160, 225, 255), "rbxassetid://104751050024730") -- 얼음 (Ice Blue)
 	
 	-- Arrows
 	local arrow1 = Instance.new("TextLabel")
-	arrow1.Size = UDim2.new(0, 50, 0, 60)
-	arrow1.Position = UDim2.new(0, 215, 0.5, -30)
+	arrow1.Size = UDim2.new(0, 60, 0, 60)
+	arrow1.Position = UDim2.new(0.5, -30, 0.5, -30)
 	arrow1.BackgroundTransparency = 1
 	arrow1.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
 	arrow1.Text = "→"
 	arrow1.TextColor3 = Color3.new(1, 1, 1)
-	arrow1.TextSize = 50
+	arrow1.TextSize = 65
 	arrow1.Parent = infoContainer
 	
 	local a1Stroke = Instance.new("UIStroke")
 	a1Stroke.Color = Color3.fromRGB(0, 0, 0)
 	a1Stroke.Thickness = 4
 	a1Stroke.Parent = arrow1
-	
-	local arrow2 = arrow1:Clone()
-	arrow2.Position = UDim2.new(1, -265, 0.5, -30)
-	arrow2.Parent = infoContainer
 
 	-- Action Button
 	local doRebirthBtn = Instance.new("TextButton")
@@ -448,8 +453,11 @@ local function updateRebirthWindow()
 		local card = infoContainer:FindFirstChild(cardName)
 		if not card then return end
 		
-		local rTitle = card:FindFirstChild("RebirthLevel") :: TextLabel
+		local crest = card:FindFirstChild("CrestImage")
+		local rTitle = crest and crest:FindFirstChild("RebirthLevel") :: TextLabel
 		local benefitText = card:FindFirstChild("BenefitText") :: TextLabel
+		
+		if not rTitle or not benefitText then return end
 		
 		if rLevel < 0 then
 			rTitle.Text = "-"
@@ -458,21 +466,20 @@ local function updateRebirthWindow()
 		end
 		
 		local rData = RebirthConfig.GetRebirthData(rLevel)
-		rTitle.Text = "Rebirth " .. rLevel
+		rTitle.Text = tostring(rLevel)
 		
 		local bText = ""
 		if rLevel == 0 then
-			bText = "Base\nBooster Speed"
+			bText = "Base\n<font size=\"30\">Booster Speed</font>"
 		else
-			bText = string.format("Booster Speed\n+%.1f", rData.BoostSpeedBonus)
+			bText = string.format("Booster Speed\n<font size=\"34\">+%.1f km/h</font>", rData.BoostSpeedBonus)
 			if isActive then
-				bText = bText .. string.format("\n\nReq. Distance:\n%s", formatDistance(rData.RequiredDistance))
+				bText = bText .. string.format("\nReq. Distance:\n<font size=\"24\">%s</font>", formatDistance(rData.RequiredDistance))
 			end
 		end
 		benefitText.Text = bText
 	end
 	
-	setCardData("PrevCard", currentRebirths - 1, false)
 	setCardData("CurrentCard", currentRebirths, false)
 	
 	local nextRebirthData = RebirthConfig.GetNextRebirthData(currentRebirths)
