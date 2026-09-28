@@ -297,7 +297,7 @@ local function createRebirthWindow()
 	local function playRebirthCelebration()
 		local screenGui = Instance.new("ScreenGui")
 		screenGui.Name = "RebirthCelebrationGui"
-		screenGui.DisplayOrder = 100
+		screenGui.DisplayOrder = 1000 -- 환생 UI(999) 앞쪽에서 폭죽이 터지게
 		screenGui.Parent = PlayerGui
 		
 		-- Sound
@@ -306,29 +306,6 @@ local function createRebirthWindow()
 		sound.Volume = 0.8
 		sound.Parent = screenGui
 		sound:Play()
-		
-		-- Popup Text
-		local textLabel = Instance.new("TextLabel")
-		textLabel.Size = UDim2.new(0, 0, 0, 0)
-		textLabel.Position = UDim2.new(0.5, 0, 0.4, 0)
-		textLabel.AnchorPoint = Vector2.new(0.5, 0.5)
-		textLabel.BackgroundTransparency = 1
-		textLabel.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
-		textLabel.Text = "REBIRTH!"
-		textLabel.TextColor3 = Color3.fromRGB(255, 215, 0) -- Gold
-		textLabel.TextScaled = true
-		textLabel.Parent = screenGui
-		
-		local stroke = Instance.new("UIStroke")
-		stroke.Color = Color3.fromRGB(0, 0, 0)
-		stroke.Thickness = 6
-		stroke.Parent = textLabel
-		
-		-- Pop animation
-		TweenService:Create(textLabel, TweenInfo.new(0.6, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out), {
-			Size = UDim2.new(0, 600, 0, 200),
-			Position = UDim2.new(0.5, 0, 0.5, 0)
-		}):Play()
 		
 		-- Confetti
 		local colors = {
@@ -365,16 +342,11 @@ local function createRebirthWindow()
 			end)
 		end
 		
-		-- Fade out text and destroy
-		task.delay(3, function()
-			local fade = TweenService:Create(textLabel, TweenInfo.new(1), {TextTransparency = 1})
-			local fadeStroke = TweenService:Create(stroke, TweenInfo.new(1), {Transparency = 1})
-			fade:Play()
-			fadeStroke:Play()
-			
-			fade.Completed:Connect(function()
+		-- 폭죽 연출 후 화면에서 제거 (5초 뒤)
+		task.delay(5, function()
+			if screenGui and screenGui.Parent then
 				screenGui:Destroy()
-			end)
+			end
 		end)
 	end
 
@@ -395,8 +367,9 @@ local function createRebirthWindow()
 			playRebirthCelebration()
 			
 			task.delay(1.5, function()
-				if rebirthWindow then rebirthWindow.Visible = false end
-				isWindowOpen = false
+				-- 환생 성공 후 창 닫지 않고 버튼만 원상복구
+				doRebirthBtn.Text = "REBIRTH"
+				doRebirthBtn.BackgroundColor3 = Color3.fromRGB(100, 220, 110)
 			end)
 		else
 			doRebirthBtn.Text = msg or "Failed" -- Show error message to debug
