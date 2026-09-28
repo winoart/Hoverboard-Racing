@@ -177,6 +177,86 @@ timerStroke.Parent = timerLabel
 local currentTab = "Daily"
 local cachedQuestData = nil
 
+-- Gold Animation Helpers
+local function getGoldTarget(): GuiObject?
+	local hud = PlayerGui:FindFirstChild("GoldDisplayHUD")
+	if hud then
+		local frame = hud:FindFirstChild("GoldFrame")
+		if frame then
+			return frame:FindFirstChild("GoldIcon") or frame:FindFirstChild("GoldTextLabel")
+		end
+	end
+	return nil
+end
+
+local function spawnGoldEffect(startPos: Vector2, target: GuiObject?, amount: number)
+	if not target or not questScreenGui then return end
+	
+	local targetPos = UDim2.new(0, target.AbsolutePosition.X + (target.AbsoluteSize.X / 2), 0, target.AbsolutePosition.Y + (target.AbsoluteSize.Y / 2))
+	
+	-- 골드 개수 (기본 10개)
+	local coinCount = 10
+	
+	for i = 1, coinCount do
+		local icon = Instance.new("ImageLabel")
+		icon.Size = UDim2.new(0, 50, 0, 50)
+		icon.Position = UDim2.new(0, startPos.X, 0, startPos.Y)
+		icon.AnchorPoint = Vector2.new(0.5, 0.5)
+		icon.BackgroundTransparency = 1
+		icon.Image = "rbxassetid://17368060122"
+		icon.ZIndex = 100
+		
+		icon.Parent = questScreenGui
+		
+		-- 1단계: 주변으로 튀어나오기 (Pop-out)
+		local randomX = startPos.X + math.random(-60, 60)
+		local randomY = startPos.Y + math.random(-60, 60)
+		local popPos = UDim2.new(0, randomX, 0, randomY)
+		
+		local popTweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+		local popTween = TweenService:Create(icon, popTweenInfo, {
+			Position = popPos,
+			Size = UDim2.new(0, 60, 0, 60),
+			Rotation = math.random(-45, 45)
+		})
+		
+		-- 2단계: 타겟으로 가속하며 날아가기 (Fly-in)
+		local flyTweenInfo = TweenInfo.new(0.6, Enum.EasingStyle.Cubic, Enum.EasingDirection.In)
+		local flyTween = TweenService:Create(icon, flyTweenInfo, {
+			Position = targetPos,
+			Size = UDim2.new(0, 30, 0, 30),
+			Rotation = 0
+		})
+		
+		popTween.Completed:Connect(function()
+			flyTween:Play()
+		end)
+		
+		flyTween.Completed:Connect(function()
+			icon:Destroy()
+			
+			-- 도착 시 골드 아이콘 흔들림 효과 (무한 커짐 방지)
+			if target and target.Parent then
+				local uiScale = target:FindFirstChild("GoldBounceScale")
+				if not uiScale then
+					uiScale = Instance.new("UIScale")
+					uiScale.Name = "GoldBounceScale"
+					uiScale.Scale = 1.0
+					uiScale.Parent = target
+				end
+				
+				TweenService:Create(uiScale, TweenInfo.new(0.05, Enum.EasingStyle.Sine, Enum.EasingDirection.Out, 1, true), {
+					Scale = 1.3
+				}):Play()
+			end
+		end)
+		
+		task.delay(math.random() * 0.2, function()
+			popTween:Play()
+		end)
+	end
+end
+
 local function createQuestCard(questInfo, config, isWeekly)
 	local card = Instance.new("Frame")
 	card.Size = UDim2.new(1, 0, 0, 100)
@@ -280,7 +360,31 @@ local function createQuestCard(questInfo, config, isWeekly)
 			local success, result = claimQuestRemote:InvokeServer(questInfo.id, isWeekly)
 			if success then
 				questInfo.claimed = true
-				refreshUI()
+				
+				-- 💥 골드 애니메이션 재생!
+				local goldTarget = getGoldTarget()
+				if goldTarget then
+					local hud = PlayerGui:FindFirstChild("GoldDisplayHUD")
+					if hud then
+						hud:SetAttribute("PauseGoldUpdate", true)
+					end
+					
+					local startPos = Vector2.new(claimBtn.AbsolutePosition.X + (claimBtn.AbsoluteSize.X / 2), claimBtn.AbsolutePosition.Y + (claimBtn.AbsoluteSize.Y / 2))
+					spawnGoldEffect(startPos, goldTarget, config.reward)
+					
+					task.delay(0.5, function()
+						if hud then
+							hud:SetAttribute("PauseGoldUpdate", false)
+						end
+					end)
+					
+					-- 골드가 날아가는 시간을 주기 위해 1초 뒤에 UI 갱신
+					task.delay(1.0, function()
+						refreshUI()
+					end)
+				else
+					refreshUI()
+				end
 			end
 		end)
 	else
