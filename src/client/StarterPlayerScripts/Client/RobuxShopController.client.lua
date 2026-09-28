@@ -206,6 +206,15 @@ local function initializeShop()
 						player:SetAttribute("OwnsPass_" .. tostring(pId), true)
 						clone.PriceButton.TextLabel.Text = "OWNED"
 						clone.PriceButton.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
+						
+						-- 서버에도 테스트 속성을 설정하도록 임시 리모트 전송
+						local remotesFolder = game:GetService("ReplicatedStorage"):FindFirstChild("HoverboardRemotes")
+						if remotesFolder then
+							local simRemote = remotesFolder:FindFirstChild("SimulatePassPurchase")
+							if simRemote then
+								simRemote:FireServer(pId)
+							end
+						end
 						return
 					end
 
@@ -267,7 +276,12 @@ local function initializeShop()
 				clone.ItemName.Text = item.name
 			end
 			clone.ItemIcon.Image = item.icon
-			clone.PriceButton.TextLabel.Text = tostring(item.price)
+			if item.isGamePass and player:GetAttribute("OwnsPass_" .. tostring(item.id)) then
+				clone.PriceButton.TextLabel.Text = "OWNED"
+				clone.PriceButton.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
+			else
+				clone.PriceButton.TextLabel.Text = tostring(item.price)
+			end
 			
 			local bgImage = clone:FindFirstChild("BackgroundImage")
 			if bgImage then
@@ -282,11 +296,23 @@ local function initializeShop()
 			clone.PriceButton.MouseButton1Click:Connect(function()
 				local pId = tonumber(item.id) or 0
 				if pId > 0 then
-					-- [테스트 시뮬레이션] 임시 게임패스 ID인 경우 가상 구매 처리
 					if pId == 11111111 or pId == 22222222 or pId == 33333333 then
 						player:SetAttribute("OwnsPass_" .. tostring(pId), true)
 						clone.PriceButton.TextLabel.Text = "OWNED"
 						clone.PriceButton.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
+						
+						local remotesFolder = game:GetService("ReplicatedStorage"):FindFirstChild("HoverboardRemotes")
+						if remotesFolder then
+							local simRemote = remotesFolder:FindFirstChild("SimulatePassPurchase")
+							if simRemote then
+								simRemote:FireServer(pId)
+							end
+						end
+						return
+					end
+					
+					-- 이미 소유한 경우 클릭 무시
+					if item.isGamePass and player:GetAttribute("OwnsPass_" .. tostring(item.id)) then
 						return
 					end
 

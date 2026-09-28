@@ -177,34 +177,22 @@ function LapManager.startTracking(mapName: string, startTime: number)
 									local reward = 100
 									if data.finalRank == 1 then 
 										reward = 1000
-										local ReplicatedStorage = game:GetService("ReplicatedStorage")
-										local winEvent = ReplicatedStorage:FindFirstChild("UpdateWinsEvent")
-										if winEvent then
-											winEvent:Fire(player)
-										end
-										
-										-- Quest: Win
-										local QuestBindables = ReplicatedStorage:FindFirstChild("QuestBindables")
-										local addProgress = QuestBindables and QuestBindables:FindFirstChild("AddQuestProgress")
-										if addProgress then
-											addProgress:Fire(player.UserId, "_win", 1)
-										end
 									elseif data.finalRank == 2 then 
 										reward = 600
 									elseif data.finalRank == 3 then 
 										reward = 300
 									end
-									gold.Value += reward
-									print("💰 Awarded " .. reward .. " Gold to " .. player.Name)
-									
-									-- Quest: Play, Gold
-									local ReplicatedStorage = game:GetService("ReplicatedStorage")
-									local QuestBindables = ReplicatedStorage:FindFirstChild("QuestBindables")
-									local addProgress = QuestBindables and QuestBindables:FindFirstChild("AddQuestProgress")
-									if addProgress then
-										addProgress:Fire(player.UserId, "_play", 1)
-										addProgress:Fire(player.UserId, "_gold", reward)
+									local hasX2 = player:GetAttribute("OwnsPass_33333333") == true
+									if hasX2 then
+										reward *= 2
+										print("✨ [DEBUG] " .. player.Name .. " has X2 Race Prize GamePass! Reward doubled to " .. reward)
+									else
+										print("⚠️ [DEBUG] " .. player.Name .. " DOES NOT have X2 Race Prize GamePass on server!")
 									end
+									
+									-- 골드 지급을 결과창 타이밍으로 미루기 위해 저장만 해둠
+									data.earnedGold = reward
+									print("💰 " .. player.Name .. " earned " .. reward .. " Gold (will be paid at scoreboard)")
 								end
 							end
 						else
@@ -371,18 +359,45 @@ function LapManager.getFinalScoreboardData()
 			if data.finalRank ~= 999 then
 				timeStr = string.format("%.2fs", data.finishTime)
 			end
-			local reward = 0
-			if data.finalRank == 1 then reward = 1000
-			elseif data.finalRank == 2 then reward = 600
-			elseif data.finalRank == 3 then reward = 300
-			elseif data.finalRank ~= 999 then reward = 100
+			local reward = data.earnedGold or 0
+			local hasX2Prize = p:GetAttribute("OwnsPass_33333333") == true
+			
+			if reward > 0 then
+				task.delay(0.5, function()
+					local leaderstats = p:FindFirstChild("leaderstats")
+					if leaderstats then
+						local gold = leaderstats:FindFirstChild("Gold")
+						if gold then
+							gold.Value += reward
+							print("💰 Actually Paid " .. reward .. " Gold to " .. p.Name .. "!")
+							
+							-- 지연된 퀘스트 및 승리 처리
+							local ReplicatedStorage = game:GetService("ReplicatedStorage")
+							local QuestBindables = ReplicatedStorage:FindFirstChild("QuestBindables")
+							local addProgress = QuestBindables and QuestBindables:FindFirstChild("AddQuestProgress")
+							if addProgress then
+								addProgress:Fire(p.UserId, "_play", 1)
+								addProgress:Fire(p.UserId, "_gold", reward)
+								if data.finalRank == 1 then
+									addProgress:Fire(p.UserId, "_win", 1)
+								end
+							end
+							
+							if data.finalRank == 1 then
+								local winEvent = ReplicatedStorage:FindFirstChild("UpdateWinsEvent")
+								if winEvent then winEvent:Fire(p) end
+							end
+						end
+					end
+				end)
 			end
 			
 			table.insert(results, {
 				name = p.DisplayName,
 				rank = data.finalRank,
 				time = timeStr,
-				gold = reward
+				gold = reward,
+				hasX2Prize = hasX2Prize
 			})
 		end
 	end

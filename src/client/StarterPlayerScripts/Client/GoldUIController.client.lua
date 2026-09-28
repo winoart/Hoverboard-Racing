@@ -21,6 +21,7 @@ if not goldValue then
 end
 
 local screenGui = playerGui:WaitForChild("GoldDisplayHUD")
+screenGui.ResetOnSpawn = false
 local goldFrame = screenGui:WaitForChild("GoldFrame")
 local goldIcon = goldFrame:WaitForChild("GoldIcon")
 local goldTextLabel = goldFrame:WaitForChild("GoldTextLabel")
@@ -58,8 +59,38 @@ displayGold.Name = "DisplayGold"
 displayGold.Value = goldValue.Value
 displayGold.Parent = screenGui
 
+local function getGoldTextLabel()
+	if not goldTextLabel or goldTextLabel.Parent == nil then
+		print("🚨 [GoldUI] 기존 UI 파괴됨. 새로 찾습니다!")
+		local newGui = playerGui:FindFirstChild("GoldDisplayHUD")
+		if newGui then
+			screenGui = newGui
+			screenGui.ResetOnSpawn = false
+			local newFrame = screenGui:FindFirstChild("GoldFrame")
+			if newFrame then
+				goldTextLabel = newFrame:FindFirstChild("GoldTextLabel")
+				
+				-- 새 UI가 복제되었으므로 폰트 외곽선(UIStroke)도 다시 만들어줍니다.
+				if goldTextLabel and not goldTextLabel:FindFirstChildOfClass("UIStroke") then
+					local newStroke = Instance.new("UIStroke")
+					newStroke.Color = Color3.fromRGB(0, 0, 0)
+					newStroke.Thickness = 3
+					newStroke.Parent = goldTextLabel
+				end
+			end
+		end
+	end
+	return goldTextLabel
+end
+
 displayGold.Changed:Connect(function()
-	goldTextLabel.Text = FormatGold(math.floor(displayGold.Value))
+	local label = getGoldTextLabel()
+	if label then
+		label.Text = FormatGold(math.floor(displayGold.Value))
+		print("💰 [GoldUI] 골드 텍스트 갱신됨:", label.Text)
+	else
+		print("❌ [GoldUI] 골드 텍스트 라벨을 찾을 수 없습니다!")
+	end
 end)
 
 local function UpdateGoldText()
@@ -72,9 +103,28 @@ end
 
 -- 최초 1회 업데이트 및 골드 변경 시 자동 업데이트 연결
 displayGold.Value = goldValue.Value
-goldTextLabel.Text = FormatGold(goldValue.Value)
+local initLabel = getGoldTextLabel()
+if initLabel then
+	initLabel.Text = FormatGold(goldValue.Value)
+end
 
 goldValue.Changed:Connect(UpdateGoldText)
+
+playerGui.ChildAdded:Connect(function(child)
+	if child.Name == "GoldDisplayHUD" then
+		print("🔄 [GoldUI] 새 UI 생성 감지 - 즉각 강제 갱신")
+		
+		if goldTextLabel and goldTextLabel.Parent == nil then
+			goldTextLabel = nil
+		end
+		
+		local label = getGoldTextLabel()
+		if label then
+			label.Text = FormatGold(goldValue.Value)
+			displayGold.Value = goldValue.Value
+		end
+	end
+end)
 
 screenGui:GetAttributeChangedSignal("PauseGoldUpdate"):Connect(function()
 	if not screenGui:GetAttribute("PauseGoldUpdate") then

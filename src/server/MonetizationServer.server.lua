@@ -34,6 +34,20 @@ if not getActivePromosFunc then
 	getActivePromosFunc.Parent = remotesFolder
 end
 
+local simulatePassPurchaseEvent = remotesFolder:FindFirstChild("SimulatePassPurchase") :: RemoteEvent?
+if not simulatePassPurchaseEvent then
+	simulatePassPurchaseEvent = Instance.new("RemoteEvent")
+	simulatePassPurchaseEvent.Name = "SimulatePassPurchase"
+	simulatePassPurchaseEvent.Parent = remotesFolder
+end
+
+simulatePassPurchaseEvent.OnServerEvent:Connect(function(player: Player, passId: number)
+	if passId == 11111111 or passId == 22222222 or passId == 33333333 then
+		player:SetAttribute("OwnsPass_" .. tostring(passId), true)
+		print("🛠️ [MonetizationServer] " .. player.Name .. " 테스트 게임패스 서버 동기화 완료: " .. tostring(passId))
+	end
+end)
+
 -- 캐시된 수량 및 상점 전체 데이터
 local cachedShopData = {}
 local cachedStocks = {}
@@ -228,3 +242,11 @@ end
 
 MarketplaceService.ProcessReceipt = processReceipt
 print("🛒 [MonetizationServer] Started processing receipts.")
+
+-- 게임패스 인게임 구매 성공 처리
+MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player, gamePassId, wasPurchased)
+	if wasPurchased then
+		player:SetAttribute("OwnsPass_" .. tostring(gamePassId), true)
+		print("🛒 [MonetizationServer] " .. player.Name .. " purchased GamePass: " .. tostring(gamePassId))
+	end
+end)

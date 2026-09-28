@@ -1216,9 +1216,9 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 				local targetSpeed = (isW or isS) and HoverboardConfig.RIDE_WALKSPEED or 0
 
 				if currentWalkSpeed < targetSpeed then
-					local accelRate = 36
+					local accelRate = 25
 					if ownsAccePass then
-						accelRate = accelRate * 2 -- 가속력 2배 게임패스 적용
+						accelRate = accelRate * 2 -- 가속력 2배 게임패스 적용 (50이 됨)
 					end
 					currentWalkSpeed = math.min(targetSpeed, currentWalkSpeed + (accelRate * deltaTime))
 				elseif currentWalkSpeed > targetSpeed then
@@ -2256,11 +2256,17 @@ if showScoreboardRemote then
 			tStroke.Parent = tLabel
 			
 			local gLabel = Instance.new("TextLabel")
-			gLabel.Size = UDim2.new(0, 80, 1, 0)
-			gLabel.Position = UDim2.new(0, 390, 0, 0)
+			gLabel.Size = UDim2.new(0, 150, 1, 0)
+			gLabel.Position = UDim2.new(0, 400, 0, 0)
 			gLabel.BackgroundTransparency = 1
 			gLabel.Font = Enum.Font.GothamBold
-			gLabel.Text = (data.gold > 0) and ("+" .. data.gold .. "G") or "-"
+			
+			local goldText = (data.gold > 0) and ("+" .. data.gold .. "G") or "-"
+			if data.hasX2Prize and data.gold > 0 then
+				goldText = goldText .. " (x2)"
+			end
+			gLabel.Text = goldText
+			
 			gLabel.TextColor3 = Color3.fromRGB(255, 200, 50)
 			gLabel.TextSize = 20
 			gLabel.TextXAlignment = Enum.TextXAlignment.Right

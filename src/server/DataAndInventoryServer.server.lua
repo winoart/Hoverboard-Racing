@@ -220,6 +220,20 @@ Players.PlayerAdded:Connect(function(player)
 		print("🆕 [DataServer] New profile for " .. player.Name)
 	end
 	
+	-- Check GamePass Ownership
+	task.spawn(function()
+		local MarketplaceService = game:GetService("MarketplaceService")
+		local passIds = {11111111, 22222222, 33333333}
+		for _, passId in ipairs(passIds) do
+			local success, owns = pcall(function()
+				return MarketplaceService:UserOwnsGamePassAsync(player.UserId, passId)
+			end)
+			if success and owns then
+				player:SetAttribute("OwnsPass_" .. tostring(passId), true)
+			end
+		end
+	end)
+	
 	-- Mark data as fully loaded
 	dataLoaded.Value = true
 end)

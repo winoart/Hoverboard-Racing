@@ -72,7 +72,7 @@ local function getMeterLabel(): TextLabel?
 	return nil
 end
 
-local function spawnLightningEffect(meterLabel: TextLabel?, hrp: BasePart)
+local function spawnLightningEffect(meterLabel: TextLabel?, hrp: BasePart, isX2: boolean)
 	local playerGui = LocalPlayer:WaitForChild("PlayerGui")
 	
 	-- 월드 좌표를 스크린 좌표로 변환
@@ -101,7 +101,8 @@ local function spawnLightningEffect(meterLabel: TextLabel?, hrp: BasePart)
 		icon.AnchorPoint = Vector2.new(0.5, 0.5)
 		icon.BackgroundTransparency = 1
 		icon.Font = Enum.Font.GothamBlack
-		icon.Text = "⚡"
+		icon.RichText = true
+		icon.Text = isX2 and '⚡<font size="39"> x2</font>' or "⚡"
 		icon.TextSize = 78
 		icon.TextColor3 = Color3.fromRGB(255, 255, 0) -- 노란색 시도
 		icon.ZIndex = 100
@@ -199,7 +200,8 @@ RunService.RenderStepped:Connect(function(dt)
 				-- 캐릭터 HRP가 있을 때만 이펙트 발생
 				local hrp = character:FindFirstChild("HumanoidRootPart") :: BasePart
 				if hrp then
-					spawnLightningEffect(meterLabel, hrp)
+					local ownsDistancePass = LocalPlayer:GetAttribute("OwnsPass_11111111") == true
+					spawnLightningEffect(meterLabel, hrp, ownsDistancePass)
 				end
 			end
 		end
@@ -223,6 +225,11 @@ RunService.RenderStepped:Connect(function(dt)
 	end
 	
 	local distanceMoved = speed * dt
+	
+	local ownsDistancePass = LocalPlayer:GetAttribute("OwnsPass_11111111") == true
+	if ownsDistancePass then
+		distanceMoved *= 2
+	end
 	
 	if distanceMoved > 0 then
 		accumulatedDistance += distanceMoved
