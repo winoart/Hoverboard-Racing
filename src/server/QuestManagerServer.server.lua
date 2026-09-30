@@ -70,6 +70,29 @@ local function initializeQuests(player, questData)
 	
 	local changed = false
 	
+	-- Starter Quests (permanent one-time quests for new players)
+	if not questData.StarterQuests or #questData.StarterQuests == 0 then
+		questData.StarterQuests = {}
+		for _, cfg in ipairs(QuestConfig.Starter) do
+			table.insert(questData.StarterQuests, {id = cfg.id, progress = 0, completed = false, claimed = false})
+		end
+		changed = true
+	else
+		for _, cfg in ipairs(QuestConfig.Starter) do
+			local exists = false
+			for _, q in ipairs(questData.StarterQuests) do
+				if q.id == cfg.id then
+					exists = true
+					break
+				end
+			end
+			if not exists then
+				table.insert(questData.StarterQuests, {id = cfg.id, progress = 0, completed = false, claimed = false})
+				changed = true
+			end
+		end
+	end
+	
 	if not questData.DailyResetTime or questData.DailyResetTime < nowDaily then
 		questData.DailyResetTime = nowDaily
 		questData.DailyQuests = {}
@@ -133,10 +156,21 @@ getQuestsRemote.OnServerInvoke = function(player)
 	return getParsedQuestData(player)
 end
 
-claimQuestRemote.OnServerInvoke = function(player, questId, isWeekly)
+claimQuestRemote.OnServerInvoke = function(player, questId, category)
 	local questData = getParsedQuestData(player)
-	local list = isWeekly and questData.WeeklyQuests or questData.DailyQuests
-	if not list then return false, "No quests found" end
+	local list = nil
+	local cfgList = nil
+	if category == "Starter" or category == "starter" then
+		list = questData.StarterQuests
+		cfgList = QuestConfig.Starter
+	elseif category == "Weekly" or category == true then
+		list = questData.WeeklyQuests
+		cfgList = QuestConfig.Weekly
+	else
+		list = questData.DailyQuests
+		cfgList = QuestConfig.Daily
+	end
+	if not list or not cfgList then return false, "No quests found" end
 	
 	for _, q in ipairs(list) do
 		if q.id == questId then
@@ -146,7 +180,6 @@ claimQuestRemote.OnServerInvoke = function(player, questId, isWeekly)
 			q.claimed = true
 			
 			-- Find reward amount
-			local cfgList = isWeekly and QuestConfig.Weekly or QuestConfig.Daily
 			local reward = 0
 			for _, cfg in ipairs(cfgList) do
 				if cfg.id == questId then
@@ -180,7 +213,7 @@ addProgressEvent.Event:Connect(function(userId, prefixMatch, amount)
 	local function updateList(list, cfgList)
 		if not list then return end
 		for _, q in ipairs(list) do
-			-- Check if the quest ID contains the prefix (e.g. "_play", "_win")
+			-- Check if the quest ID contains the prefix (e.g. "_play", "_win", "_skill", "_rebirth")
 			if string.find(q.id, prefixMatch) and not q.completed then
 				-- Find target
 				local target = 999999
@@ -201,6 +234,7 @@ addProgressEvent.Event:Connect(function(userId, prefixMatch, amount)
 		end
 	end
 	
+	updateList(questData.StarterQuests, QuestConfig.Starter)
 	updateList(questData.DailyQuests, QuestConfig.Daily)
 	updateList(questData.WeeklyQuests, QuestConfig.Weekly)
 	

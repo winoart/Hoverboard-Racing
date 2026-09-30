@@ -1151,6 +1151,13 @@ if useSkillRemote then
 			globalSkillCastRemote:FireAllClients(player.UserId, skillId)
 		end
 		
+		-- Quest: Fire progress for skill use
+		local QuestBindables = ReplicatedStorage:FindFirstChild("QuestBindables")
+		local addProgress = QuestBindables and QuestBindables:FindFirstChild("AddQuestProgress")
+		if addProgress then
+			addProgress:Fire(player.UserId, "_skill", 1)
+		end
+		
 		if skillId == "Skill_IceBomb" then
 			local target = LapManager.getPlayerAhead(player.UserId)
 			fireIceBomb(player, target)

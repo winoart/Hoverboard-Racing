@@ -22,7 +22,8 @@ local LOUNGE_BUTTON_GUIS = {
 	"Hover",
 	"HoverShop",
 	"UtilityBarGui",
-	"InventoryHUD"
+	"InventoryHUD",
+	"AdminToggleGui"
 }
 
 -- 상점, 인벤토리 등 팝업창 목록 (레이싱 진입 시 강제로 '끄기'만 하고 자동으로 '켜지'는 않음)
@@ -33,6 +34,8 @@ local LOUNGE_POPUP_GUIS = {
 	"HoverboardRouletteGui",
 	"SkillStoreGui",
 	"HoverboardShopHUD",
+	"AdminPanelGui",
+	"SettingsGui",
 }
 
 -- 다른 ScreenGui 안에 둥둥 떠있는 대기실용 개별 버튼들의 이름 목록 (더 이상 필요 없지만 백업용)

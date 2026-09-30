@@ -1,6 +1,13 @@
 --!strict
 local QuestConfig = {}
 
+QuestConfig.Starter = {
+	{ id = "s_play", title = "First Dash", desc = "Finish any race 1 time", target = 1, reward = 500, icon = "rbxassetid://13583568770" },
+	{ id = "s_skill", title = "Skill Action", desc = "Use a skill during race 1 time", target = 1, reward = 500, icon = "rbxassetid://13583568770" },
+	{ id = "s_win", title = "Podium Champion", desc = "Win 1st place in a race 1 time", target = 1, reward = 1000, icon = "rbxassetid://13583568770" },
+	{ id = "s_rebirth", title = "Limit Break", desc = "Achieve your first Rebirth", target = 1, reward = 2000, icon = "rbxassetid://13583568770" },
+}
+
 QuestConfig.Daily = {
 	{ id = "d_play", title = "Participant", desc = "Finish any race 3 times", target = 3, reward = 300, icon = "rbxassetid://13583568770" },
 	{ id = "d_win", title = "Pro Racer", desc = "Win 1st place in a race", target = 1, reward = 500, icon = "rbxassetid://13583568770" },

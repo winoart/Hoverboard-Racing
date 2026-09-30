@@ -48,7 +48,9 @@ local function playBGM(soundId: string)
 		newSound.Parent = SoundService
 		newSound:Play()
 		
-		local fadeIn = TweenService:Create(newSound, TweenInfo.new(1), {Volume = 0.45}) -- 기본 음악 볼륨 상승 (0.45)
+		local isBGMEnabled = LocalPlayer:GetAttribute("BGMEnabled") ~= false
+		local targetVolume = isBGMEnabled and 0.45 or 0
+		local fadeIn = TweenService:Create(newSound, TweenInfo.new(1), {Volume = targetVolume}) -- 기본 음악 볼륨 상승 (0.45)
 		fadeIn:Play()
 		currentSound = newSound
 	else
@@ -95,6 +97,19 @@ end)
 -- AFK 상태 변경 리스너
 LocalPlayer:GetAttributeChangedSignal("IsAFK"):Connect(function()
 	updateBGM()
+end)
+
+-- BGM 활성화/비활성화 설정 리스너
+LocalPlayer:GetAttributeChangedSignal("BGMEnabled"):Connect(function()
+	local isEnabled = LocalPlayer:GetAttribute("BGMEnabled") ~= false
+	if currentSound then
+		local targetVol = isEnabled and 0.45 or 0
+		TweenService:Create(currentSound, TweenInfo.new(0.5), {Volume = targetVol}):Play()
+	else
+		if isEnabled then
+			updateBGM()
+		end
+	end
 end)
 
 -- 초기 실행

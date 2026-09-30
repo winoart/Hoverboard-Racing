@@ -531,15 +531,34 @@ adminAuthRemote.OnClientEvent:Connect(function(status)
 		toggleGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 		
 		local toggleBtn = Instance.new("TextButton")
-		toggleBtn.Size = UDim2.new(0, 100, 0, 40)
-		toggleBtn.Position = UDim2.new(0, 20, 1, -60)
-		toggleBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+		toggleBtn.Name = "AdminToggleBtn"
+		toggleBtn.Size = UDim2.new(0, 130, 0, 42)
+		toggleBtn.AnchorPoint = Vector2.new(1, 0)
+		toggleBtn.Position = UDim2.new(1, -20, 0, 20)
+		toggleBtn.BackgroundColor3 = Color3.fromRGB(255, 175, 35)
 		toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-		toggleBtn.Text = "상점 관리"
-		toggleBtn.Font = Enum.Font.SourceSansBold
+		toggleBtn.Text = "🛠️ 상점 관리"
+		toggleBtn.FontFace = Font.new("rbxasset://fonts/families/Montserrat.json", Enum.FontWeight.ExtraBold)
 		toggleBtn.TextSize = 16
 		toggleBtn.Parent = toggleGui
-		Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(0, 8)
+		
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(0, 12)
+		corner.Parent = toggleBtn
+		
+		-- 1) 버튼 테두리 (4px 검은색 카툰 외곽선)
+		local borderStroke = Instance.new("UIStroke")
+		borderStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		borderStroke.Color = Color3.fromRGB(0, 0, 0)
+		borderStroke.Thickness = 4
+		borderStroke.Parent = toggleBtn
+		
+		-- 2) 글자 외곽선 (3px 검은색 텍스트 스트로크)
+		local textStroke = Instance.new("UIStroke")
+		textStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
+		textStroke.Color = Color3.fromRGB(0, 0, 0)
+		textStroke.Thickness = 3
+		textStroke.Parent = toggleBtn
 		
 		toggleBtn.MouseButton1Click:Connect(function()
 			if adminGui then
@@ -548,5 +567,21 @@ adminAuthRemote.OnClientEvent:Connect(function(status)
 				buildAdminUI()
 			end
 		end)
+		
+		-- 🏁 레이싱 모드 및 관전 모드에서는 상점 관리 버튼과 관리자 패널 숨기기
+		local function updateAdminVisibility()
+			local isRacing = LocalPlayer:GetAttribute("IsRacing") == true
+			local isSpectating = LocalPlayer:GetAttribute("IsSpectating") == true
+			local shouldShow = not (isRacing or isSpectating)
+			
+			toggleGui.Enabled = shouldShow
+			if not shouldShow and adminGui then
+				adminGui.Enabled = false
+			end
+		end
+		
+		LocalPlayer:GetAttributeChangedSignal("IsRacing"):Connect(updateAdminVisibility)
+		LocalPlayer:GetAttributeChangedSignal("IsSpectating"):Connect(updateAdminVisibility)
+		updateAdminVisibility()
 	end
 end)

@@ -101,9 +101,38 @@ tabContainer.Position = UDim2.new(0, 20, 0, 40)
 tabContainer.BackgroundTransparency = 1
 tabContainer.Parent = mainPanel
 
+local tabLayout = Instance.new("UIListLayout")
+tabLayout.FillDirection = Enum.FillDirection.Horizontal
+tabLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+tabLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+tabLayout.Padding = UDim.new(0, 10)
+tabLayout.SortOrder = Enum.SortOrder.LayoutOrder
+tabLayout.Parent = tabContainer
+
+local starterTab = Instance.new("TextButton")
+starterTab.Name = "StarterTab"
+starterTab.LayoutOrder = 1
+starterTab.Size = UDim2.new(0.333, -7, 1, 0)
+starterTab.BackgroundColor3 = Color3.fromRGB(255, 140, 40)
+starterTab.Text = "Starter"
+starterTab.Font = Enum.Font.FredokaOne
+starterTab.TextSize = 24
+starterTab.TextColor3 = Color3.fromRGB(255, 255, 255)
+starterTab.Parent = tabContainer
+
+local starterCorner = Instance.new("UICorner")
+starterCorner.CornerRadius = UDim.new(0, 12)
+starterCorner.Parent = starterTab
+local starterStroke = Instance.new("UIStroke")
+starterStroke.Color = Color3.fromRGB(0, 0, 0)
+starterStroke.Thickness = 4
+starterStroke.Parent = starterTab
+
 local dailyTab = Instance.new("TextButton")
-dailyTab.Size = UDim2.new(0.5, -5, 1, 0)
-dailyTab.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
+dailyTab.Name = "DailyTab"
+dailyTab.LayoutOrder = 2
+dailyTab.Size = UDim2.new(0.333, -7, 1, 0)
+dailyTab.BackgroundColor3 = Color3.fromRGB(220, 225, 235)
 dailyTab.Text = "Daily"
 dailyTab.Font = Enum.Font.FredokaOne
 dailyTab.TextSize = 24
@@ -119,9 +148,10 @@ dailyStroke.Thickness = 4
 dailyStroke.Parent = dailyTab
 
 local weeklyTab = Instance.new("TextButton")
-weeklyTab.Size = UDim2.new(0.5, -5, 1, 0)
-weeklyTab.Position = UDim2.new(0.5, 5, 0, 0)
-weeklyTab.BackgroundColor3 = Color3.fromRGB(210, 220, 230)
+weeklyTab.Name = "WeeklyTab"
+weeklyTab.LayoutOrder = 3
+weeklyTab.Size = UDim2.new(0.333, -7, 1, 0)
+weeklyTab.BackgroundColor3 = Color3.fromRGB(220, 225, 235)
 weeklyTab.Text = "Weekly"
 weeklyTab.Font = Enum.Font.FredokaOne
 weeklyTab.TextSize = 24
@@ -174,7 +204,7 @@ timerStroke.Color = Color3.fromRGB(255, 255, 255)
 timerStroke.Thickness = 2
 timerStroke.Parent = timerLabel
 
-local currentTab = "Daily"
+local currentTab = "Starter"
 local cachedQuestData = nil
 
 -- Gold Animation Helpers
@@ -257,7 +287,7 @@ local function spawnGoldEffect(startPos: Vector2, target: GuiObject?, amount: nu
 	end
 end
 
-local function createQuestCard(questInfo, config, isWeekly)
+local function createQuestCard(questInfo, config, category: string)
 	local card = Instance.new("Frame")
 	card.Size = UDim2.new(1, 0, 0, 100)
 	card.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
@@ -357,9 +387,12 @@ local function createQuestCard(questInfo, config, isWeekly)
 		end)
 		
 		claimBtn.MouseButton1Click:Connect(function()
-			local success, result = claimQuestRemote:InvokeServer(questInfo.id, isWeekly)
+			local success, result = claimQuestRemote:InvokeServer(questInfo.id, category)
 			if success then
 				questInfo.claimed = true
+				if updateQuestNotification then
+					updateQuestNotification()
+				end
 				
 				-- 💥 골드 애니메이션 재생!
 				local goldTarget = getGoldTarget()
@@ -405,43 +438,147 @@ function refreshUI()
 	
 	if not cachedQuestData then return end
 	
-	local list = currentTab == "Daily" and cachedQuestData.DailyQuests or cachedQuestData.WeeklyQuests
-	local cfgList = currentTab == "Daily" and QuestConfig.Daily or QuestConfig.Weekly
+	local list = nil
+	local cfgList = nil
+	if currentTab == "Starter" then
+		list = cachedQuestData.StarterQuests
+		cfgList = QuestConfig.Starter
+	elseif currentTab == "Weekly" then
+		list = cachedQuestData.WeeklyQuests
+		cfgList = QuestConfig.Weekly
+	else
+		list = cachedQuestData.DailyQuests
+		cfgList = QuestConfig.Daily
+	end
 	
-	if list then
+	if list and cfgList then
 		for _, q in ipairs(list) do
 			local cfg
 			for _, c in ipairs(cfgList) do
 				if c.id == q.id then cfg = c; break end
 			end
 			if cfg then
-				local card = createQuestCard(q, cfg, currentTab == "Weekly")
+				local card = createQuestCard(q, cfg, currentTab)
 				card.Parent = listContainer
 			end
 		end
 	end
 end
 
+local userSelectedTab = false
+
 local function selectTab(tabName)
 	currentTab = tabName
-	if tabName == "Daily" then
-		dailyTab.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
-		weeklyTab.BackgroundColor3 = Color3.fromRGB(210, 220, 230)
-	else
-		dailyTab.BackgroundColor3 = Color3.fromRGB(210, 220, 230)
-		weeklyTab.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
-	end
+	starterTab.BackgroundColor3 = (tabName == "Starter") and Color3.fromRGB(255, 140, 40) or Color3.fromRGB(220, 225, 235)
+	dailyTab.BackgroundColor3 = (tabName == "Daily") and Color3.fromRGB(255, 200, 50) or Color3.fromRGB(220, 225, 235)
+	weeklyTab.BackgroundColor3 = (tabName == "Weekly") and Color3.fromRGB(70, 185, 255) or Color3.fromRGB(220, 225, 235)
 	refreshUI()
 end
 
-dailyTab.MouseButton1Click:Connect(function() selectTab("Daily") end)
-weeklyTab.MouseButton1Click:Connect(function() selectTab("Weekly") end)
+starterTab.MouseButton1Click:Connect(function()
+	userSelectedTab = true
+	selectTab("Starter")
+end)
+dailyTab.MouseButton1Click:Connect(function()
+	userSelectedTab = true
+	selectTab("Daily")
+end)
+weeklyTab.MouseButton1Click:Connect(function()
+	userSelectedTab = true
+	selectTab("Weekly")
+end)
 
 closeBtn.MouseButton1Click:Connect(function()
 	mainPanel.Visible = false
 end)
 
 local HttpService = game:GetService("HttpService")
+
+local cachedQuestButton: GuiButton? = nil
+
+local function getQuestButton(): GuiButton?
+	if cachedQuestButton and cachedQuestButton.Parent then
+		return cachedQuestButton
+	end
+	
+	local questNode = PlayerGui:FindFirstChild("Quest")
+	if questNode then
+		if questNode:IsA("GuiButton") then
+			cachedQuestButton = questNode
+			return questNode
+		elseif questNode:IsA("ScreenGui") or questNode:IsA("Frame") then
+			for _, desc in ipairs(questNode:GetDescendants()) do
+				if desc:IsA("GuiButton") then
+					cachedQuestButton = desc
+					return desc
+				end
+			end
+		end
+	end
+	
+	local fallback = questScreenGui:FindFirstChild("FallbackQuestBtn") :: GuiButton?
+	if fallback then
+		cachedQuestButton = fallback
+		return fallback
+	end
+	
+	return nil
+end
+
+local function hasClaimableQuests(): boolean
+	if not cachedQuestData then return false end
+	local categories = {
+		cachedQuestData.StarterQuests,
+		cachedQuestData.DailyQuests,
+		cachedQuestData.WeeklyQuests,
+	}
+	for _, list in ipairs(categories) do
+		if list then
+			for _, q in ipairs(list) do
+				if q.completed and not q.claimed then
+					return true
+				end
+			end
+		end
+	end
+	return false
+end
+
+local questNotiMarker: Frame? = nil
+
+local function updateQuestNotification()
+	local btn = getQuestButton()
+	if not btn then return end
+	
+	local canClaim = hasClaimableQuests()
+	
+	if canClaim then
+		if not questNotiMarker or questNotiMarker.Parent ~= btn then
+			if questNotiMarker then questNotiMarker:Destroy() end
+			questNotiMarker = Instance.new("Frame")
+			questNotiMarker.Name = "NotiMarker"
+			questNotiMarker.Size = UDim2.new(0, 20, 0, 20)
+			questNotiMarker.Position = UDim2.new(1, -10, 0, -10)
+			questNotiMarker.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+			questNotiMarker.ZIndex = 10
+			questNotiMarker.Parent = btn
+			
+			local corner = Instance.new("UICorner")
+			corner.CornerRadius = UDim.new(1, 0)
+			corner.Parent = questNotiMarker
+			
+			local stroke = Instance.new("UIStroke")
+			stroke.Color = Color3.new(1, 1, 1)
+			stroke.Thickness = 2
+			stroke.Parent = questNotiMarker
+		end
+		questNotiMarker.Visible = true
+	else
+		if questNotiMarker then
+			questNotiMarker.Visible = false
+		end
+	end
+end
 
 local function loadData()
 	task.spawn(function()
@@ -450,44 +587,43 @@ local function loadData()
 			local success, decoded = pcall(function() return HttpService:JSONDecode(qStr.Value) end)
 			if success and decoded then
 				cachedQuestData = decoded
+				if not userSelectedTab and cachedQuestData.StarterQuests then
+					local allStarterClaimed = true
+					for _, q in ipairs(cachedQuestData.StarterQuests) do
+						if not q.claimed then
+							allStarterClaimed = false
+							break
+						end
+					end
+					if allStarterClaimed then
+						currentTab = "Daily"
+						selectTab("Daily")
+					else
+						currentTab = "Starter"
+						selectTab("Starter")
+					end
+				end
 			end
 		end
 		refreshUI()
+		updateQuestNotification()
 	end)
 end
 
-local function bindToQuestButton()
-	-- StarterGui > Quest 위치에 있다고 하셨으므로 PlayerGui.Quest 를 찾습니다.
-	local questNode = PlayerGui:FindFirstChild("Quest")
-	if not questNode then return false end
+local function bindToQuestButton(): boolean
+	local btn = getQuestButton()
+	if not btn then return false end
 	
-	local existingQuestBtn = nil
-	if questNode:IsA("GuiButton") then
-		existingQuestBtn = questNode
-	elseif questNode:IsA("ScreenGui") or questNode:IsA("Frame") then
-		-- 만약 Quest가 ScreenGui 이고 그 안에 버튼이 있다면 가장 먼저 발견되는 버튼을 타겟으로 잡습니다.
-		for _, desc in ipairs(questNode:GetDescendants()) do
-			if desc:IsA("GuiButton") then
-				existingQuestBtn = desc
-				break
+	if not btn:GetAttribute("IsQuestBound") then
+		btn:SetAttribute("IsQuestBound", true)
+		btn.MouseButton1Click:Connect(function()
+			mainPanel.Visible = not mainPanel.Visible
+			if mainPanel.Visible then
+				loadData()
 			end
-		end
+		end)
 	end
-	
-	if existingQuestBtn then
-		-- 기존에 연결된 이벤트가 중복되지 않도록 방지
-		if not existingQuestBtn:GetAttribute("IsQuestBound") then
-			existingQuestBtn:SetAttribute("IsQuestBound", true)
-			existingQuestBtn.MouseButton1Click:Connect(function()
-				mainPanel.Visible = not mainPanel.Visible
-				if mainPanel.Visible then
-					loadData()
-				end
-			end)
-		end
-		return true
-	end
-	return false
+	return true
 end
 
 -- Try binding immediately, or wait if it hasn't loaded
@@ -505,19 +641,23 @@ if not bindToQuestButton() then
 		if not bound then
 			-- Create a fallback button just in case
 			local fallbackBtn = Instance.new("TextButton")
+			fallbackBtn.Name = "FallbackQuestBtn"
 			fallbackBtn.Size = UDim2.new(0, 80, 0, 80)
 			fallbackBtn.Position = UDim2.new(0, 20, 0.5, 0)
 			fallbackBtn.Text = "Quests"
 			fallbackBtn.Parent = questScreenGui
-			fallbackBtn.MouseButton1Click:Connect(function()
-				mainPanel.Visible = not mainPanel.Visible
-				if mainPanel.Visible then
-					loadData()
-				end
-			end)
+			bindToQuestButton()
 		end
 	end)
 end
+
+-- 주기적 알림 갱신 & 버튼 재연결 (리스폰 대응)
+task.spawn(function()
+	while task.wait(1) do
+		bindToQuestButton()
+		updateQuestNotification()
+	end
+end)
 
 -- Bind to QuestDataJSON changes instead of RemoteEvent
 task.spawn(function()
@@ -532,6 +672,34 @@ end)
 -- Timer loop
 RunService.RenderStepped:Connect(function()
 	if not mainPanel.Visible or not cachedQuestData then return end
+	
+	if currentTab == "Starter" then
+		local allClaimed = true
+		local completedCount = 0
+		local totalCount = (cachedQuestData.StarterQuests and #cachedQuestData.StarterQuests) or 4
+		if cachedQuestData.StarterQuests then
+			for _, q in ipairs(cachedQuestData.StarterQuests) do
+				if q.claimed then
+					completedCount += 1
+				else
+					allClaimed = false
+				end
+			end
+		else
+			allClaimed = false
+		end
+		
+		if allClaimed and totalCount > 0 then
+			timerLabel.Text = "🎉 ALL STARTER QUESTS COMPLETED! Great job, Rider!"
+			timerLabel.TextColor3 = Color3.fromRGB(20, 160, 60)
+		else
+			timerLabel.Text = string.format("✨ Starter Challenge: %d / %d Claimed", completedCount, totalCount)
+			timerLabel.TextColor3 = Color3.fromRGB(30, 30, 30)
+		end
+		return
+	end
+	
+	timerLabel.TextColor3 = Color3.fromRGB(30, 30, 30)
 	local resetTime = nil
 	if currentTab == "Daily" then
 		resetTime = cachedQuestData.DailyResetTime

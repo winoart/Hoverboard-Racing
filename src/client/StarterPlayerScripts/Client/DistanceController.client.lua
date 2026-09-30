@@ -72,6 +72,17 @@ local function getMeterLabel(): TextLabel?
 	return nil
 end
 
+local function getResponsiveScale(): number
+	local camera = Workspace.CurrentCamera
+	if not camera then return 1 end
+	local viewport = camera.ViewportSize
+	if viewport.X == 0 or viewport.Y == 0 then return 1 end
+	
+	-- 1280x720 해상도 기준으로 모바일/태블릿 축소 비율 계산 (최소 0.45, 최대 1.0)
+	local scale = math.min(viewport.X / 1280, viewport.Y / 720)
+	return math.clamp(scale, 0.45, 1.0)
+end
+
 local function spawnLightningEffect(meterLabel: TextLabel?, hrp: BasePart, isX2: boolean)
 	local playerGui = LocalPlayer:WaitForChild("PlayerGui")
 	
@@ -86,37 +97,45 @@ local function spawnLightningEffect(meterLabel: TextLabel?, hrp: BasePart, isX2:
 		fxScreen.Parent = playerGui
 	end
 	
+	-- 📱 반응형 스케일 계산 (모바일에서는 화면 비율에 맞게 크기 대폭 축소)
+	local scale = getResponsiveScale()
+	local baseSize = math.floor(78 * scale)
+	local iconWidth = isX2 and math.floor(130 * scale) or baseSize
+	local iconHeight = baseSize
+	local textSize = baseSize
+	local subTextSize = math.floor(38 * scale)
+	
 	-- 타겟 위치 (미터 텍스트 라벨의 중앙)
 	local targetPos
 	if meterLabel then
 		targetPos = UDim2.new(0, meterLabel.AbsolutePosition.X + (meterLabel.AbsoluteSize.X / 2), 0, meterLabel.AbsolutePosition.Y + (meterLabel.AbsoluteSize.Y / 2))
 	else
-		targetPos = UDim2.new(0, screenPos.X, 0, screenPos.Y - 250)
+		targetPos = UDim2.new(0, screenPos.X, 0, screenPos.Y - math.floor(250 * scale))
 	end
 	
 	for i = 1, 3 do
 		local icon = Instance.new("TextLabel")
-		icon.Size = UDim2.new(0, 78, 0, 78) -- 기존 60에서 30% 증가
+		icon.Size = UDim2.new(0, iconWidth, 0, iconHeight)
 		icon.Position = UDim2.new(0, screenPos.X, 0, screenPos.Y)
 		icon.AnchorPoint = Vector2.new(0.5, 0.5)
 		icon.BackgroundTransparency = 1
 		icon.Font = Enum.Font.GothamBlack
 		icon.RichText = true
-		icon.Text = isX2 and '⚡<font size="39"> x2</font>' or "⚡"
-		icon.TextSize = 78
+		icon.Text = isX2 and string.format('⚡<font size="%d"> x2</font>', subTextSize) or "⚡"
+		icon.TextSize = textSize
 		icon.TextColor3 = Color3.fromRGB(255, 255, 0) -- 노란색 시도
 		icon.ZIndex = 100
 		
 		local stroke = Instance.new("UIStroke")
 		stroke.Color = Color3.new(0, 0, 0)
-		stroke.Thickness = 2
+		stroke.Thickness = math.max(1, math.round(2 * scale))
 		stroke.Parent = icon
 		
 		icon.Parent = fxScreen
 		
-		-- 1단계: 플레이어 몸에서 아래쪽으로 스무스하게 튀어나오기
-		local randomX = screenPos.X + math.random(-80, 80)
-		local randomY = screenPos.Y + math.random(50, 120)
+		-- 1단계: 플레이어 몸에서 아래쪽으로 스무스하게 튀어나오기 (반응형 반경)
+		local randomX = screenPos.X + math.random(math.floor(-70 * scale), math.floor(70 * scale))
+		local randomY = screenPos.Y + math.random(math.floor(35 * scale), math.floor(85 * scale))
 		local popPos = UDim2.new(0, randomX, 0, randomY)
 		
 		local popTweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
@@ -126,7 +145,7 @@ local function spawnLightningEffect(meterLabel: TextLabel?, hrp: BasePart, isX2:
 		local flyTweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.In)
 		local flyTween = TweenService:Create(icon, flyTweenInfo, {
 			Position = targetPos,
-			TextSize = meterLabel and 40 or 10,
+			TextSize = meterLabel and math.floor(36 * scale) or math.floor(10 * scale),
 			TextTransparency = meterLabel and 0 or 1
 		})
 		

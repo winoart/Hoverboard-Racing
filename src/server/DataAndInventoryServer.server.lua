@@ -573,6 +573,13 @@ requestRebirthRemote.OnServerInvoke = function(player: Player)
 		distanceVal.Value -= reqDist -- 요구 거리만큼만 차감 (남은 거리 보존)
 		rebirthsVal.Value += 1
 		
+		-- Quest: Fire progress for Rebirth
+		local QuestBindables = ReplicatedStorage:FindFirstChild("QuestBindables")
+		local addProgress = QuestBindables and QuestBindables:FindFirstChild("AddQuestProgress")
+		if addProgress then
+			addProgress:Fire(player.UserId, "_rebirth", 1)
+		end
+		
 		-- 알림 표시 (전체 또는 개인)
 		print(string.format("🎉 [DataServer] %s 님이 환생 %d 레벨 달성!", player.Name, rebirthsVal.Value))
 		return true, rebirthsVal.Value

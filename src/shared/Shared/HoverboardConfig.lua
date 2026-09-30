@@ -4,6 +4,13 @@
 
 local HoverboardConfig = {}
 
+-- Global Steering Settings (Used for Steering Sensitivity and Analog Input Curves)
+HoverboardConfig.DEFAULT_STEER_RATE = math.rad(82)        -- Base steer speed (~82 deg/sec)
+HoverboardConfig.BOOST_STEER_RATE = math.rad(110)         -- Steer speed while boosting (~110 deg/sec)
+HoverboardConfig.MOBILE_STEER_SENSITIVITY = 0.85          -- Default mobile multiplier (comfortable handling)
+HoverboardConfig.THUMBSTICK_DEADZONE = 0.10               -- Thumbstick inner deadzone (prevents accidental steering)
+HoverboardConfig.THUMBSTICK_EXPONENT = 1.5                -- 1.5 Non-linear curve (gentle center, sharp turns at edge)
+
 HoverboardConfig.Boards = {
 	Hoverboard_Default = {
 		-- Speed & Movement Settings

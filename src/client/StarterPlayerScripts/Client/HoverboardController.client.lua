@@ -1108,8 +1108,10 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 			local fwdDot = hMoveDir:Dot(Vector3.new(camLook.X, 0, camLook.Z).Unit)
 			local rightDot = hMoveDir:Dot(Vector3.new(camRight.X, 0, camRight.Z).Unit)
 			
-			local isW = UserInputService:IsKeyDown(Enum.KeyCode.W) or UserInputService:IsKeyDown(Enum.KeyCode.Up) or fwdDot > 0.3
+			local isAutoForward = LocalPlayer:GetAttribute("AutoForward") == true
+			local manualW = UserInputService:IsKeyDown(Enum.KeyCode.W) or UserInputService:IsKeyDown(Enum.KeyCode.Up) or fwdDot > 0.3
 			local isS = UserInputService:IsKeyDown(Enum.KeyCode.S) or UserInputService:IsKeyDown(Enum.KeyCode.Down) or fwdDot < -0.3
+			local isW = manualW or (isAutoForward and not isS)
 			local isBoostKey = UserInputService:IsKeyDown(HoverboardConfig.BOOSTER_KEY) or UserInputService:IsKeyDown(Enum.KeyCode.Space) or isMobileBoostDown
 			
 			-- 레이스를 완주한 경우 조작을 막아 자연스럽게 감속되도록 유도
@@ -1143,26 +1145,53 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 			else
 				stunLiftOffset = math.max(0, stunLiftOffset - (40 * deltaTime)) -- 스턴 종료 시 부드럽게 착지
 				
-				-- Steering Controls
-				local isA = UserInputService:IsKeyDown(Enum.KeyCode.A) or UserInputService:IsKeyDown(Enum.KeyCode.Left) or rightDot < -0.3
-				local isD = UserInputService:IsKeyDown(Enum.KeyCode.D) or UserInputService:IsKeyDown(Enum.KeyCode.Right) or rightDot > 0.3
-
-				local targetSteerRate = 0.0
+				-- =========================================================================
+				-- 🏎️ STEERING CONTROLS (Analog Curve + Deadzone + In-Game Sensitivity)
+				-- =========================================================================
+				-- 1. 키보드 입력 (-1.0: 우회전, 1.0: 좌회전, 0.0: 중립)
+				local keyA = UserInputService:IsKeyDown(Enum.KeyCode.A) or UserInputService:IsKeyDown(Enum.KeyCode.Left)
+				local keyD = UserInputService:IsKeyDown(Enum.KeyCode.D) or UserInputService:IsKeyDown(Enum.KeyCode.Right)
+				local keySteer = 0.0
+				if keyA and not keyD then
+					keySteer = 1.0
+				elseif keyD and not keyA then
+					keySteer = -1.0
+				end
+				
+				-- 2. 모바일/썸스틱 아날로그 입력 (카트라이더식 비선형 곡선 + 데드존)
+				local thumbSteer = 0.0
+				local deadzone = HoverboardConfig.THUMBSTICK_DEADZONE or 0.10
+				local absRight = math.abs(rightDot)
+				if absRight > deadzone then
+					local normalized = math.clamp((absRight - deadzone) / (1.0 - deadzone), 0, 1)
+					local exponent = HoverboardConfig.THUMBSTICK_EXPONENT or 1.5
+					local curvedPower = normalized ^ exponent
+					thumbSteer = (rightDot < 0) and curvedPower or -curvedPower
+				end
+				
+				-- 3. 입력 우선순위: 키보드 입력이 있으면 키보드, 없으면 썸스틱 아날로그 적용
+				local rawSteer = (keySteer ~= 0) and keySteer or thumbSteer
 				
 				-- EMP 해킹 시 조작 방향 반전
 				if _G.isEMPHacked then
-					local temp = isA
-					isA = isD
-					isD = temp
+					rawSteer = -rawSteer
 				end
 				
-				if isA then
-					targetSteerRate = isBoosting and math.rad(115) or math.rad(85)
-				elseif isD then
-					targetSteerRate = isBoosting and -math.rad(115) or -math.rad(85)
+				-- 4. 유저 설정 감도 (추후 설정 UI 연동용: LocalPlayer Attribute "SteerSensitivity")
+				local userSensitivity = LocalPlayer:GetAttribute("SteerSensitivity")
+				if not userSensitivity or type(userSensitivity) ~= "number" then
+					userSensitivity = 1.0
 				end
-
-				local dampFactor = (targetSteerRate == 0) and 25.0 or 15.0
+				
+				-- 모바일 전용 기본 감도 보정 (터치 디바이스일 경우 기본 0.85 적용)
+				local isTouchDevice = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+				local deviceMultiplier = isTouchDevice and (HoverboardConfig.MOBILE_STEER_SENSITIVITY or 0.85) or 1.0
+				
+				local baseMaxRate = isBoosting and (HoverboardConfig.BOOST_STEER_RATE or math.rad(110)) or (HoverboardConfig.DEFAULT_STEER_RATE or math.rad(82))
+				local targetSteerRate = rawSteer * baseMaxRate * userSensitivity * deviceMultiplier
+				
+				-- 5. 부드러운 핸들 복원 (감쇠율 최적화)
+				local dampFactor = (math.abs(targetSteerRate) < 0.01) and 18.0 or 12.0
 				currentSteerRate += (targetSteerRate - currentSteerRate) * math.clamp(deltaTime * dampFactor, 0, 1)
 				currentHeadingYaw += currentSteerRate * deltaTime
 			end
@@ -1234,6 +1263,25 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 			end
 
 			humanoid.WalkSpeed = currentWalkSpeed
+			
+			-- 🎵 4. SFX Sound Controller (Default active)
+			if engineSound then
+				if isMounted and currentWalkSpeed > 0.5 then
+					engineSound.Volume = math.clamp(0.1 + (currentWalkSpeed / 100) * 0.25, 0.1, 0.35)
+					engineSound.PlaybackSpeed = math.clamp(0.8 + (currentWalkSpeed / 100) * 0.4, 0.8, 1.3)
+					if not engineSound.IsPlaying then engineSound:Play() end
+				else
+					engineSound.Volume = 0
+				end
+			end
+			if boostSound then
+				if isMounted and isBoosting then
+					boostSound.Volume = 0.8
+					if not boostSound.IsPlaying then boostSound:Play() end
+				else
+					boostSound.Volume = 0
+				end
+			end
 			
 			-- 가속도 디버깅 (속도가 변하는 동안 0.1초마다 콘솔에 출력)
 			if not _G.debugPrintTimer then _G.debugPrintTimer = 0 end
@@ -1473,7 +1521,11 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 		else
 			_G.wasOnTreadmill = false
 			Camera.CameraType = Enum.CameraType.Scriptable
-			local targetCameraFOV = displayBoost and HoverboardConfig.BOOSTER_FOV or defaultFOV + (math.clamp(displaySpeed / HoverboardConfig.RIDE_WALKSPEED, 0, 1) * 10)
+			local fovEnabled = LocalPlayer:GetAttribute("BoosterFOVEnabled") ~= false
+			local targetCameraFOV = defaultFOV
+			if fovEnabled then
+				targetCameraFOV = displayBoost and HoverboardConfig.BOOSTER_FOV or defaultFOV + (math.clamp(displaySpeed / HoverboardConfig.RIDE_WALKSPEED, 0, 1) * 10)
+			end
 			Camera.FieldOfView += (targetCameraFOV - Camera.FieldOfView) * math.clamp(deltaTime * 8, 0, 1)
 
 		-- 카메라와 캐릭터의 위치가 어긋나면서 발생하는 시각적 떨림(Lerp Jitter) 해결
@@ -1562,7 +1614,8 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 
 		Camera.CFrame = CFrame.lookAt(desiredCamPos, lookAtTarget)
 
-		if isBoosting then
+		local shakeEnabled = LocalPlayer:GetAttribute("ScreenShakeEnabled") ~= false
+		if isBoosting and shakeEnabled then
 			local shakeIntensity = 1.2 -- Increased amplitude!
 			local shakeX = (math.random() - 0.5) * shakeIntensity
 			local shakeY = (math.random() - 0.5) * shakeIntensity
