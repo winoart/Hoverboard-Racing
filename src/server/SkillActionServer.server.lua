@@ -87,25 +87,116 @@ end
 local playerCooldowns: { [number]: { [string]: number } } = {}
 local playerSkillUses: { [number]: { [string]: number } } = {}
 
-Players.PlayerAdded:Connect(function(player)
-	player:GetAttributeChangedSignal("IsRacing"):Connect(function()
-		if player:GetAttribute("IsRacing") then
-			playerSkillUses[player.UserId] = {}
-		end
-	end)
-end)
-
 local activeShields: { [number]: boolean } = {}
 local activeGhosts: { [number]: boolean } = {}
 local activeReflects: { [number]: boolean } = {}
 local reflectUses: { [number]: number } = {}
 
-Players.PlayerAdded:Connect(function(player)
-	player.CharacterAdded:Connect(function()
-		reflectUses[player.UserId] = 0
-		activeReflects[player.UserId] = false
-	end)
+-- Cleanup functions for skill visuals and states
+local function cleanupReflect(player: Player, playBreakSound: boolean?)
+	activeReflects[player.UserId] = false
+	local char = player.Character
+	if char then
+		char:SetAttribute("HasReflect", false)
+		local reflectPart = char:FindFirstChild("SkillReflect")
+		if reflectPart then
+			if playBreakSound and char.PrimaryPart then
+				local breakSound = Instance.new("Sound")
+				breakSound.SoundId = "rbxassetid://258057783"
+				breakSound.Volume = 1
+				breakSound.Parent = char.PrimaryPart
+				breakSound:Play()
+				game:GetService("Debris"):AddItem(breakSound, 2)
+			end
+			reflectPart:Destroy()
+		end
+	end
+end
+
+local function cleanupShield(player: Player)
+	activeShields[player.UserId] = false
+	local char = player.Character
+	if char then
+		char:SetAttribute("HasShield", false)
+		local shieldPart = char:FindFirstChild("SkillShield")
+		if shieldPart then
+			shieldPart:Destroy()
+		end
+	end
+end
+
+local function cleanupAllSkillEffects(player: Player)
+	cleanupReflect(player, false)
+	cleanupShield(player)
+	activeGhosts[player.UserId] = false
+	
+	local char = player.Character
+	if char then
+		char:SetAttribute("HasGhost", false)
+		char:SetAttribute("StatusEffect_Stun", false)
+		for _, child in ipairs(char:GetChildren()) do
+			if child.Name == "SkillReflect" or child.Name == "SkillShield" or child.Name == "OrbitalStrike" or child.Name == "IceCube" then
+				child:Destroy()
+			end
+		end
+	end
+end
+
+-- BindableEvent for external cleanup (e.g. from GameLoopManager at race end)
+local resetSkillsBindable = remotesFolder:FindFirstChild("ResetAllSkills") :: BindableEvent?
+if not resetSkillsBindable then
+	resetSkillsBindable = Instance.new("BindableEvent")
+	resetSkillsBindable.Name = "ResetAllSkills"
+	resetSkillsBindable.Parent = remotesFolder
+end
+
+resetSkillsBindable.Event:Connect(function()
+	for _, p in ipairs(Players:GetPlayers()) do
+		cleanupAllSkillEffects(p)
+		reflectUses[p.UserId] = 0
+		playerSkillUses[p.UserId] = {}
+	end
 end)
+
+local function setupPlayer(player: Player)
+	playerSkillUses[player.UserId] = {}
+	reflectUses[player.UserId] = 0
+	activeReflects[player.UserId] = false
+	activeShields[player.UserId] = false
+	activeGhosts[player.UserId] = false
+
+	player:GetAttributeChangedSignal("IsRacing"):Connect(function()
+		if player:GetAttribute("IsRacing") then
+			playerSkillUses[player.UserId] = {}
+			reflectUses[player.UserId] = 0
+		else
+			-- Race ended or player retired: immediately clean up all skill effects
+			cleanupAllSkillEffects(player)
+		end
+	end)
+
+	local function onCharacter(char: Model)
+		cleanupAllSkillEffects(player)
+		reflectUses[player.UserId] = 0
+
+		local humanoid = char:WaitForChild("Humanoid", 5) :: Humanoid?
+		if humanoid then
+			humanoid.Died:Connect(function()
+				cleanupAllSkillEffects(player)
+			end)
+		end
+	end
+
+	if player.Character then
+		onCharacter(player.Character)
+	end
+	player.CharacterAdded:Connect(onCharacter)
+end
+
+Players.PlayerAdded:Connect(setupPlayer)
+for _, p in ipairs(Players:GetPlayers()) do
+	setupPlayer(p)
+end
 
 local function getSkillConfig(skillId: string)
 	for _, skill in ipairs(SkillStoreConfig.Skills) do
@@ -238,7 +329,7 @@ local function fireIceBomb(caster: Player, target: Player?)
 			-- 타격 직전(떨어진 후) 반사 체크
 			if activeReflects[target.UserId] then
 				print("🪞 [SkillServer] " .. target.Name .. " REFLECTED Ice Bomb back to " .. caster.Name .. "!")
-				activeReflects[target.UserId] = false
+				cleanupReflect(target, true)
 				
 				if skillWarningRemote then
 					skillWarningRemote:FireAllClients(caster.Name, target.Name, "Skill_Reflected")
@@ -250,7 +341,7 @@ local function fireIceBomb(caster: Player, target: Player?)
 				targetRoot = targetChar.PrimaryPart
 			elseif activeShields[target.UserId] then
 				print("🛡️ [SkillServer] " .. target.Name .. " BLOCKED Ice Bomb with a Shield!")
-				activeShields[target.UserId] = false
+				cleanupShield(target)
 				
 				if skillWarningRemote then
 					skillWarningRemote:FireAllClients(caster.Name, target.Name, "Skill_Shield_Break")
@@ -884,14 +975,17 @@ local function firePaintball(caster: Player, target: Player?)
 		
 		if activeReflects[target.UserId] then
 			print("🪞 [SkillServer] " .. target.Name .. " REFLECTED Paintball back to " .. caster.Name .. "!")
-			activeReflects[target.UserId] = false
+			cleanupReflect(target, true)
 			if skillWarningRemote then
 				skillWarningRemote:FireAllClients(caster.Name, target.Name, "Skill_Reflected")
 			end
 			target = caster
 		elseif activeShields[target.UserId] then
 			print("🛡️ [SkillServer] " .. target.Name .. " BLOCKED Paintball with a Shield!")
-			activeShields[target.UserId] = nil
+			cleanupShield(target)
+			if skillWarningRemote then
+				skillWarningRemote:FireAllClients(caster.Name, target.Name, "Skill_Shield_Break")
+			end
 			return
 		end
 		
@@ -912,6 +1006,9 @@ local function activateReflect(player: Player)
 		print("❌ [SkillServer] " .. player.Name .. " reached max reflect uses for this game!")
 		return
 	end
+	
+	-- Clean up existing reflect first to prevent multiple shields stacking
+	cleanupReflect(player, false)
 	
 	reflectUses[player.UserId] = uses + 1
 	setCooldown(player, "Skill_Reflect")
@@ -956,44 +1053,9 @@ local function activateReflect(player: Player)
 		Transparency = 0.3
 	})
 	pulseTween:Play()
-	
-	-- No time limit, stays active until used.
-	task.spawn(function()
-		while reflectPart.Parent do
-			if not activeReflects[player.UserId] then
-				-- Broken/Used!
-				if char and char.Parent then
-					char:SetAttribute("HasReflect", false)
-				end
-				pulseTween:Cancel()
-				
-				-- 방어 성공 사운드
-				local breakSound = Instance.new("Sound")
-				breakSound.SoundId = "rbxassetid://258057783"
-				breakSound.Volume = 1
-				breakSound.Parent = root
-				breakSound:Play()
-				game:GetService("Debris"):AddItem(breakSound, 2)
-				
-				-- 방어막 깜빡거림 연출
-				if reflectPart and reflectPart.Parent then
-					for i = 1, 4 do
-						if not reflectPart or not reflectPart.Parent then break end
-						reflectPart.Transparency = 1
-						task.wait(0.08)
-						if not reflectPart or not reflectPart.Parent then break end
-						reflectPart.Transparency = 0.2
-						task.wait(0.08)
-					end
-					
-					if reflectPart and reflectPart.Parent then
-						reflectPart:Destroy()
-					end
-				end
-				break
-			end
-			task.wait(0.1)
-		end
+
+	reflectPart.Destroying:Connect(function()
+		pulseTween:Cancel()
 	end)
 end
 
@@ -1033,7 +1095,7 @@ local function fireGoldenFreeze(caster: Player, target: Player?)
 			-- 타격 직전 반사 체크
 			if activeReflects[target.UserId] then
 				print("🪞 [SkillServer] " .. target.Name .. " REFLECTED Golden Freeze back to " .. caster.Name .. "!")
-				activeReflects[target.UserId] = false
+				cleanupReflect(target, true)
 				
 				if skillWarningRemote then
 					skillWarningRemote:FireAllClients(caster.Name, target.Name, "Skill_Reflected")
@@ -1044,7 +1106,7 @@ local function fireGoldenFreeze(caster: Player, target: Player?)
 				targetRoot = targetChar.PrimaryPart
 			elseif activeShields[target.UserId] then
 				print("🛡️ [SkillServer] " .. target.Name .. " BLOCKED Golden Freeze with a Shield!")
-				activeShields[target.UserId] = false
+				cleanupShield(target)
 				
 				if skillWarningRemote then
 					skillWarningRemote:FireAllClients(caster.Name, target.Name, "Skill_Shield_Break")

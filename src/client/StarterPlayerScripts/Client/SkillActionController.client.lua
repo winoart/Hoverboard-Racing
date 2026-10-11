@@ -1561,6 +1561,10 @@ local function applyMobileLayout()
 				frame:SetAttribute("OrigSizeOffsetX", frame.Size.X.Offset)
 				frame:SetAttribute("OrigSizeScaleY", frame.Size.Y.Scale)
 				frame:SetAttribute("OrigSizeOffsetY", frame.Size.Y.Offset)
+				frame:SetAttribute("OrigPosScaleX", frame.Position.X.Scale)
+				frame:SetAttribute("OrigPosOffsetX", frame.Position.X.Offset)
+				frame:SetAttribute("OrigPosScaleY", frame.Position.Y.Scale)
+				frame:SetAttribute("OrigPosOffsetY", frame.Position.Y.Offset)
 			end
 			
 			for _, desc in ipairs(frame:GetDescendants()) do
@@ -1610,6 +1614,20 @@ local function applyPCLayout()
 					frame:GetAttribute("OrigSizeScaleY"),
 					frame:GetAttribute("OrigSizeOffsetY")
 				)
+			end
+			
+			if frame:GetAttribute("OrigPosScaleX") then
+				frame.Position = UDim2.new(
+					frame:GetAttribute("OrigPosScaleX"),
+					frame:GetAttribute("OrigPosOffsetX"),
+					frame:GetAttribute("OrigPosScaleY"),
+					frame:GetAttribute("OrigPosOffsetY")
+				)
+			else
+				-- 기본 2x2 그리드 안전 복구
+				local col = (i - 1) % 2
+				local row = math.floor((i - 1) / 2)
+				frame.Position = UDim2.new(col * 0.54, 0, row * 0.54, 0)
 			end
 			
 			local hotkeyLabel = frame:FindFirstChild("HotkeyLabel")

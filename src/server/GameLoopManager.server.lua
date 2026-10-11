@@ -125,6 +125,13 @@ local function teleportAllToLounge()
 			teleportPlayer(player, loungeCFrame * randomOffset)
 		end
 	end
+
+	-- Clean up all skill effects, shields, and reflects for all players
+	local remotesFolder = ReplicatedStorage:FindFirstChild("HoverboardRemotes")
+	local resetSkills = remotesFolder and remotesFolder:FindFirstChild("ResetAllSkills") :: BindableEvent?
+	if resetSkills then
+		resetSkills:Fire()
+	end
 end
 
 -- Get Track Starting Grid Base CFrame safely facing FORWARD down the track (+Z direction towards signal lights!)
