@@ -51,6 +51,13 @@ if not hoverboardsUpdatedRemote then
 	hoverboardsUpdatedRemote.Parent = remotesFolder
 end
 
+local getKioskItemsRemote = remotesFolder:FindFirstChild("GetKioskItems") :: RemoteFunction?
+if not getKioskItemsRemote then
+	getKioskItemsRemote = Instance.new("RemoteFunction")
+	getKioskItemsRemote.Name = "GetKioskItems"
+	getKioskItemsRemote.Parent = remotesFolder
+end
+
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local StoreConfig = require(Shared:WaitForChild("StoreConfig") :: ModuleScript)
 local MonetizationConfig = require(Shared:WaitForChild("MonetizationConfig"))
@@ -386,8 +393,10 @@ task.spawn(function()
 	end
 end)
 
-getKioskItemsRemote.OnServerInvoke = function(player: Player)
-	-- Return current items and remaining seconds
-	local remaining = math.max(0, nextRefreshTime - os.time())
-	return currentKioskItems, remaining
+if getKioskItemsRemote then
+	getKioskItemsRemote.OnServerInvoke = function(player: Player)
+		-- Return current items and remaining seconds
+		local remaining = math.max(0, nextRefreshTime - os.time())
+		return currentKioskItems, remaining
+	end
 end
