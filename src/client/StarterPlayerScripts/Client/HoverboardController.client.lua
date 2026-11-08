@@ -472,7 +472,7 @@ local function createHUDUI()
 	rebirthEffectLabel.Position = UDim2.new(0, 320, 0, 0)
 	rebirthEffectLabel.BackgroundTransparency = 1
 	rebirthEffectLabel.Font = Enum.Font.GothamBlack
-	rebirthEffectLabel.Text = "Rebirth +0.0 Km/s"
+	rebirthEffectLabel.Text = "Level +0.0 Km/s"
 	rebirthEffectLabel.TextColor3 = Color3.fromRGB(150, 255, 100) -- 더 밝고 가시성 높은 연두색
 	rebirthEffectLabel.TextSize = 20
 	rebirthEffectLabel.TextXAlignment = Enum.TextXAlignment.Right
@@ -1061,7 +1061,7 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 		local currentRebirths = 0
 		local leaderstats = LocalPlayer:FindFirstChild("leaderstats")
 		if leaderstats then
-			local rebirthsVal = leaderstats:FindFirstChild("Rebirths") :: IntValue
+			local rebirthsVal = (leaderstats:FindFirstChild("Level") or leaderstats:FindFirstChild("Rebirths")) :: IntValue
 			if rebirthsVal then
 				currentRebirths = rebirthsVal.Value
 			end
@@ -1069,7 +1069,7 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 		local rebirthData = RebirthConfig.GetRebirthData(currentRebirths)
 		
 		if rebirthEffectLabel then
-			rebirthEffectLabel.Text = string.format("Rebirth +%.1f Km/s", rebirthData.BoostSpeedBonus)
+			rebirthEffectLabel.Text = string.format("Level +%.1f Km/s", rebirthData.BoostSpeedBonus)
 			rebirthEffectLabel.Visible = (rebirthData.BoostSpeedBonus > 0)
 		end
 		

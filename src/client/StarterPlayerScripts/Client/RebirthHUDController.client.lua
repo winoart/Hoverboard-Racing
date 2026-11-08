@@ -16,7 +16,7 @@ screenGui.ResetOnSpawn = false
 local frame = screenGui:WaitForChild("RebirthFrame")
 local textLabel = frame:WaitForChild("RebirthTextLabel") :: TextLabel
 
--- 메인 텍스트 (숫자 + RB) 설정
+-- 메인 텍스트 (숫자 + LV) 설정
 textLabel.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
 textLabel.TextColor3 = Color3.fromRGB(255, 200, 50)
 local stroke = textLabel:FindFirstChildOfClass("UIStroke")
@@ -51,7 +51,7 @@ end
 local leaderstats = LocalPlayer:WaitForChild("leaderstats", 10)
 if not leaderstats then return end
 
-local rebirthValue = leaderstats:WaitForChild("Rebirths", 10) :: IntValue
+local rebirthValue = (leaderstats:WaitForChild("Level", 10) or leaderstats:FindFirstChild("Rebirths")) :: IntValue
 if not rebirthValue then return end
 
 local function getRebirthTextLabel()
@@ -115,9 +115,9 @@ local function updateRebirthText()
 		return
 	end
 	
-	-- 메인 텍스트: "23 RB"
-	currentLabel.Text = tostring(rVal) .. " RB"
-	print("🌀 [RebirthHUD] 환생 텍스트 갱신됨:", currentLabel.Text)
+	-- 메인 텍스트: "23 LV"
+	currentLabel.Text = tostring(rVal) .. " LV"
+	print("🌀 [LevelHUD] 레벨 텍스트 갱신됨:", currentLabel.Text)
 	
 	-- 부스트 텍스트: "Boost +34.5km"
 	if boostVal > 0 and currentBoostLabel then

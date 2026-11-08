@@ -40,7 +40,11 @@ local function getRebirthButton(): TextButton?
 		if rebirthGui then
 			local btn = rebirthGui:FindFirstChild("Rebirth")
 			if btn and btn:IsA("TextButton") then
-				print("✅ [RebirthUI] 새로운 환생 버튼을 성공적으로 찾았습니다!")
+				print("✅ [LevelUI] 새로운 레벨 버튼을 성공적으로 찾았습니다!")
+				local titleLbl = btn:FindFirstChild("TitleText")
+				if titleLbl and titleLbl:IsA("TextLabel") then
+					titleLbl.Text = "LEVEL"
+				end
 				rebirthButton = btn
 			end
 		end
@@ -113,7 +117,7 @@ local function createRebirthWindow()
 	title.Size = UDim2.new(1, 0, 1, 0)
 	title.BackgroundTransparency = 1
 	title.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
-	title.Text = "REBIRTH"
+	title.Text = "LEVEL"
 	title.TextColor3 = Color3.fromRGB(255, 255, 255)
 	title.TextSize = 42
 	title.ZIndex = 3
@@ -275,7 +279,7 @@ local function createRebirthWindow()
 	doRebirthBtn.Position = UDim2.new(0.5, -160, 1, -95)
 	doRebirthBtn.BackgroundColor3 = Color3.fromRGB(100, 220, 110)
 	doRebirthBtn.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
-	doRebirthBtn.Text = "REBIRTH"
+	doRebirthBtn.Text = "LEVEL UP"
 	doRebirthBtn.TextColor3 = Color3.new(1, 1, 1)
 	doRebirthBtn.TextSize = 36
 	doRebirthBtn.Parent = panel
@@ -361,21 +365,21 @@ local function createRebirthWindow()
 		end
 		
 		if success then
-			doRebirthBtn.Text = "REBIRTH SUCCESS!"
+			doRebirthBtn.Text = "LEVEL UP!"
 			doRebirthBtn.BackgroundColor3 = Color3.fromRGB(50, 255, 50)
 			
 			playRebirthCelebration()
 			
 			task.delay(1.5, function()
-				-- 환생 성공 후 창 닫지 않고 버튼만 원상복구
-				doRebirthBtn.Text = "REBIRTH"
+				-- 레벨업 성공 후 창 닫지 않고 버튼만 원상복구
+				doRebirthBtn.Text = "LEVEL UP"
 				doRebirthBtn.BackgroundColor3 = Color3.fromRGB(100, 220, 110)
 			end)
 		else
 			doRebirthBtn.Text = msg or "Failed" -- Show error message to debug
 			doRebirthBtn.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
 			task.delay(1.5, function()
-				doRebirthBtn.Text = "REBIRTH"
+				doRebirthBtn.Text = "LEVEL UP"
 				doRebirthBtn.BackgroundColor3 = Color3.fromRGB(100, 220, 110)
 			end)
 		end
@@ -415,7 +419,7 @@ local function updateRebirthWindow()
 	local currentRebirths = 0
 	local currentDist = 0
 	if leaderstats then
-		local rVal = leaderstats:FindFirstChild("Rebirths") :: IntValue
+		local rVal = (leaderstats:FindFirstChild("Level") or leaderstats:FindFirstChild("Rebirths")) :: IntValue
 		if rVal then currentRebirths = rVal.Value end
 		
 		local dVal = leaderstats:FindFirstChild("Distance") :: IntValue
@@ -460,15 +464,15 @@ local function updateRebirthWindow()
 		setCardData("NextCard", currentRebirths + 1, true)
 		
 		if currentDist >= nextRebirthData.RequiredDistance then
-			doRebirthBtn.Text = "REBIRTH"
+			doRebirthBtn.Text = "LEVEL UP"
 			doRebirthBtn.BackgroundColor3 = Color3.fromRGB(100, 220, 110)
 		else
-			doRebirthBtn.Text = "REBIRTH"
+			doRebirthBtn.Text = "LEVEL UP"
 			doRebirthBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
 		end
 	else
 		setCardData("NextCard", -1, false)
-		doRebirthBtn.Text = "MAX REBIRTH REACHED!"
+		doRebirthBtn.Text = "MAX LEVEL REACHED!"
 		doRebirthBtn.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
 	end
 end
@@ -483,8 +487,12 @@ local function updateNotification()
 	local leaderstats = LocalPlayer:FindFirstChild("leaderstats")
 	if not leaderstats then return end
 	
-	local currentRebirths = (leaderstats:FindFirstChild("Rebirths") :: IntValue).Value
-	local currentDist = (leaderstats:FindFirstChild("Distance") :: IntValue).Value
+	local rVal = (leaderstats:FindFirstChild("Level") or leaderstats:FindFirstChild("Rebirths")) :: IntValue?
+	local dVal = leaderstats:FindFirstChild("Distance") :: IntValue?
+	if not rVal or not dVal then return end
+	
+	local currentRebirths = rVal.Value
+	local currentDist = dVal.Value
 	
 	local nextData = RebirthConfig.GetNextRebirthData(currentRebirths)
 	local canRebirth = nextData and (currentDist >= nextData.RequiredDistance)

@@ -237,7 +237,12 @@ RunService.RenderStepped:Connect(function(dt)
 	-- 게임적 허용으로 1스터드 = 1m 로 취급하거나, 속도에 비례해 거리를 올립니다.
 	local speed = 0
 	if LocalPlayer:GetAttribute("OnTreadmill") then
-		local rbData = RebirthConfig.GetRebirthData(LocalPlayer:GetAttribute("Rebirths") or 0)
+		local currentLevel = 0
+		if leaderstats then
+			local lvlVal = (leaderstats:FindFirstChild("Level") or leaderstats:FindFirstChild("Rebirths")) :: IntValue?
+			if lvlVal then currentLevel = lvlVal.Value end
+		end
+		local rbData = RebirthConfig.GetRebirthData(currentLevel)
 		speed = HoverboardConfig.RIDE_WALKSPEED + rbData.BoostSpeedBonus
 	else
 		speed = Vector3.new(hrp.AssemblyLinearVelocity.X, 0, hrp.AssemblyLinearVelocity.Z).Magnitude

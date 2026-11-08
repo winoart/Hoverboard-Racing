@@ -81,7 +81,7 @@ Players.PlayerAdded:Connect(function(player)
 	distance.Parent = leaderstats
 	
 	local rebirths = Instance.new("IntValue")
-	rebirths.Name = "Rebirths"
+	rebirths.Name = "Level"
 	rebirths.Parent = leaderstats
 	
 	local dataLoaded = Instance.new("BoolValue")
@@ -108,7 +108,7 @@ Players.PlayerAdded:Connect(function(player)
 		gold.Value = data.Gold or 1000
 		wins.Value = data.Wins or 0
 		distance.Value = data.Distance or 0
-		rebirths.Value = data.Rebirths or 0
+		rebirths.Value = data.Level or data.Rebirths or 0
 		lastAttendanceDate.Value = data.LastAttendanceDate or ""
 		attendanceStreak.Value = data.AttendanceStreak or 0
 		firstJoinTime.Value = data.FirstJoinTime or os.time()
@@ -243,7 +243,7 @@ Players.PlayerRemoving:Connect(function(player)
 	local leaderstats = player:FindFirstChild("leaderstats")
 	local gold = leaderstats and leaderstats:FindFirstChild("Gold") :: IntValue
 	local distance = leaderstats and leaderstats:FindFirstChild("Distance") :: IntValue
-	local rebirths = leaderstats and leaderstats:FindFirstChild("Rebirths") :: IntValue
+	local rebirths = leaderstats and (leaderstats:FindFirstChild("Level") or leaderstats:FindFirstChild("Rebirths")) :: IntValue
 	
 	local ownedBoardsFolder = player:FindFirstChild("OwnedHoverboards")
 	local equippedBoardId = player:FindFirstChild("EquippedHoverboardId") :: StringValue
@@ -282,6 +282,7 @@ Players.PlayerRemoving:Connect(function(player)
 			Gold = gold.Value,
 			Wins = player.leaderstats.Wins.Value,
 			Distance = distance and distance.Value or 0,
+			Level = rebirths and rebirths.Value or 0,
 			Rebirths = rebirths and rebirths.Value or 0,
 			OwnedHoverboards = bList,
 			EquippedHoverboardId = equippedBoardId.Value,
@@ -558,14 +559,14 @@ requestRebirthRemote.OnServerInvoke = function(player: Player)
 	if not leaderstats then return false, "데이터 오류" end
 	
 	local distanceVal = leaderstats:FindFirstChild("Distance") :: IntValue
-	local rebirthsVal = leaderstats:FindFirstChild("Rebirths") :: IntValue
+	local rebirthsVal = (leaderstats:FindFirstChild("Level") or leaderstats:FindFirstChild("Rebirths")) :: IntValue
 	if not distanceVal or not rebirthsVal then return false, "데이터 오류" end
 	
 	local currentRebirthLevel = rebirthsVal.Value
 	local nextRebirthData = RebirthConfig.GetNextRebirthData(currentRebirthLevel)
 	
 	if not nextRebirthData then
-		return false, "이미 최대 환생 레벨입니다!"
+		return false, "이미 최대 레벨입니다!"
 	end
 	
 	local reqDist = nextRebirthData.RequiredDistance
@@ -573,7 +574,7 @@ requestRebirthRemote.OnServerInvoke = function(player: Player)
 		distanceVal.Value -= reqDist -- 요구 거리만큼만 차감 (남은 거리 보존)
 		rebirthsVal.Value += 1
 		
-		-- Quest: Fire progress for Rebirth
+		-- Quest: Fire progress for Level Up (kept _rebirth prefix for quest ID compatibility)
 		local QuestBindables = ReplicatedStorage:FindFirstChild("QuestBindables")
 		local addProgress = QuestBindables and QuestBindables:FindFirstChild("AddQuestProgress")
 		if addProgress then
@@ -581,7 +582,7 @@ requestRebirthRemote.OnServerInvoke = function(player: Player)
 		end
 		
 		-- 알림 표시 (전체 또는 개인)
-		print(string.format("🎉 [DataServer] %s 님이 환생 %d 레벨 달성!", player.Name, rebirthsVal.Value))
+		print(string.format("🎉 [DataServer] %s 님이 %d 레벨 달성!", player.Name, rebirthsVal.Value))
 		return true, rebirthsVal.Value
 	end
 	

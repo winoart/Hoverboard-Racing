@@ -1,11 +1,12 @@
 --!strict
 -- RebirthConfig.luau
--- 환생 시스템 설정
+-- 레벨(구 환생) 시스템 설정
 
 local RebirthConfig = {}
 
--- 환생 최대 횟수
+-- 최대 레벨
 RebirthConfig.MAX_REBIRTHS = 100
+RebirthConfig.MAX_LEVEL = 100
 
 -- 요구 거리 5km ~ 1750km 스케일링을 위한 수학적 계산 함수
 function RebirthConfig.GetRebirthData(rebirthLevel: number)
@@ -35,5 +36,8 @@ function RebirthConfig.GetNextRebirthData(currentRebirthLevel: number)
 	end
 	return RebirthConfig.GetRebirthData(currentRebirthLevel + 1)
 end
+
+RebirthConfig.GetLevelData = RebirthConfig.GetRebirthData
+RebirthConfig.GetNextLevelData = RebirthConfig.GetNextRebirthData
 
 return RebirthConfig
