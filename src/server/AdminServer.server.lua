@@ -65,17 +65,18 @@ getPromoFunc.OnServerInvoke = function(player)
 		return AdminConfigStore:GetAsync("ShopData_v2")
 	end)
 	
-	if success then
-		if result and type(result) == "table" and result.Events then
-			return result
-		else
-			-- 데이터스토어가 비어있을 경우, 초기 설정값 반환
-			local MonetizationConfig = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("MonetizationConfig"))
-			return MonetizationConfig.ShopData
+	local MonetizationConfig = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("MonetizationConfig"))
+	
+	if success and result and type(result) == "table" and result.Events then
+		-- Boards 테이블이 없으면 MonetizationConfig 기본값으로 채워줌
+		if not result.Boards then
+			result.Boards = MonetizationConfig.ShopData.Boards or {}
 		end
+		return result
 	else
-		warn("🚨 [AdminServer] 상점 데이터 로드 실패", result)
-		local MonetizationConfig = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("MonetizationConfig"))
+		if not success then
+			warn("🚨 [AdminServer] 상점 데이터 로드 실패", result)
+		end
 		return MonetizationConfig.ShopData
 	end
 end

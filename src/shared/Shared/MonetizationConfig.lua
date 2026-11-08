@@ -84,6 +84,53 @@ MonetizationConfig.ShopData = {
 			price = 250,
 			rewards = { { type = "Gold", value = 20000 } }
 		}
+	},
+	Boards = {
+		{
+			id = "ClassicRookie",
+			name = "Classic Rookie",
+			imageId = "rbxassetid://10078028148",
+			rarity = "Common",
+			price = 500,
+			desc = "A sleek, sporty aerodynamic hoverboard designed to minimize air resistance.",
+			isVisible = true
+		},
+		{
+			id = "NeonPulse",
+			name = "Neon Pulse",
+			imageId = "rbxassetid://10078028148",
+			rarity = "Uncommon",
+			price = 1000,
+			desc = "A futuristic, cyberpunk-style metallic hoverboard.",
+			isVisible = true
+		},
+		{
+			id = "IndustrialHoverboard",
+			name = "Mecha Titan",
+			imageId = "rbxassetid://10078028148",
+			rarity = "Uncommon",
+			price = 1500,
+			desc = "A heavy-duty hoverboard equipped with thick armor plating and giant jet engines.",
+			isVisible = true
+		},
+		{
+			id = "CloudBoard",
+			name = "Cloud Nimbus",
+			imageId = "rbxassetid://116012241551714",
+			rarity = "Rare",
+			price = 3000,
+			desc = "A mysterious hoverboard shaped like a fluffy cloud. Glides softly through the air.",
+			isVisible = true
+		},
+		{
+			id = "MagicBroom",
+			name = "Nimbus 2025",
+			imageId = "rbxassetid://91414670760591",
+			rarity = "Super Rare",
+			price = 5000,
+			desc = "A legendary broomstick-style hoverboard once favored by wizards.",
+			isVisible = true
+		}
 	}
 }
 

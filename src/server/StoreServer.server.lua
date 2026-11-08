@@ -37,15 +37,57 @@ if not buyHoverboardRemote then
 	buyHoverboardRemote.Parent = remotesFolder
 end
 
-local getKioskItemsRemote = remotesFolder:FindFirstChild("GetKioskItems") :: RemoteFunction
-if not getKioskItemsRemote then
-	getKioskItemsRemote = Instance.new("RemoteFunction")
-	getKioskItemsRemote.Name = "GetKioskItems"
-	getKioskItemsRemote.Parent = remotesFolder
+local getHoverboardsRemote = remotesFolder:FindFirstChild("GetHoverboardsCatalog") :: RemoteFunction
+if not getHoverboardsRemote then
+	getHoverboardsRemote = Instance.new("RemoteFunction")
+	getHoverboardsRemote.Name = "GetHoverboardsCatalog"
+	getHoverboardsRemote.Parent = remotesFolder
+end
+
+local hoverboardsUpdatedRemote = remotesFolder:FindFirstChild("HoverboardsCatalogUpdated") :: RemoteEvent
+if not hoverboardsUpdatedRemote then
+	hoverboardsUpdatedRemote = Instance.new("RemoteEvent")
+	hoverboardsUpdatedRemote.Name = "HoverboardsCatalogUpdated"
+	hoverboardsUpdatedRemote.Parent = remotesFolder
 end
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local StoreConfig = require(Shared:WaitForChild("StoreConfig") :: ModuleScript)
+local MonetizationConfig = require(Shared:WaitForChild("MonetizationConfig"))
+local DataStoreService = game:GetService("DataStoreService")
+local MessagingService = game:GetService("MessagingService")
+local AdminConfigStore = DataStoreService:GetDataStore("AdminConfig_v1")
+
+-- 현재 활성화된 호버보드 카탈로그 캐시
+local cachedBoards = MonetizationConfig.ShopData.Boards or {}
+
+local function reloadBoardsFromDataStore()
+	local success, result = pcall(function()
+		return AdminConfigStore:GetAsync("ShopData_v2")
+	end)
+	if success and result and type(result) == "table" and result.Boards then
+		cachedBoards = result.Boards
+		print("📦 [StoreServer] 호버보드 카탈로그가 DataStore에서 로드되었습니다! (총 " .. #cachedBoards .. "종)")
+	else
+		cachedBoards = MonetizationConfig.ShopData.Boards or {}
+	end
+	hoverboardsUpdatedRemote:FireAllClients(cachedBoards)
+end
+
+-- 서버 시작 시 로드
+reloadBoardsFromDataStore()
+
+-- MessagingService 연동: 관리자가 상점에서 보드를 추가/수정/삭제했을 때 실시간 동기화
+pcall(function()
+	MessagingService:SubscribeAsync("ShopDataUpdated", function()
+		print("🔄 [StoreServer] ShopDataUpdated 메시지 수신 - 호버보드 카탈로그 즉시 갱신")
+		reloadBoardsFromDataStore()
+	end)
+end)
+
+getHoverboardsRemote.OnServerInvoke = function(player: Player)
+	return cachedBoards
+end
 
 -- 직접 스튜디오에 배치된 정적 ProximityPrompt 연결
 local waitingRoom = Workspace:FindFirstChild("WaitingRoom")
@@ -204,6 +246,8 @@ end
 buyHoverboardRemote.OnServerInvoke = function(player: Player, boardId: string)
 	local leaderstats = player:FindFirstChild("leaderstats")
 	local gold = leaderstats and leaderstats:FindFirstChild("Gold") :: IntValue
+	local levelVal = leaderstats and (leaderstats:FindFirstChild("Level") or leaderstats:FindFirstChild("Rebirths")) :: IntValue?
+	local playerLevel = levelVal and levelVal.Value or 0
 	local ownedFolder = player:FindFirstChild("OwnedHoverboards")
 	
 	if not gold or not ownedFolder then
@@ -211,10 +255,20 @@ buyHoverboardRemote.OnServerInvoke = function(player: Player, boardId: string)
 	end
 	
 	local targetItem = nil
-	for _, item in ipairs(StoreConfig.Items) do
+	for _, item in ipairs(cachedBoards) do
 		if item.id == boardId then
 			targetItem = item
 			break
+		end
+	end
+	
+	-- Fallback to StoreConfig.Items if not found in custom boards
+	if not targetItem then
+		for _, item in ipairs(StoreConfig.Items) do
+			if item.id == boardId then
+				targetItem = item
+				break
+			end
 		end
 	end
 	
@@ -224,6 +278,12 @@ buyHoverboardRemote.OnServerInvoke = function(player: Player, boardId: string)
 	
 	if ownedFolder:FindFirstChild(targetItem.id) then
 		return false, "이미 보유중인 호버보드입니다."
+	end
+	
+	-- 🔒 레벨 해금 조건 검증
+	local reqLevel = StoreConfig.RarityRequirements[targetItem.rarity] or 1
+	if playerLevel < reqLevel then
+		return false, string.format("레벨이 부족합니다! (필요 레벨: Lv.%d)", reqLevel)
 	end
 	
 	local price = targetItem.price or 0
@@ -246,7 +306,7 @@ buyHoverboardRemote.OnServerInvoke = function(player: Player, boardId: string)
 	local owned = Instance.new("StringValue")
 	owned.Name = targetItem.id
 	owned.Parent = ownedFolder
-	print("🛒 [StoreServer] " .. player.Name .. " bought " .. targetItem.name .. " for " .. price .. "G")
+	print("🛒 [StoreServer] " .. player.Name .. " bought " .. targetItem.name .. " for " .. price .. "G (Rarity: " .. targetItem.rarity .. ")")
 	
 	return true, targetItem.name .. " 구매 완료!"
 end

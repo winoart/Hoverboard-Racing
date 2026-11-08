@@ -15,8 +15,8 @@ local getPromoFunc = remotes:WaitForChild("GetPromotionData") :: RemoteFunction
 local isAdmin = false
 local adminGui = nil
 
-local currentShopData = { Events = {}, Passes = {}, Golds = {} }
-local currentTab = "Events" -- "Events", "Passes", "Golds"
+local currentShopData = { Events = {}, Passes = {}, Golds = {}, Boards = {} }
+local currentTab = "Events" -- "Events", "Passes", "Golds", "Boards"
 local currentSelectedIndex = nil -- nil이면 새 항목 추가
 
 local function buildAdminUI()
@@ -253,20 +253,21 @@ local function buildAdminUI()
 	-- 폼 필드들
 	local boxId, lblId = createInput("상품 ID (필수)", "Developer Product ID", 20)
 	local boxName, lblName = createInput("상품/이벤트 명", "노출될 텍스트", 70)
-	local boxDesc, lblDesc = createInput("관리자 메모(HookText)", "단 한 번의 기회! 등", 120)
+	local boxDesc, lblDesc = createInput("관리자 메모/설명", "단 한 번의 기회! 등", 120)
 	local boxImage, lblImage = createInput("메인 썸네일", "rbxassetid:// (배너 또는 아이콘)", 170)
 	local boxBgImage, lblBgImage = createInput("배경 이미지", "rbxassetid:// (없으면 빈칸)", 220)
-	local boxPrice, lblPrice = createInput("가격 (R$)", "UI 표기용", 270)
+	local boxPrice, lblPrice = createInput("가격 (R$ 또는 Gold)", "UI 표기용", 270)
 	
-	local boxStart, lblStart = createInput("시작 날짜", "0 = 상시", 320)
-	local boxEnd, lblEnd = createInput("종료 날짜", "4102412400 = 무제한", 370)
+	local boxRarity, lblRarity = createInput("등급 (Common/Uncommon/Rare/Super Rare)", "Common, Uncommon, Rare, Super Rare", 320)
+	local boxStart, lblStart = createInput("시작 날짜", "0 = 상시", 370)
+	local boxEnd, lblEnd = createInput("종료 날짜", "4102412400 = 무제한", 420)
 	
-	local boxGoldReward, lblGoldReward = createInput("보상: 골드량", "지급할 골드 (없으면 빈칸)", 420)
-	local boxBoardReward, lblBoardReward = createInput("보상: 보드 ID", "예) Hoverboard_001", 470)
-	local boxSkillReward, lblSkillReward = createInput("보상: 스킬 ID", "예) Skill_Premium", 520)
-	local tglVisible, lblVisible, getVisible, setVisible = createToggle("노출 상태 (상점 표시)", 570)
+	local boxGoldReward, lblGoldReward = createInput("보상: 골드량", "지급할 골드 (없으면 빈칸)", 470)
+	local boxBoardReward, lblBoardReward = createInput("보상: 보드 ID", "예) Hoverboard_001", 520)
+	local boxSkillReward, lblSkillReward = createInput("보상: 스킬 ID", "예) Skill_Premium", 570)
+	local tglVisible, lblVisible, getVisible, setVisible = createToggle("노출 상태 (상점 표시)", 620)
 	
-	formScroll.CanvasSize = UDim2.new(0, 0, 0, 650)
+	formScroll.CanvasSize = UDim2.new(0, 0, 0, 700)
 	
 	-- ==========================================
 	-- 함수들
@@ -318,6 +319,8 @@ local function buildAdminUI()
 	local tabEvent = createTabBtn("Events", "EVENT", 1)
 	local tabPass = createTabBtn("Passes", "PASS", 2)
 	local tabGold = createTabBtn("Golds", "GOLD", 3)
+	local tabBoard = createTabBtn("Boards", "BOARDS", 4)
+	tabsFrame.Size = UDim2.new(0, 420, 1, 0)
 	
 	tabEvent.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
 	tabEvent.TextColor3 = Color3.fromRGB(0, 0, 0)
@@ -383,7 +386,9 @@ local function buildAdminUI()
 			lblSub.Size = UDim2.new(1, -170, 0, 20)
 			lblSub.Position = UDim2.new(0, 65, 0, 35)
 			lblSub.BackgroundTransparency = 1
-			lblSub.Text = "R$ " .. tostring(item.price or 0) .. " | ID: " .. tostring(item.id)
+			local pricePrefix = (currentTab == "Boards") and "Gold " or "R$ "
+			local rarityStr = item.rarity and (" [" .. item.rarity .. "]") or ""
+			lblSub.Text = pricePrefix .. tostring(item.price or 0) .. rarityStr .. " | ID: " .. tostring(item.id)
 			lblSub.TextColor3 = Color3.fromRGB(150, 255, 150)
 			lblSub.Font = Enum.Font.Gotham
 			lblSub.TextSize = 14
@@ -423,11 +428,14 @@ local function buildAdminUI()
 		local item = currentSelectedIndex and list[currentSelectedIndex] or nil
 		
 		local isEvent = (currentTab == "Events")
-		local hasRewards = (currentTab ~= "Passes")
+		local isBoard = (currentTab == "Boards")
+		local hasRewards = (currentTab ~= "Passes" and not isBoard)
 		
 		boxStart.Visible = isEvent; lblStart.Visible = isEvent
 		boxEnd.Visible = isEvent; lblEnd.Visible = isEvent
-		boxDesc.Visible = isEvent; lblDesc.Visible = isEvent
+		boxDesc.Visible = (isEvent or isBoard); lblDesc.Visible = (isEvent or isBoard)
+		boxRarity.Visible = isBoard; lblRarity.Visible = isBoard
+		boxBgImage.Visible = not isBoard; lblBgImage.Visible = not isBoard
 		
 		boxGoldReward.Visible = hasRewards; lblGoldReward.Visible = hasRewards
 		boxBoardReward.Visible = isEvent; lblBoardReward.Visible = isEvent
@@ -436,12 +444,13 @@ local function buildAdminUI()
 		if item then
 			boxId.Text = tostring(item.id or "")
 			boxName.Text = item.promotionName or item.name or ""
-			boxDesc.Text = item.adminDesc or item.hookText or ""
+			boxDesc.Text = item.adminDesc or item.hookText or item.desc or ""
 			boxStart.Text = tostring(item.startDate or "0")
 			boxEnd.Text = tostring(item.endDate or "4102412400")
-			boxImage.Text = item.bannerImage or item.icon or ""
+			boxImage.Text = item.bannerImage or item.icon or item.imageId or ""
 			boxBgImage.Text = item.bgImage or ""
 			boxPrice.Text = tostring(item.price or "")
+			boxRarity.Text = tostring(item.rarity or "Common")
 			setVisible(item.isVisible ~= false)
 			
 			boxGoldReward.Text = ""
@@ -465,6 +474,7 @@ local function buildAdminUI()
 			boxImage.Text = "rbxassetid://"
 			boxBgImage.Text = ""
 			boxPrice.Text = ""
+			boxRarity.Text = "Common"
 			setVisible(true)
 			boxGoldReward.Text = ""
 			boxBoardReward.Text = ""
@@ -473,12 +483,18 @@ local function buildAdminUI()
 	end
 	
 	btnSave.MouseButton1Click:Connect(function()
-		local newObj = {}
-		newObj.id = tonumber(boxId.Text) or 0
+		local newObj: any = {}
 		newObj.price = tonumber(boxPrice.Text) or 0
 		newObj.isVisible = getVisible()
 		
-		if currentTab == "Events" then
+		if currentTab == "Boards" then
+			newObj.id = tostring(boxId.Text)
+			newObj.name = boxName.Text
+			newObj.desc = boxDesc.Text
+			newObj.imageId = boxImage.Text
+			newObj.rarity = boxRarity.Text ~= "" and boxRarity.Text or "Common"
+		elseif currentTab == "Events" then
+			newObj.id = tonumber(boxId.Text) or 0
 			newObj.promotionName = boxName.Text
 			newObj.hookText = boxDesc.Text
 			newObj.adminDesc = boxDesc.Text
@@ -486,6 +502,7 @@ local function buildAdminUI()
 			newObj.startDate = tonumber(boxStart.Text) or 0
 			newObj.endDate = tonumber(boxEnd.Text) or 4102412400
 		else
+			newObj.id = tonumber(boxId.Text) or 0
 			newObj.name = boxName.Text
 			newObj.icon = boxImage.Text
 			if boxBgImage.Text ~= "" then
@@ -493,11 +510,13 @@ local function buildAdminUI()
 			end
 		end
 		
-		local rArray = {}
-		if boxGoldReward.Text ~= "" then table.insert(rArray, {type="Gold", value=tonumber(boxGoldReward.Text)}) end
-		if boxBoardReward.Text ~= "" then table.insert(rArray, {type="Hoverboard", value=boxBoardReward.Text}) end
-		if boxSkillReward.Text ~= "" then table.insert(rArray, {type="Skill", value=boxSkillReward.Text}) end
-		if #rArray > 0 then newObj.rewards = rArray end
+		if currentTab ~= "Boards" then
+			local rArray = {}
+			if boxGoldReward.Text ~= "" then table.insert(rArray, {type="Gold", value=tonumber(boxGoldReward.Text)}) end
+			if boxBoardReward.Text ~= "" then table.insert(rArray, {type="Hoverboard", value=boxBoardReward.Text}) end
+			if boxSkillReward.Text ~= "" then table.insert(rArray, {type="Skill", value=boxSkillReward.Text}) end
+			if #rArray > 0 then newObj.rewards = rArray end
+		end
 		
 		if not currentShopData[currentTab] then currentShopData[currentTab] = {} end
 		

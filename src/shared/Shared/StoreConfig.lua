@@ -11,6 +11,14 @@ StoreConfig.RefundAmount = 100
 
 export type Rarity = "Common" | "Uncommon" | "Rare" | "Super Rare"
 
+-- 등급별 해금 레벨 조건
+StoreConfig.RarityRequirements = {
+	["Common"] = 1,
+	["Uncommon"] = 10,
+	["Rare"] = 50,
+	["Super Rare"] = 90,
+}
+
 -- Kiosk 상점의 슬롯별 등급 등장 확률 (백분율)
 StoreConfig.ShopRarityRates = {
 	["Common"] = 50,
