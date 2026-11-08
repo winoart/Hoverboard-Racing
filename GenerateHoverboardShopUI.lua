@@ -101,8 +101,8 @@ refreshStroke.Parent = refreshTimerLabel
 
 local scrollFrame = Instance.new("ScrollingFrame")
 scrollFrame.Name = "ScrollFrame"
-scrollFrame.Size = UDim2.new(1, -40, 0, 335)
-scrollFrame.Position = UDim2.new(0, 20, 0, 115)
+scrollFrame.Size = UDim2.new(1, -60, 1, -125)
+scrollFrame.Position = UDim2.new(0, 30, 0, 102)
 scrollFrame.BackgroundTransparency = 1
 scrollFrame.ScrollBarThickness = 8
 scrollFrame.Parent = bgFrame
@@ -189,13 +189,13 @@ nameStroke.Parent = nameLabel
 
 local priceLabel = Instance.new("TextLabel")
 priceLabel.Name = "PriceLabel"
-priceLabel.Size = UDim2.new(1, 0, 0, 30)
-priceLabel.Position = UDim2.new(0, 0, 0, 215)
+priceLabel.Size = UDim2.new(1, 0, 0, 24)
+priceLabel.Position = UDim2.new(0, 0, 0, 174)
 priceLabel.BackgroundTransparency = 1
 priceLabel.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
 priceLabel.Text = "0 G"
 priceLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
-priceLabel.TextSize = 20
+priceLabel.TextSize = 16
 priceLabel.ZIndex = 2
 priceLabel.Parent = cardTemplate
 
@@ -206,8 +206,9 @@ priceStroke.Parent = priceLabel
 
 local buyBtn = Instance.new("TextButton")
 buyBtn.Name = "BuyButton"
-buyBtn.Size = UDim2.new(1, -40, 0, 46)
-buyBtn.Position = UDim2.new(0, 20, 1, -55)
+buyBtn.Size = UDim2.new(1, -30, 0, 42)
+buyBtn.AnchorPoint = Vector2.new(0.5, 1)
+buyBtn.Position = UDim2.new(0.5, 0, 1, -14)
 buyBtn.BackgroundColor3 = Color3.fromRGB(100, 220, 110)
 buyBtn.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
 buyBtn.TextSize = 22

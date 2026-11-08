@@ -52,15 +52,27 @@ if titleFrame then
 	end
 end
 
--- UI 크기 조정
+-- UI 크기 및 스크롤 영역 조정 (타이틀과의 간격 및 프레임 여백 확보)
 bgFrame.Size = UDim2.new(0, 840, 0, 560)
 bgFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 bgFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
-scrollFrame.Size = UDim2.new(1, -40, 1, -90)
-scrollFrame.Position = UDim2.new(0, 20, 0, 75)
+
+-- 1. 타이틀(Y 20~80) 아래 충분한 간격을 두고 ScrollFrame 배치
+scrollFrame.Size = UDim2.new(1, -60, 1, -125)
+scrollFrame.Position = UDim2.new(0, 30, 0, 102)
 scrollFrame.ScrollBarThickness = 8
 scrollFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
 scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+
+local scrollPadding = scrollFrame:FindFirstChildOfClass("UIPadding")
+if not scrollPadding then
+	scrollPadding = Instance.new("UIPadding")
+	scrollPadding.Parent = scrollFrame
+end
+scrollPadding.PaddingTop = UDim.new(0, 8)
+scrollPadding.PaddingBottom = UDim.new(0, 16)
+scrollPadding.PaddingLeft = UDim.new(0, 8)
+scrollPadding.PaddingRight = UDim.new(0, 14)
 
 -- 하단 불필요한 레전드 제거 (쇼핑몰 섹션 자체에 등급명이 들어가므로)
 local oldLegend = bgFrame:FindFirstChild("RarityLegendFrame")
@@ -130,10 +142,12 @@ local function renderCatalog(catalogList)
 		
 		local isUnlocked = (playerLevel >= rData.reqLevel)
 		
-		-- 1. 섹션 헤더 프레임
+		-- 1. 섹션 헤더 프레임 (가로폭을 줄이고 중앙 정렬하여 외곽 프레임바와 겹치지 않도록 처리)
 		local headerFrame = Instance.new("Frame")
 		headerFrame.Name = "Header_" .. rName
-		headerFrame.Size = UDim2.new(1, 0, 0, 44)
+		headerFrame.Size = UDim2.new(1, -28, 0, 38)
+		headerFrame.AnchorPoint = Vector2.new(0.5, 0)
+		headerFrame.Position = UDim2.new(0.5, 0, 0, 0)
 		headerFrame.BackgroundColor3 = rData.bg
 		headerFrame.LayoutOrder = orderIdx * 10
 		headerFrame.Parent = scrollFrame
@@ -143,7 +157,7 @@ local function renderCatalog(catalogList)
 		
 		local hStroke = Instance.new("UIStroke", headerFrame)
 		hStroke.Color = Color3.fromRGB(0, 0, 0)
-		hStroke.Thickness = 3
+		hStroke.Thickness = 2.5
 		
 		local hTitle = Instance.new("TextLabel")
 		hTitle.Size = UDim2.new(1, -20, 1, 0)
@@ -157,7 +171,7 @@ local function renderCatalog(catalogList)
 		end
 		hTitle.Text = string.upper(rName) .. lockText
 		hTitle.TextColor3 = Color3.new(1, 1, 1)
-		hTitle.TextSize = 22
+		hTitle.TextSize = 20
 		hTitle.TextXAlignment = Enum.TextXAlignment.Left
 		hTitle.Parent = headerFrame
 		
@@ -175,9 +189,9 @@ local function renderCatalog(catalogList)
 		gridContainer.Parent = scrollFrame
 		
 		local grid = Instance.new("UIGridLayout")
-		-- 3열 고정: 스크롤프레임 너비(약 780~800) 기준으로 가로 240, 세로 280 설정
-		grid.CellSize = UDim2.new(0, 248, 0, 280)
-		grid.CellPadding = UDim2.new(0, 14, 0, 14)
+		-- 3열 고정: 스크롤프레임 너비에 맞춰 230 x 280 설정
+		grid.CellSize = UDim2.new(0, 230, 0, 280)
+		grid.CellPadding = UDim2.new(0, 16, 0, 16)
 		grid.HorizontalAlignment = Enum.HorizontalAlignment.Center
 		grid.SortOrder = Enum.SortOrder.LayoutOrder
 		grid.Parent = gridContainer
@@ -191,19 +205,32 @@ local function renderCatalog(catalogList)
 			local itemImg = card:FindFirstChild("ItemImage") :: ImageLabel?
 			if itemImg then
 				itemImg.Image = board.imageId or ""
+				itemImg.Size = UDim2.new(1, -20, 0, 130)
+				itemImg.Position = UDim2.new(0, 10, 0, 10)
 			end
 			
 			local itemNm = card:FindFirstChild("ItemName") :: TextLabel?
 			if itemNm then
 				itemNm.Text = board.name or "Hoverboard"
+				itemNm.Size = UDim2.new(1, 0, 0, 26)
+				itemNm.Position = UDim2.new(0, 0, 0, 146)
+				itemNm.TextSize = 18
 			end
 			
 			local priceLbl = card:FindFirstChild("PriceLabel") :: TextLabel?
 			if priceLbl then
-				priceLbl.Text = string.format("💰 %d G", board.price or 0)
+				priceLbl.Size = UDim2.new(1, 0, 0, 24)
+				priceLbl.Position = UDim2.new(0, 0, 0, 174)
+				priceLbl.TextSize = 16
 			end
 			
 			local buyBtn = card:FindFirstChild("BuyButton") :: TextButton?
+			if buyBtn then
+				buyBtn.Size = UDim2.new(1, -30, 0, 42)
+				buyBtn.AnchorPoint = Vector2.new(0.5, 1)
+				buyBtn.Position = UDim2.new(0.5, 0, 1, -14)
+			end
+			
 			local isOwned = checkOwned(board.id)
 			
 			-- 잠금 오버레이 확인/생성
@@ -220,7 +247,7 @@ local function renderCatalog(catalogList)
 				
 				local lockIcon = Instance.new("TextLabel")
 				lockIcon.Size = UDim2.new(1, 0, 0, 40)
-				lockIcon.Position = UDim2.new(0, 0, 0.4, -20)
+				lockIcon.Position = UDim2.new(0, 0, 0.35, -20)
 				lockIcon.BackgroundTransparency = 1
 				lockIcon.Text = "🔒"
 				lockIcon.TextSize = 36
@@ -228,7 +255,7 @@ local function renderCatalog(catalogList)
 				
 				local lockDesc = Instance.new("TextLabel")
 				lockDesc.Size = UDim2.new(1, 0, 0, 30)
-				lockDesc.Position = UDim2.new(0, 0, 0.55, 0)
+				lockDesc.Position = UDim2.new(0, 0, 0.52, 0)
 				lockDesc.BackgroundTransparency = 1
 				lockDesc.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
 				lockDesc.Text = string.format("Lv. %d Required", rData.reqLevel)
@@ -239,24 +266,37 @@ local function renderCatalog(catalogList)
 			
 			if isOwned then
 				lockOverlay.Visible = false
+				-- Owned 상태일 때 가격 라벨 숨김 (버튼 뒤로 비침 완벽 방지)
+				if priceLbl then
+					priceLbl.Visible = false
+					priceLbl.Text = ""
+				end
 				if buyBtn then
 					buyBtn.Text = "Owned"
-					buyBtn.BackgroundColor3 = Color3.fromRGB(130, 140, 150)
+					buyBtn.BackgroundColor3 = Color3.fromRGB(120, 130, 145)
 					buyBtn.TextColor3 = Color3.fromRGB(240, 240, 240)
 					buyBtn.Active = false
 				end
 			elseif not isUnlocked then
 				lockOverlay.Visible = true
+				if priceLbl then
+					priceLbl.Visible = false
+					priceLbl.Text = ""
+				end
 				if buyBtn then
 					buyBtn.Text = "LOCKED"
-					buyBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 75)
+					buyBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 65)
 					buyBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
 					buyBtn.Active = false
 				end
 			else
 				lockOverlay.Visible = false
+				if priceLbl then
+					priceLbl.Visible = true
+					priceLbl.Text = string.format("💰 %d G", board.price or 0)
+				end
 				if buyBtn then
-					buyBtn.Text = string.format("BUY (%d G)", board.price or 0)
+					buyBtn.Text = "BUY"
 					buyBtn.BackgroundColor3 = Color3.fromRGB(50, 205, 50)
 					buyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 					buyBtn.Active = true
