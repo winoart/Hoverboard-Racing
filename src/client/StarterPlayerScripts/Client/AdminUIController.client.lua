@@ -577,6 +577,18 @@ local function buildAdminUI()
 			newObj.bannerImage = boxImage.Text
 			newObj.startDate = tonumber(boxStart.Text) or 0
 			newObj.endDate = tonumber(boxEnd.Text) or 4102412400
+			local prevItem = currentSelectedIndex and currentShopData[currentTab] and currentShopData[currentTab][currentSelectedIndex]
+			if prevItem and prevItem.isGamePass ~= nil then
+				newObj.isGamePass = prevItem.isGamePass
+			end
+		elseif currentTab == "Passes" then
+			newObj.id = tonumber(boxId.Text) or 0
+			newObj.name = boxName.Text
+			newObj.icon = boxImage.Text
+			if boxBgImage.Text ~= "" then
+				newObj.bgImage = boxBgImage.Text
+			end
+			newObj.isGamePass = true
 		else
 			newObj.id = tonumber(boxId.Text) or 0
 			newObj.name = boxName.Text

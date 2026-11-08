@@ -110,7 +110,67 @@ getShopStockFunc.OnServerInvoke = function(player)
 	return cachedStocks
 end
 
--- 결제 승인 콜백 함수
+-- 보상 지급 공통 함수
+local function grantProductRewards(player: Player, product: any)
+	if not player or not product then return end
+	
+	-- 1. 보상 일괄 지급 로직 (골드, 호버보드, 스킬)
+	if product.rewards then
+		for _, reward in ipairs(product.rewards) do
+			if reward.type == "Gold" then
+				local leaderstats = player:FindFirstChild("leaderstats")
+				if leaderstats then
+					local goldValue = leaderstats:FindFirstChild("Gold")
+					if goldValue and goldValue:IsA("IntValue") then
+						goldValue.Value += reward.value
+						print("💰 " .. player.Name .. " obtained " .. reward.value .. " Gold from " .. (product.promotionName or product.name or "Product"))
+					end
+				end
+			elseif reward.type == "Hoverboard" then
+				local ownedBoards = player:FindFirstChild("OwnedHoverboards") or (player:FindFirstChild("Inventory") and player.Inventory:FindFirstChild("OwnedHoverboards"))
+				if ownedBoards then
+					local hasBoard = ownedBoards:FindFirstChild(tostring(reward.value))
+					if not hasBoard then
+						local newTag = Instance.new("BoolValue")
+						newTag.Name = tostring(reward.value)
+						newTag.Parent = ownedBoards
+						print("🏄 " .. player.Name .. " obtained Hoverboard: " .. reward.value .. " from " .. (product.promotionName or product.name or "Product"))
+					else
+						print("🏄 " .. player.Name .. " already owns Hoverboard: " .. reward.value)
+					end
+				end
+			elseif reward.type == "Skill" then
+				local ownedSkills = player:FindFirstChild("OwnedSkills")
+				if ownedSkills then
+					local hasSkill = ownedSkills:FindFirstChild(tostring(reward.value))
+					if not hasSkill then
+						local newTag = Instance.new("BoolValue")
+						newTag.Name = tostring(reward.value)
+						newTag.Parent = ownedSkills
+						print("⭐ " .. player.Name .. " obtained Premium Skill: " .. reward.value .. " from " .. (product.promotionName or product.name or "Product"))
+					else
+						print("⭐ " .. player.Name .. " already owns Premium Skill: " .. reward.value)
+					end
+				end
+			end
+		end
+	end
+
+	-- 2. 패스 특수 처리 로직 (이름 기반 또는 ID 기반)
+	if product.name == "R 슬롯 잠금 해제" then
+		local maxSkillSlots = player:FindFirstChild("MaxSkillSlots")
+		if maxSkillSlots and maxSkillSlots.Value < 3 then
+			maxSkillSlots.Value = 3
+		end
+	elseif product.name == "T 슬롯 잠금 해제" then
+		local maxSkillSlots = player:FindFirstChild("MaxSkillSlots")
+		if maxSkillSlots and maxSkillSlots.Value < 4 then
+			maxSkillSlots.Value = 4
+		end
+	end
+end
+
+-- 결제 승인 콜백 함수 (Developer Product)
 local function processReceipt(receiptInfo)
 	local player = Players:GetPlayerByUserId(receiptInfo.PlayerId)
 	if not player then
@@ -176,62 +236,7 @@ local function processReceipt(receiptInfo)
 			end
 		end
 
-		-- 보상 일괄 지급 로직
-		if purchasedProduct.rewards then
-			for _, reward in ipairs(purchasedProduct.rewards) do
-				if reward.type == "Gold" then
-					local leaderstats = player:FindFirstChild("leaderstats")
-					if leaderstats then
-						local goldValue = leaderstats:FindFirstChild("Gold")
-						if goldValue and goldValue:IsA("IntValue") then
-							goldValue.Value += reward.value
-							print("💰 " .. player.Name .. " obtained " .. reward.value .. " Gold from " .. (purchasedProduct.promotionName or purchasedProduct.name))
-						end
-					end
-				elseif reward.type == "Hoverboard" then
-					local inventory = player:FindFirstChild("Inventory")
-					local ownedBoards = inventory and inventory:FindFirstChild("OwnedHoverboards")
-					if ownedBoards then
-						local hasBoard = ownedBoards:FindFirstChild(tostring(reward.value))
-						if not hasBoard then
-							local newTag = Instance.new("BoolValue")
-							newTag.Name = tostring(reward.value)
-							newTag.Parent = ownedBoards
-							print("🏄 " .. player.Name .. " obtained Hoverboard: " .. reward.value .. " from " .. (purchasedProduct.promotionName or purchasedProduct.name))
-						else
-							print("🏄 " .. player.Name .. " already owns Hoverboard: " .. reward.value)
-						end
-					end
-				elseif reward.type == "Skill" then
-					local ownedSkills = player:FindFirstChild("OwnedSkills")
-					if ownedSkills then
-						local hasSkill = ownedSkills:FindFirstChild(tostring(reward.value))
-						if not hasSkill then
-							local newTag = Instance.new("BoolValue")
-							newTag.Name = tostring(reward.value)
-							newTag.Parent = ownedSkills
-							print("⭐ " .. player.Name .. " obtained Premium Skill: " .. reward.value .. " from " .. (purchasedProduct.promotionName or purchasedProduct.name))
-						else
-							print("⭐ " .. player.Name .. " already owns Premium Skill: " .. reward.value)
-						end
-					end
-				end
-			end
-		end
-
-		-- 패스 특수 처리 로직 (이름 기반 또는 ID 기반)
-		if purchasedProduct.name == "R 슬롯 잠금 해제" then
-			local maxSkillSlots = player:FindFirstChild("MaxSkillSlots")
-			if maxSkillSlots and maxSkillSlots.Value < 3 then
-				maxSkillSlots.Value = 3
-			end
-		elseif purchasedProduct.name == "T 슬롯 잠금 해제" then
-			local maxSkillSlots = player:FindFirstChild("MaxSkillSlots")
-			if maxSkillSlots and maxSkillSlots.Value < 4 then
-				maxSkillSlots.Value = 4
-			end
-		end
-		
+		grantProductRewards(player, purchasedProduct)
 		return Enum.ProductPurchaseDecision.PurchaseGranted
 	else
 		warn("🚨 Unknown Product ID purchased: " .. purchasedProductId)
@@ -248,5 +253,24 @@ MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player, gameP
 	if wasPurchased then
 		player:SetAttribute("OwnsPass_" .. tostring(gamePassId), true)
 		print("🛒 [MonetizationServer] " .. player.Name .. " purchased GamePass: " .. tostring(gamePassId))
+		
+		-- 상품 탐색 후 보상 지급 (스타터 팩 등 이벤트/패스에 설정된 보상 지급)
+		local foundProduct = nil
+		local categoryList = {cachedShopData.Events, cachedShopData.Passes}
+		for _, cat in ipairs(categoryList) do
+			if cat then
+				for _, prod in ipairs(cat) do
+					if prod.id == gamePassId then
+						foundProduct = prod
+						break
+					end
+				end
+			end
+			if foundProduct then break end
+		end
+		
+		if foundProduct then
+			grantProductRewards(player, foundProduct)
+		end
 	end
 end)

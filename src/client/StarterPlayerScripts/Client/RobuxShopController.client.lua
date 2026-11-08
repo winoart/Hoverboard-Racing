@@ -197,17 +197,15 @@ local function initializeShop()
 			
 			clone.PriceButton.TextLabel.Text = tostring(item.price)
 			
-			-- 결제 연동
+			-- 스마트 결제 연동 (GamePass / Developer Product 자동 판별 지원)
 			clone.PriceButton.MouseButton1Click:Connect(function()
 				local pId = tonumber(item.id) or 0
 				if pId > 0 then
-					-- [테스트 시뮬레이션] 임시 게임패스 ID인 경우 가상 구매 처리
 					if pId == 11111111 or pId == 22222222 or pId == 33333333 then
 						player:SetAttribute("OwnsPass_" .. tostring(pId), true)
 						clone.PriceButton.TextLabel.Text = "OWNED"
 						clone.PriceButton.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
 						
-						-- 서버에도 테스트 속성을 설정하도록 임시 리모트 전송
 						local remotesFolder = game:GetService("ReplicatedStorage"):FindFirstChild("HoverboardRemotes")
 						if remotesFolder then
 							local simRemote = remotesFolder:FindFirstChild("SimulatePassPurchase")
@@ -218,10 +216,29 @@ local function initializeShop()
 						return
 					end
 
-					if item.isGamePass then
+					if item.isGamePass == true then
 						MarketplaceService:PromptGamePassPurchase(player, pId)
-					else
+					elseif item.isGamePass == false then
 						MarketplaceService:PromptProductPurchase(player, pId)
+					else
+						-- 자동 판별 (GamePass 우선 확인)
+						task.spawn(function()
+							local isPass = false
+							local ok, info = pcall(function()
+								return MarketplaceService:GetProductInfo(pId, Enum.InfoType.GamePass)
+							end)
+							if ok and info and info.PriceInRobux then
+								isPass = true
+							end
+							
+							if isPass then
+								item.isGamePass = true
+								MarketplaceService:PromptGamePassPurchase(player, pId)
+							else
+								item.isGamePass = false
+								MarketplaceService:PromptProductPurchase(player, pId)
+							end
+						end)
 					end
 				else
 					warn("상품 ID가 유효하지 않습니다: " .. tostring(item.id))
@@ -316,10 +333,29 @@ local function initializeShop()
 						return
 					end
 
-					if item.isGamePass then
+					if item.isGamePass == true then
 						MarketplaceService:PromptGamePassPurchase(player, pId)
-					else
+					elseif item.isGamePass == false then
 						MarketplaceService:PromptProductPurchase(player, pId)
+					else
+						-- 자동 판별 (Passes 탭이거나 GamePass 정보가 확인되면 GamePass로 처리)
+						task.spawn(function()
+							local isPass = false
+							local ok, info = pcall(function()
+								return MarketplaceService:GetProductInfo(pId, Enum.InfoType.GamePass)
+							end)
+							if ok and info and info.PriceInRobux then
+								isPass = true
+							end
+							
+							if isPass then
+								item.isGamePass = true
+								MarketplaceService:PromptGamePassPurchase(player, pId)
+							else
+								item.isGamePass = false
+								MarketplaceService:PromptProductPurchase(player, pId)
+							end
+						end)
 					end
 				else
 					warn("상품 ID가 유효하지 않습니다: " .. tostring(item.id))
