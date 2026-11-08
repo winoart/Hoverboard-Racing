@@ -53,6 +53,106 @@ local function initializeShop()
 	emptyMessageLabel.ZIndex = 10
 	emptyMessageLabel.Parent = contentArea
 	
+	-- 토스트 알림 표시 함수
+	local function showToast(message: string, isSuccess: boolean)
+		local toast = Instance.new("Frame")
+		toast.Size = UDim2.new(0, 360, 0, 48)
+		toast.Position = UDim2.new(0.5, 0, 0.15, 0)
+		toast.AnchorPoint = Vector2.new(0.5, 0.5)
+		toast.BackgroundColor3 = isSuccess and Color3.fromRGB(30, 160, 60) or Color3.fromRGB(200, 50, 50)
+		toast.ZIndex = 100
+		toast.Parent = shopGui
+		Instance.new("UICorner", toast).CornerRadius = UDim.new(0, 10)
+		local tStroke = Instance.new("UIStroke", toast)
+		tStroke.Color = Color3.fromRGB(0, 0, 0)
+		tStroke.Thickness = 3
+
+		local lbl = Instance.new("TextLabel", toast)
+		lbl.Size = UDim2.new(1, -20, 1, 0)
+		lbl.Position = UDim2.new(0, 10, 0, 0)
+		lbl.BackgroundTransparency = 1
+		lbl.Text = message
+		lbl.TextColor3 = Color3.fromRGB(255, 255, 255)
+		lbl.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
+		lbl.TextSize = 18
+		lbl.ZIndex = 101
+
+		task.delay(2.5, function()
+			if toast.Parent then toast:Destroy() end
+		end)
+	end
+	
+	local simulatePurchaseFunc = hoverRemotes:FindFirstChild("SimulatePurchase") :: RemoteFunction?
+	
+	-- 스마트 구매 처리 함수 (정식 로블록스 상품 프롬프트 + 미등록/테스트 상품 자동 시뮬레이션 지원)
+	local function handleSmartPurchase(item: any, priceButton: TextButton, category: string)
+		local pId = tonumber(item.id) or 0
+		if pId <= 0 then
+			warn("상품 ID가 유효하지 않습니다: " .. tostring(item.id))
+			showToast("상품 ID가 유효하지 않습니다.", false)
+			return
+		end
+
+		-- 이미 소유한 게임패스인 경우 무시
+		if (item.isGamePass or category == "Passes") and player:GetAttribute("OwnsPass_" .. tostring(pId)) then
+			showToast("이미 보유하고 있는 패스입니다!", true)
+			return
+		end
+
+		task.spawn(function()
+			local isRealProduct = false
+			local isPass = (category == "Passes" or item.isGamePass == true)
+
+			-- GamePass 여부 조회
+			local okPass, passInfo = pcall(function()
+				return MarketplaceService:GetProductInfo(pId, Enum.InfoType.GamePass)
+			end)
+			if okPass and passInfo and passInfo.PriceInRobux then
+				isRealProduct = true
+				isPass = true
+			else
+				-- Developer Product 여부 조회
+				local okProd, prodInfo = pcall(function()
+					return MarketplaceService:GetProductInfo(pId, Enum.InfoType.Product)
+				end)
+				if okProd and prodInfo and prodInfo.PriceInRobux then
+					isRealProduct = true
+					isPass = false
+				end
+			end
+
+			if isRealProduct then
+				-- 정식 로블록스 상품: 공식 프롬프트 호출
+				if isPass then
+					item.isGamePass = true
+					MarketplaceService:PromptGamePassPurchase(player, pId)
+				else
+					item.isGamePass = false
+					MarketplaceService:PromptProductPurchase(player, pId)
+				end
+			else
+				-- 미등록 상품/테스트 ID: 가상 구매 시뮬레이션 즉시 처리
+				print("🛠️ [RobuxShop] 미등록 상품/테스트 상품 -> 가상 구매 처리: " .. tostring(pId))
+				if simulatePurchaseFunc then
+					local success, msg, prodData = simulatePurchaseFunc:InvokeServer(pId, category)
+					if success then
+						if isPass or category == "Passes" then
+							player:SetAttribute("OwnsPass_" .. tostring(pId), true)
+							local tLbl = priceButton:FindFirstChild("TextLabel") :: TextLabel?
+							if tLbl then tLbl.Text = "OWNED" end
+							priceButton.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
+							showToast("🎉 [테스트 결제] 패스 구매 완료!", true)
+						else
+							showToast("💰 [테스트 결제] 골드가 충전되었습니다!", true)
+						end
+					else
+						showToast("❌ 결제 실패: " .. tostring(msg), false)
+					end
+				end
+			end
+		end)
+	end
+	
 	local function checkEmptyState()
 		local activeScroll = nil
 		if eventScroll.Visible then activeScroll = eventScroll
@@ -197,52 +297,9 @@ local function initializeShop()
 			
 			clone.PriceButton.TextLabel.Text = tostring(item.price)
 			
-			-- 스마트 결제 연동 (GamePass / Developer Product 자동 판별 지원)
+			-- 스마트 결제 연동 (GamePass / Developer Product / 가상 시뮬레이션 지원)
 			clone.PriceButton.MouseButton1Click:Connect(function()
-				local pId = tonumber(item.id) or 0
-				if pId > 0 then
-					if pId == 11111111 or pId == 22222222 or pId == 33333333 then
-						player:SetAttribute("OwnsPass_" .. tostring(pId), true)
-						clone.PriceButton.TextLabel.Text = "OWNED"
-						clone.PriceButton.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
-						
-						local remotesFolder = game:GetService("ReplicatedStorage"):FindFirstChild("HoverboardRemotes")
-						if remotesFolder then
-							local simRemote = remotesFolder:FindFirstChild("SimulatePassPurchase")
-							if simRemote then
-								simRemote:FireServer(pId)
-							end
-						end
-						return
-					end
-
-					if item.isGamePass == true then
-						MarketplaceService:PromptGamePassPurchase(player, pId)
-					elseif item.isGamePass == false then
-						MarketplaceService:PromptProductPurchase(player, pId)
-					else
-						-- 자동 판별 (GamePass 우선 확인)
-						task.spawn(function()
-							local isPass = false
-							local ok, info = pcall(function()
-								return MarketplaceService:GetProductInfo(pId, Enum.InfoType.GamePass)
-							end)
-							if ok and info and info.PriceInRobux then
-								isPass = true
-							end
-							
-							if isPass then
-								item.isGamePass = true
-								MarketplaceService:PromptGamePassPurchase(player, pId)
-							else
-								item.isGamePass = false
-								MarketplaceService:PromptProductPurchase(player, pId)
-							end
-						end)
-					end
-				else
-					warn("상품 ID가 유효하지 않습니다: " .. tostring(item.id))
-				end
+				handleSmartPurchase(item, clone.PriceButton, "Events")
 			end)
 			
 			-- 스타터팩 24시간 타이머 처리
@@ -311,55 +368,8 @@ local function initializeShop()
 			end
 			
 			clone.PriceButton.MouseButton1Click:Connect(function()
-				local pId = tonumber(item.id) or 0
-				if pId > 0 then
-					if pId == 11111111 or pId == 22222222 or pId == 33333333 then
-						player:SetAttribute("OwnsPass_" .. tostring(pId), true)
-						clone.PriceButton.TextLabel.Text = "OWNED"
-						clone.PriceButton.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
-						
-						local remotesFolder = game:GetService("ReplicatedStorage"):FindFirstChild("HoverboardRemotes")
-						if remotesFolder then
-							local simRemote = remotesFolder:FindFirstChild("SimulatePassPurchase")
-							if simRemote then
-								simRemote:FireServer(pId)
-							end
-						end
-						return
-					end
-					
-					-- 이미 소유한 경우 클릭 무시
-					if item.isGamePass and player:GetAttribute("OwnsPass_" .. tostring(item.id)) then
-						return
-					end
-
-					if item.isGamePass == true then
-						MarketplaceService:PromptGamePassPurchase(player, pId)
-					elseif item.isGamePass == false then
-						MarketplaceService:PromptProductPurchase(player, pId)
-					else
-						-- 자동 판별 (Passes 탭이거나 GamePass 정보가 확인되면 GamePass로 처리)
-						task.spawn(function()
-							local isPass = false
-							local ok, info = pcall(function()
-								return MarketplaceService:GetProductInfo(pId, Enum.InfoType.GamePass)
-							end)
-							if ok and info and info.PriceInRobux then
-								isPass = true
-							end
-							
-							if isPass then
-								item.isGamePass = true
-								MarketplaceService:PromptGamePassPurchase(player, pId)
-							else
-								item.isGamePass = false
-								MarketplaceService:PromptProductPurchase(player, pId)
-							end
-						end)
-					end
-				else
-					warn("상품 ID가 유효하지 않습니다: " .. tostring(item.id))
-				end
+				local category = isGoldTab and "Golds" or "Passes"
+				handleSmartPurchase(item, clone.PriceButton, category)
 			end)
 			
 			clone.Parent = parentScroll

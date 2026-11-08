@@ -41,11 +41,130 @@ if not simulatePassPurchaseEvent then
 	simulatePassPurchaseEvent.Parent = remotesFolder
 end
 
-simulatePassPurchaseEvent.OnServerEvent:Connect(function(player: Player, passId: number)
-	if passId == 11111111 or passId == 22222222 or passId == 33333333 then
-		player:SetAttribute("OwnsPass_" .. tostring(passId), true)
-		print("🛠️ [MonetizationServer] " .. player.Name .. " 테스트 게임패스 서버 동기화 완료: " .. tostring(passId))
+local simulatePurchaseFunc = remotesFolder:FindFirstChild("SimulatePurchase") :: RemoteFunction?
+if not simulatePurchaseFunc then
+	simulatePurchaseFunc = Instance.new("RemoteFunction")
+	simulatePurchaseFunc.Name = "SimulatePurchase"
+	simulatePurchaseFunc.Parent = remotesFolder
+end
+
+-- =========================================================================
+-- 보상 지급 공통 함수
+-- =========================================================================
+local function grantProductRewards(player: Player, product: any)
+	if not player or not product then return end
+	
+	-- 1. 보상 일괄 지급 로직 (골드, 호버보드, 스킬)
+	if product.rewards then
+		for _, reward in ipairs(product.rewards) do
+			if reward.type == "Gold" then
+				local leaderstats = player:FindFirstChild("leaderstats")
+				if leaderstats then
+					local goldValue = leaderstats:FindFirstChild("Gold")
+					if goldValue and goldValue:IsA("IntValue") then
+						goldValue.Value += reward.value
+						print("💰 " .. player.Name .. " obtained " .. reward.value .. " Gold from " .. (product.promotionName or product.name or "Product"))
+					end
+				end
+			elseif reward.type == "Hoverboard" then
+				local ownedBoards = player:FindFirstChild("OwnedHoverboards") or (player:FindFirstChild("Inventory") and player.Inventory:FindFirstChild("OwnedHoverboards"))
+				if ownedBoards then
+					local hasBoard = ownedBoards:FindFirstChild(tostring(reward.value))
+					if not hasBoard then
+						local newTag = Instance.new("BoolValue")
+						newTag.Name = tostring(reward.value)
+						newTag.Parent = ownedBoards
+						print("🏄 " .. player.Name .. " obtained Hoverboard: " .. reward.value .. " from " .. (product.promotionName or product.name or "Product"))
+					else
+						print("🏄 " .. player.Name .. " already owns Hoverboard: " .. reward.value)
+					end
+				end
+			elseif reward.type == "Skill" then
+				local ownedSkills = player:FindFirstChild("OwnedSkills")
+				if ownedSkills then
+					local hasSkill = ownedSkills:FindFirstChild(tostring(reward.value))
+					if not hasSkill then
+						local newTag = Instance.new("BoolValue")
+						newTag.Name = tostring(reward.value)
+						newTag.Parent = ownedSkills
+						print("⭐ " .. player.Name .. " obtained Premium Skill: " .. reward.value .. " from " .. (product.promotionName or product.name or "Product"))
+					else
+						print("⭐ " .. player.Name .. " already owns Premium Skill: " .. reward.value)
+					end
+				end
+			end
+		end
 	end
+
+	-- 2. 패스 특수 처리 로직 (이름 기반 또는 ID 기반)
+	if product.name == "R 슬롯 잠금 해제" then
+		local maxSkillSlots = player:FindFirstChild("MaxSkillSlots")
+		if maxSkillSlots and maxSkillSlots.Value < 3 then
+			maxSkillSlots.Value = 3
+		end
+	elseif product.name == "T 슬롯 잠금 해제" then
+		local maxSkillSlots = player:FindFirstChild("MaxSkillSlots")
+		if maxSkillSlots and maxSkillSlots.Value < 4 then
+			maxSkillSlots.Value = 4
+		end
+	end
+end
+
+-- 가상/테스트 구매 시뮬레이션 핸들러 (패스 및 골드 모두 지원)
+simulatePurchaseFunc.OnServerInvoke = function(player: Player, productId: any, category: string)
+	local pIdNum = tonumber(productId) or 0
+	print(string.format("🛠️ [MonetizationServer] %s 구매 요청 처리: ID=%s, Cat=%s", player.Name, tostring(productId), tostring(category)))
+	
+	local foundProduct = nil
+	local catList = {cachedShopData.Events, cachedShopData.Passes, cachedShopData.Golds}
+	for _, list in ipairs(catList) do
+		if list then
+			for _, item in ipairs(list) do
+				if item.id == pIdNum or tostring(item.id) == tostring(productId) then
+					foundProduct = item
+					break
+				end
+			end
+		end
+		if foundProduct then break end
+	end
+	
+	if foundProduct then
+		local isPass = (category == "Passes" or foundProduct.isGamePass == true)
+		if isPass then
+			player:SetAttribute("OwnsPass_" .. tostring(foundProduct.id), true)
+			if foundProduct.name == "x2 Distance" then
+				player:SetAttribute("OwnsPass_x2Distance", true)
+				player:SetAttribute("OwnsPass_11111111", true)
+			elseif foundProduct.name == "x2 Acceleration" then
+				player:SetAttribute("OwnsPass_x2Acceleration", true)
+				player:SetAttribute("OwnsPass_22222222", true)
+			elseif foundProduct.name == "x2 Race Prize" then
+				player:SetAttribute("OwnsPass_x2RacePrize", true)
+				player:SetAttribute("OwnsPass_33333333", true)
+			end
+			grantProductRewards(player, foundProduct)
+			return true, "패스 구매 완료!", foundProduct
+		else
+			grantProductRewards(player, foundProduct)
+			return true, "골드 충전 완료!", foundProduct
+		end
+	else
+		if category == "Passes" then
+			player:SetAttribute("OwnsPass_" .. tostring(productId), true)
+			return true, "패스 활성화 완료!", { name = "Pass", id = productId }
+		end
+	end
+	
+	return false, "상품을 찾을 수 없습니다."
+end
+
+simulatePassPurchaseEvent.OnServerEvent:Connect(function(player: Player, passId: number)
+	player:SetAttribute("OwnsPass_" .. tostring(passId), true)
+	if passId == 11111111 then player:SetAttribute("OwnsPass_x2Distance", true) end
+	if passId == 22222222 then player:SetAttribute("OwnsPass_x2Acceleration", true) end
+	if passId == 33333333 then player:SetAttribute("OwnsPass_x2RacePrize", true) end
+	print("🛠️ [MonetizationServer] " .. player.Name .. " 테스트 게임패스 서버 동기화 완료: " .. tostring(passId))
 end)
 
 -- 캐시된 수량 및 상점 전체 데이터
@@ -108,66 +227,6 @@ end)
 
 getShopStockFunc.OnServerInvoke = function(player)
 	return cachedStocks
-end
-
--- 보상 지급 공통 함수
-local function grantProductRewards(player: Player, product: any)
-	if not player or not product then return end
-	
-	-- 1. 보상 일괄 지급 로직 (골드, 호버보드, 스킬)
-	if product.rewards then
-		for _, reward in ipairs(product.rewards) do
-			if reward.type == "Gold" then
-				local leaderstats = player:FindFirstChild("leaderstats")
-				if leaderstats then
-					local goldValue = leaderstats:FindFirstChild("Gold")
-					if goldValue and goldValue:IsA("IntValue") then
-						goldValue.Value += reward.value
-						print("💰 " .. player.Name .. " obtained " .. reward.value .. " Gold from " .. (product.promotionName or product.name or "Product"))
-					end
-				end
-			elseif reward.type == "Hoverboard" then
-				local ownedBoards = player:FindFirstChild("OwnedHoverboards") or (player:FindFirstChild("Inventory") and player.Inventory:FindFirstChild("OwnedHoverboards"))
-				if ownedBoards then
-					local hasBoard = ownedBoards:FindFirstChild(tostring(reward.value))
-					if not hasBoard then
-						local newTag = Instance.new("BoolValue")
-						newTag.Name = tostring(reward.value)
-						newTag.Parent = ownedBoards
-						print("🏄 " .. player.Name .. " obtained Hoverboard: " .. reward.value .. " from " .. (product.promotionName or product.name or "Product"))
-					else
-						print("🏄 " .. player.Name .. " already owns Hoverboard: " .. reward.value)
-					end
-				end
-			elseif reward.type == "Skill" then
-				local ownedSkills = player:FindFirstChild("OwnedSkills")
-				if ownedSkills then
-					local hasSkill = ownedSkills:FindFirstChild(tostring(reward.value))
-					if not hasSkill then
-						local newTag = Instance.new("BoolValue")
-						newTag.Name = tostring(reward.value)
-						newTag.Parent = ownedSkills
-						print("⭐ " .. player.Name .. " obtained Premium Skill: " .. reward.value .. " from " .. (product.promotionName or product.name or "Product"))
-					else
-						print("⭐ " .. player.Name .. " already owns Premium Skill: " .. reward.value)
-					end
-				end
-			end
-		end
-	end
-
-	-- 2. 패스 특수 처리 로직 (이름 기반 또는 ID 기반)
-	if product.name == "R 슬롯 잠금 해제" then
-		local maxSkillSlots = player:FindFirstChild("MaxSkillSlots")
-		if maxSkillSlots and maxSkillSlots.Value < 3 then
-			maxSkillSlots.Value = 3
-		end
-	elseif product.name == "T 슬롯 잠금 해제" then
-		local maxSkillSlots = player:FindFirstChild("MaxSkillSlots")
-		if maxSkillSlots and maxSkillSlots.Value < 4 then
-			maxSkillSlots.Value = 4
-		end
-	end
 end
 
 -- 결제 승인 콜백 함수 (Developer Product)

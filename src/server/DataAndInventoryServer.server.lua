@@ -542,13 +542,18 @@ addDistanceRemote.OnServerEvent:Connect(function(player: Player, dist: number)
 	if leaderstats then
 		local distanceVal = leaderstats:FindFirstChild("Distance")
 		if distanceVal then
-			distanceVal.Value += math.floor(dist)
+			local multiplier = 1
+			if player:GetAttribute("OwnsPass_x2Distance") == true or player:GetAttribute("OwnsPass_11111111") == true then
+				multiplier = 2
+			end
+			local earnedDist = math.floor(dist * multiplier)
+			distanceVal.Value += earnedDist
 			
 			-- Quest: Distance
 			local QuestBindables = ReplicatedStorage:FindFirstChild("QuestBindables")
 			local addProgress = QuestBindables and QuestBindables:FindFirstChild("AddQuestProgress")
 			if addProgress then
-				addProgress:Fire(player.UserId, "_dist", math.floor(dist))
+				addProgress:Fire(player.UserId, "_dist", earnedDist)
 			end
 		end
 	end
