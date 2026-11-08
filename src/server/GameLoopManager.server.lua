@@ -226,12 +226,14 @@ local function teleportAllToTrackAndMount()
 
 				local rootPart = boardClone.PrimaryPart
 				if rootPart then
-					local rotationOffset = CFrame.new()
-					if boardName == "MagicBroom" then
-						rotationOffset = CFrame.Angles(0, math.rad(180), 0)
-					end
+					local rotYaw = boardTemplate:GetAttribute("RotationYaw") or 0
+					if boardName == "MagicBroom" and rotYaw == 0 then rotYaw = 180 end
+					local heightOffset = boardTemplate:GetAttribute("HeightOffset") or 0
 
-					boardClone:PivotTo(hrp.CFrame * CFrame.new(0, -3.25, 0) * rotationOffset)
+					local rotationOffset = CFrame.Angles(0, math.rad(rotYaw), 0)
+					local weldC0 = CFrame.new(0, -3.25 + heightOffset, 0) * rotationOffset
+
+					boardClone:PivotTo(hrp.CFrame * weldC0)
 
 					for _, part in ipairs(boardClone:GetDescendants()) do
 						if part:IsA("BasePart") and part ~= rootPart then
@@ -248,7 +250,7 @@ local function teleportAllToTrackAndMount()
 					weld.Name = "HoverWeld"
 					weld.Part0 = hrp
 					weld.Part1 = rootPart
-					weld.C0 = CFrame.new(0, -3.25, 0) * rotationOffset
+					weld.C0 = weldC0
 					weld.Parent = rootPart
 
 					print("[DEBUG-GLM] Firing stateRemote for " .. player.Name .. " with forceIsRacing=true")

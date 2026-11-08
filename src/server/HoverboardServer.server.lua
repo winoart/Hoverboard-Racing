@@ -139,7 +139,12 @@ local function attachHoverboardToCharacter(player: Player, boardName: string?): 
 		end
 	end
 
-	local defaultWeldC0 = CFrame.new(0, -3.25, 0)
+	local rotYaw = template:GetAttribute("RotationYaw") or 0
+	if boardName == "MagicBroom" and rotYaw == 0 then rotYaw = 180 end
+	local heightOffset = template:GetAttribute("HeightOffset") or 0
+
+	local rotationOffset = CFrame.Angles(0, math.rad(rotYaw), 0)
+	local defaultWeldC0 = CFrame.new(0, -3.25 + heightOffset, 0) * rotationOffset
 
 	rootPart.CFrame = hrp.CFrame * defaultWeldC0
 	boardModel.Parent = character

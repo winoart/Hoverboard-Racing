@@ -107,19 +107,21 @@ local function attachBoardToPlayer(player: Player)
 				end
 			end
 			
-			local rotationOffset = CFrame.new()
-			if boardName == "MagicBroom" then
-				rotationOffset = CFrame.Angles(0, math.rad(180), 0)
-			end
+			local rotYaw = boardTemplate:GetAttribute("RotationYaw") or 0
+			if boardName == "MagicBroom" and rotYaw == 0 then rotYaw = 180 end
+			local heightOffset = boardTemplate:GetAttribute("HeightOffset") or 0
+
+			local rotationOffset = CFrame.Angles(0, math.rad(rotYaw), 0)
+			local weldC0 = CFrame.new(0, -3.25 + heightOffset, 0) * rotationOffset
 
 			local weld = Instance.new("Weld")
 			weld.Name = "HoverWeld"
 			weld.Part0 = hrp
 			weld.Part1 = rootPart
-			weld.C0 = CFrame.new(0, -3.25, 0) * rotationOffset
+			weld.C0 = weldC0
 			weld.Parent = rootPart
 
-			boardClone:PivotTo(hrp.CFrame * weld.C0)
+			boardClone:PivotTo(hrp.CFrame * weldC0)
 			boardClone.Parent = char
 		end
 	end
