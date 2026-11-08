@@ -250,6 +250,82 @@ local function buildAdminUI()
 		end
 	end
 	
+	local function createRaritySelector(name, yPos)
+		local label = Instance.new("TextLabel")
+		label.Size = UDim2.new(0, 180, 0, 40)
+		label.Position = UDim2.new(0, 20, 0, yPos)
+		label.Text = name
+		label.TextColor3 = Color3.new(1, 1, 1)
+		label.BackgroundTransparency = 1
+		label.TextXAlignment = Enum.TextXAlignment.Right
+		label.TextSize = 16
+		label.Font = Enum.Font.GothamBold
+		label.Parent = formScroll
+		
+		local container = Instance.new("Frame")
+		container.Size = UDim2.new(1, -250, 0, 40)
+		container.Position = UDim2.new(0, 220, 0, yPos)
+		container.BackgroundTransparency = 1
+		container.Parent = formScroll
+		
+		local list = Instance.new("UIListLayout")
+		list.FillDirection = Enum.FillDirection.Horizontal
+		list.SortOrder = Enum.SortOrder.LayoutOrder
+		list.Padding = UDim.new(0, 8)
+		list.Parent = container
+		
+		local rarities = {
+			{ name = "Common", text = "Common", bg = Color3.fromRGB(240, 190, 20), textCol = Color3.fromRGB(0, 0, 0) },
+			{ name = "Uncommon", text = "Uncommon", bg = Color3.fromRGB(0, 150, 255), textCol = Color3.fromRGB(255, 255, 255) },
+			{ name = "Rare", text = "Rare", bg = Color3.fromRGB(170, 70, 255), textCol = Color3.fromRGB(255, 255, 255) },
+			{ name = "Super Rare", text = "Super Rare", bg = Color3.fromRGB(220, 50, 50), textCol = Color3.fromRGB(255, 255, 255) },
+		}
+		
+		local currentRarity = "Common"
+		local buttons = {}
+		
+		local function updateButtons()
+			for _, item in ipairs(rarities) do
+				local btn = buttons[item.name]
+				if btn then
+					local isSelected = (currentRarity == item.name)
+					if isSelected then
+						btn.BackgroundColor3 = item.bg
+						btn.TextColor3 = item.textCol
+					else
+						btn.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+						btn.TextColor3 = Color3.fromRGB(160, 160, 160)
+					end
+				end
+			end
+		end
+		
+		for idx, item in ipairs(rarities) do
+			local btn = Instance.new("TextButton")
+			btn.Name = "Btn_" .. item.name
+			btn.Size = UDim2.new(0.25, -6, 1, 0)
+			btn.Text = item.text
+			btn.Font = Enum.Font.GothamBold
+			btn.TextSize = 13
+			btn.LayoutOrder = idx
+			btn.Parent = container
+			Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+			
+			btn.MouseButton1Click:Connect(function()
+				currentRarity = item.name
+				updateButtons()
+			end)
+			buttons[item.name] = btn
+		end
+		
+		updateButtons()
+		
+		return container, label, function() return currentRarity end, function(newVal)
+			currentRarity = (newVal and newVal ~= "") and newVal or "Common"
+			updateButtons()
+		end
+	end
+	
 	-- 폼 필드들
 	local boxId, lblId = createInput("상품 ID (필수)", "Developer Product ID", 20)
 	local boxName, lblName = createInput("상품/이벤트 명", "노출될 텍스트", 70)
@@ -258,7 +334,7 @@ local function buildAdminUI()
 	local boxBgImage, lblBgImage = createInput("배경 이미지", "rbxassetid:// (없으면 빈칸)", 220)
 	local boxPrice, lblPrice = createInput("가격 (R$ 또는 Gold)", "UI 표기용", 270)
 	
-	local boxRarity, lblRarity = createInput("등급 (Common/Uncommon/Rare/Super Rare)", "Common, Uncommon, Rare, Super Rare", 320)
+	local raritySelector, lblRarity, getRarity, setRarity = createRaritySelector("호버보드 등급", 320)
 	local boxStart, lblStart = createInput("시작 날짜", "0 = 상시", 370)
 	local boxEnd, lblEnd = createInput("종료 날짜", "4102412400 = 무제한", 420)
 	
@@ -434,7 +510,7 @@ local function buildAdminUI()
 		boxStart.Visible = isEvent; lblStart.Visible = isEvent
 		boxEnd.Visible = isEvent; lblEnd.Visible = isEvent
 		boxDesc.Visible = (isEvent or isBoard); lblDesc.Visible = (isEvent or isBoard)
-		boxRarity.Visible = isBoard; lblRarity.Visible = isBoard
+		raritySelector.Visible = isBoard; lblRarity.Visible = isBoard
 		boxBgImage.Visible = not isBoard; lblBgImage.Visible = not isBoard
 		
 		boxGoldReward.Visible = hasRewards; lblGoldReward.Visible = hasRewards
@@ -450,7 +526,7 @@ local function buildAdminUI()
 			boxImage.Text = item.bannerImage or item.icon or item.imageId or ""
 			boxBgImage.Text = item.bgImage or ""
 			boxPrice.Text = tostring(item.price or "")
-			boxRarity.Text = tostring(item.rarity or "Common")
+			setRarity(item.rarity or "Common")
 			setVisible(item.isVisible ~= false)
 			
 			boxGoldReward.Text = ""
@@ -474,7 +550,7 @@ local function buildAdminUI()
 			boxImage.Text = "rbxassetid://"
 			boxBgImage.Text = ""
 			boxPrice.Text = ""
-			boxRarity.Text = "Common"
+			setRarity("Common")
 			setVisible(true)
 			boxGoldReward.Text = ""
 			boxBoardReward.Text = ""
@@ -492,7 +568,7 @@ local function buildAdminUI()
 			newObj.name = boxName.Text
 			newObj.desc = boxDesc.Text
 			newObj.imageId = boxImage.Text
-			newObj.rarity = boxRarity.Text ~= "" and boxRarity.Text or "Common"
+			newObj.rarity = getRarity()
 		elseif currentTab == "Events" then
 			newObj.id = tonumber(boxId.Text) or 0
 			newObj.promotionName = boxName.Text
