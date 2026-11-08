@@ -8,7 +8,8 @@ local DataStoreService = game:GetService("DataStoreService")
 local MessagingService = game:GetService("MessagingService")
 
 local ADMIN_USERS = {
-	winoart2025 = true
+	winoart2025 = true,
+	honey1012abc = true,
 }
 
 local AdminConfigStore = DataStoreService:GetDataStore("AdminConfig_v1")
