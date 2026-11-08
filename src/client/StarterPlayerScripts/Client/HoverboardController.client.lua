@@ -1409,7 +1409,9 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 			if weld then
 				local pitchRad = math.rad(-pitchAngleDeg)
 				local bankRad = math.rad(currentBankAngle + treadmillBankSway)
-				local baseStanceCFrame = CFrame.new(0, -2.5, 0) 
+				local rotYaw = boardModel:GetAttribute("RotationYaw") or 0
+				local heightOffset = boardModel:GetAttribute("HeightOffset") or 0
+				local baseStanceCFrame = CFrame.new(0, -3.25 + heightOffset, 0) * CFrame.Angles(0, math.rad(rotYaw), 0)
 				weld.C0 = baseStanceCFrame * CFrame.Angles(pitchRad, 0, bankRad)
 			end
 			

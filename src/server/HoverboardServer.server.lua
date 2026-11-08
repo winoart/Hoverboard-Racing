@@ -139,9 +139,21 @@ local function attachHoverboardToCharacter(player: Player, boardName: string?): 
 		end
 	end
 
-	local rotYaw = template:GetAttribute("RotationYaw") or 0
+	local rotYaw = template:GetAttribute("RotationYaw")
+	if rotYaw == nil then
+		-- Auto-detect orientation: if width (X) is longer than length (Z), auto-rotate 90 deg so length faces forward
+		local success, _, bboxSize = pcall(function() return template:GetBoundingBox() end)
+		if success and bboxSize and bboxSize.X > bboxSize.Z then
+			rotYaw = 90
+		else
+			rotYaw = 0
+		end
+	end
 	if boardName == "MagicBroom" and rotYaw == 0 then rotYaw = 180 end
 	local heightOffset = template:GetAttribute("HeightOffset") or 0
+
+	boardModel:SetAttribute("RotationYaw", rotYaw)
+	boardModel:SetAttribute("HeightOffset", heightOffset)
 
 	local rotationOffset = CFrame.Angles(0, math.rad(rotYaw), 0)
 	local defaultWeldC0 = CFrame.new(0, -3.25 + heightOffset, 0) * rotationOffset
