@@ -327,7 +327,7 @@ local function initializeShop()
 							
 							-- SkillStoreConfig에서 스킬 정보 찾기
 							local sName = tostring(r.value)
-							local sIcon = "rbxassetid://81959011754721"
+							local sIcon = "rbxassetid://76040627389377"
 							if SkillStoreConfig and SkillStoreConfig.Skills then
 								for _, skillData in ipairs(SkillStoreConfig.Skills) do
 									if skillData.id == r.value then
