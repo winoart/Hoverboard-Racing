@@ -83,7 +83,7 @@ SkillStoreConfig.Skills = {
 	},
 	{
 		id = "Skill_Premium",
-		name = "Gold Freeze",
+		name = "Golden Freeze",
 		description = "Starter Pack Exclusive! Freezes opponents for longer.",
 		imageId = "rbxassetid://81959011754721",
 		goldPrice = 0,
