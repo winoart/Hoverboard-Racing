@@ -362,11 +362,14 @@ local function buildAdminUI()
 	local boxEnd, lblEnd = createInput("종료 날짜", "4102412400 = 무제한", 420)
 	
 	local boxGoldReward, lblGoldReward = createInput("보상: 골드량", "지급할 골드 (없으면 빈칸)", 470)
-	local boxBoardReward, lblBoardReward = createInput("보상: 보드 ID", "예) Hoverboard_001", 520)
-	local boxSkillReward, lblSkillReward = createInput("보상: 스킬 ID", "예) Skill_Premium", 570)
-	local tglVisible, lblVisible, getVisible, setVisible = createToggle("노출 상태 (상점 표시)", 620)
+	local boxGoldDesc, lblGoldDesc = createInput("보상: 골드 설명", "툴팁 설명 (미입력 시 기본값)", 520)
+	local boxBoardReward, lblBoardReward = createInput("보상: 보드 ID", "예) Hoverboard_001", 570)
+	local boxBoardDesc, lblBoardDesc = createInput("보상: 보드 설명", "툴팁 설명 (미입력 시 기본값)", 620)
+	local boxSkillReward, lblSkillReward = createInput("보상: 스킬 ID", "예) Skill_Premium", 670)
+	local boxSkillDesc, lblSkillDesc = createInput("보상: 스킬 설명", "툴팁 설명 (미입력 시 기본값)", 720)
+	local tglVisible, lblVisible, getVisible, setVisible = createToggle("노출 상태 (상점 표시)", 770)
 	
-	formScroll.CanvasSize = UDim2.new(0, 0, 0, 700)
+	formScroll.CanvasSize = UDim2.new(0, 0, 0, 850)
 	
 	-- ==========================================
 	-- 함수들
@@ -537,8 +540,11 @@ local function buildAdminUI()
 		boxBgImage.Visible = not isBoard; lblBgImage.Visible = not isBoard
 		
 		boxGoldReward.Visible = hasRewards; lblGoldReward.Visible = hasRewards
+		boxGoldDesc.Visible = hasRewards; lblGoldDesc.Visible = hasRewards
 		boxBoardReward.Visible = isEvent; lblBoardReward.Visible = isEvent
+		boxBoardDesc.Visible = isEvent; lblBoardDesc.Visible = isEvent
 		boxSkillReward.Visible = isEvent; lblSkillReward.Visible = isEvent
+		boxSkillDesc.Visible = isEvent; lblSkillDesc.Visible = isEvent
 		
 		if item then
 			boxId.Text = tostring(item.id or "")
@@ -553,14 +559,23 @@ local function buildAdminUI()
 			setVisible(item.isVisible ~= false)
 			
 			boxGoldReward.Text = ""
+			boxGoldDesc.Text = ""
 			boxBoardReward.Text = ""
+			boxBoardDesc.Text = ""
 			boxSkillReward.Text = ""
+			boxSkillDesc.Text = ""
 			
 			if item.rewards then
 				for _, r in ipairs(item.rewards) do
-					if r.type == "Gold" then boxGoldReward.Text = tostring(r.value)
-					elseif r.type == "Hoverboard" then boxBoardReward.Text = tostring(r.value)
-					elseif r.type == "Skill" then boxSkillReward.Text = tostring(r.value)
+					if r.type == "Gold" then 
+						boxGoldReward.Text = tostring(r.value or "")
+						boxGoldDesc.Text = tostring(r.desc or "")
+					elseif r.type == "Hoverboard" then 
+						boxBoardReward.Text = tostring(r.value or "")
+						boxBoardDesc.Text = tostring(r.desc or "")
+					elseif r.type == "Skill" then 
+						boxSkillReward.Text = tostring(r.value or "")
+						boxSkillDesc.Text = tostring(r.desc or "")
 					end
 				end
 			end
@@ -576,8 +591,11 @@ local function buildAdminUI()
 			setRarity("Common")
 			setVisible(true)
 			boxGoldReward.Text = ""
+			boxGoldDesc.Text = ""
 			boxBoardReward.Text = ""
+			boxBoardDesc.Text = ""
 			boxSkillReward.Text = ""
+			boxSkillDesc.Text = ""
 		end
 	end
 	
@@ -623,9 +641,21 @@ local function buildAdminUI()
 		
 		if currentTab ~= "Boards" then
 			local rArray = {}
-			if boxGoldReward.Text ~= "" then table.insert(rArray, {type="Gold", value=tonumber(boxGoldReward.Text)}) end
-			if boxBoardReward.Text ~= "" then table.insert(rArray, {type="Hoverboard", value=boxBoardReward.Text}) end
-			if boxSkillReward.Text ~= "" then table.insert(rArray, {type="Skill", value=boxSkillReward.Text}) end
+			if boxGoldReward.Text ~= "" then 
+				local r: any = {type="Gold", value=tonumber(boxGoldReward.Text)}
+				if boxGoldDesc.Text ~= "" then r.desc = boxGoldDesc.Text end
+				table.insert(rArray, r) 
+			end
+			if boxBoardReward.Text ~= "" then 
+				local r: any = {type="Hoverboard", value=boxBoardReward.Text}
+				if boxBoardDesc.Text ~= "" then r.desc = boxBoardDesc.Text end
+				table.insert(rArray, r) 
+			end
+			if boxSkillReward.Text ~= "" then 
+				local r: any = {type="Skill", value=boxSkillReward.Text}
+				if boxSkillDesc.Text ~= "" then r.desc = boxSkillDesc.Text end
+				table.insert(rArray, r) 
+			end
 			if #rArray > 0 then newObj.rewards = rArray end
 		end
 		

@@ -449,7 +449,7 @@ local function initializeShop()
 							gSlot.Icon.BackgroundTransparency = 1
 
 							local goldTitle = string.format("%s Gold", formattedVal)
-							local goldDesc = "Gold currency used to unlock and upgrade hoverboards, or purchase special skills in the shop!"
+							local goldDesc = (r.desc and r.desc ~= "") and r.desc or "Gold currency used to unlock and upgrade hoverboards, or purchase special skills in the shop!"
 							bindSlotTooltip(gSlot, goldTitle, goldDesc)
 						elseif r.type == "Hoverboard" and bSlot then
 							bSlot.Visible = true
@@ -482,7 +482,8 @@ local function initializeShop()
 							bSlot.Icon.BackgroundTransparency = 1
 
 							local boardTitle = string.format("%s [%s]", bName, bRarity)
-							bindSlotTooltip(bSlot, boardTitle, bDesc)
+							local boardDesc = (r.desc and r.desc ~= "") and r.desc or bDesc
+							bindSlotTooltip(bSlot, boardTitle, boardDesc)
 						elseif r.type == "Skill" and sSlot then
 							sSlot.Visible = true
 							
@@ -510,7 +511,8 @@ local function initializeShop()
 							sSlot.Icon.BackgroundTransparency = 1
 
 							local skillTitle = string.format("%s [Exclusive]", sName)
-							bindSlotTooltip(sSlot, skillTitle, sDesc)
+							local skillDesc = (r.desc and r.desc ~= "") and r.desc or sDesc
+							bindSlotTooltip(sSlot, skillTitle, skillDesc)
 						end
 					end
 				end
