@@ -243,33 +243,6 @@ local function initializeShop()
 		bStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
 		bStroke.Parent = rewardBubble
 
-		-- 말풍선 꼬리 (아래쪽 45도 회전 사각형)
-		local tail = Instance.new("Frame")
-		tail.Name = "Tail"
-		tail.Size = UDim2.new(0, 14, 0, 14)
-		tail.AnchorPoint = Vector2.new(0.5, 0.5)
-		tail.Position = UDim2.new(0.5, 0, 1, 0)
-		tail.Rotation = 45
-		tail.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-		tail.BorderSizePixel = 0
-		tail.ZIndex = 99
-		tail.Parent = rewardBubble
-
-		local tailStroke = Instance.new("UIStroke")
-		tailStroke.Color = Color3.fromRGB(0, 0, 0)
-		tailStroke.Thickness = 2.5
-		tailStroke.Parent = tail
-
-		local tailCover = Instance.new("Frame")
-		tailCover.Name = "Cover"
-		tailCover.Size = UDim2.new(0, 20, 0, 8)
-		tailCover.AnchorPoint = Vector2.new(0.5, 1)
-		tailCover.Position = UDim2.new(0.5, 0, 1, 0)
-		tailCover.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-		tailCover.BorderSizePixel = 0
-		tailCover.ZIndex = 101
-		tailCover.Parent = rewardBubble
-
 		-- 제목 (Title)
 		local titleLbl = Instance.new("TextLabel")
 		titleLbl.Name = "Title"
@@ -331,11 +304,8 @@ local function initializeShop()
 		local halfWidth = bubbleWidth / 2
 		local mainWidth = mainFrame.AbsoluteSize.X > 0 and mainFrame.AbsoluteSize.X or 720
 		local clampedX = math.clamp(relX, halfWidth + 10, mainWidth - halfWidth - 10)
-		local tailOffset = relX - clampedX
 
-		rewardBubble.Position = UDim2.new(0, clampedX, 0, relY - 10)
-		rewardBubble.Tail.Position = UDim2.new(0.5, tailOffset, 1, 0)
-		rewardBubble.Cover.Position = UDim2.new(0.5, tailOffset, 1, 0)
+		rewardBubble.Position = UDim2.new(0, clampedX, 0, relY - 8)
 		rewardBubble.Visible = true
 
 		if isClick then
