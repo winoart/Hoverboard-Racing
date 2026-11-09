@@ -219,7 +219,7 @@ RunService.RenderStepped:Connect(function(dt)
 				-- 캐릭터 HRP가 있을 때만 이펙트 발생
 				local hrp = character:FindFirstChild("HumanoidRootPart") :: BasePart
 				if hrp then
-					local ownsDistancePass = LocalPlayer:GetAttribute("OwnsPass_11111111") == true
+					local ownsDistancePass = LocalPlayer:GetAttribute("OwnsPass_11111111") == true or LocalPlayer:GetAttribute("OwnsPass_x2Distance") == true
 					spawnLightningEffect(meterLabel, hrp, ownsDistancePass)
 				end
 			end
@@ -250,7 +250,7 @@ RunService.RenderStepped:Connect(function(dt)
 	
 	local distanceMoved = speed * dt
 	
-	local ownsDistancePass = LocalPlayer:GetAttribute("OwnsPass_11111111") == true
+	local ownsDistancePass = LocalPlayer:GetAttribute("OwnsPass_11111111") == true or LocalPlayer:GetAttribute("OwnsPass_x2Distance") == true
 	if ownsDistancePass then
 		distanceMoved *= 2
 	end

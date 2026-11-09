@@ -179,6 +179,24 @@ Players.PlayerAdded:Connect(function(player)
 			player:SetAttribute("PurchasedEvent_" .. tostring(eId), true)
 			player:SetAttribute("OwnsPass_" .. tostring(eId), true)
 		end
+
+		-- Load Purchased Passes
+		local ppFolder = Instance.new("Folder")
+		ppFolder.Name = "PurchasedPasses"
+		ppFolder.Parent = player
+		
+		local pPasses = data.PurchasedPasses or {}
+		for _, pId in ipairs(pPasses) do
+			local pidStr = tostring(pId)
+			local val = Instance.new("BoolValue")
+			val.Name = pidStr
+			val.Value = true
+			val.Parent = ppFolder
+			player:SetAttribute("OwnsPass_" .. pidStr, true)
+			if pidStr == "11111111" then player:SetAttribute("OwnsPass_x2Distance", true) end
+			if pidStr == "22222222" then player:SetAttribute("OwnsPass_x2Acceleration", true) end
+			if pidStr == "33333333" then player:SetAttribute("OwnsPass_x2RacePrize", true) end
+		end
 		
 		local SkillStoreConfig = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("SkillStoreConfig"))
 		
@@ -236,6 +254,10 @@ Players.PlayerAdded:Connect(function(player)
 		peFolder.Name = "PurchasedEvents"
 		peFolder.Parent = player
 
+		local ppFolder = Instance.new("Folder")
+		ppFolder.Name = "PurchasedPasses"
+		ppFolder.Parent = player
+
 		print("🆕 [DataServer] New profile for " .. player.Name)
 	end
 	
@@ -267,22 +289,38 @@ Players.PlayerAdded:Connect(function(player)
 		end
 
 		local peFolder = player:FindFirstChild("PurchasedEvents")
+		local ppFolder = player:FindFirstChild("PurchasedPasses")
 
 		for _, passId in ipairs(passIds) do
 			local success, owns = pcall(function()
 				return MarketplaceService:UserOwnsGamePassAsync(player.UserId, passId)
 			end)
 			if success and owns then
-				player:SetAttribute("OwnsPass_" .. tostring(passId), true)
-				player:SetAttribute("PurchasedEvent_" .. tostring(passId), true)
-				if peFolder and not peFolder:FindFirstChild(tostring(passId)) then
+				local pidStr = tostring(passId)
+				player:SetAttribute("OwnsPass_" .. pidStr, true)
+				player:SetAttribute("PurchasedEvent_" .. pidStr, true)
+				if peFolder and not peFolder:FindFirstChild(pidStr) then
 					local val = Instance.new("BoolValue")
-					val.Name = tostring(passId)
+					val.Name = pidStr
 					val.Value = true
 					val.Parent = peFolder
 				end
+				if ppFolder and not ppFolder:FindFirstChild(pidStr) then
+					local val = Instance.new("BoolValue")
+					val.Name = pidStr
+					val.Value = true
+					val.Parent = ppFolder
+				end
+				if pidStr == "11111111" then player:SetAttribute("OwnsPass_x2Distance", true) end
+				if pidStr == "22222222" then player:SetAttribute("OwnsPass_x2Acceleration", true) end
+				if pidStr == "33333333" then player:SetAttribute("OwnsPass_x2RacePrize", true) end
 			end
 		end
+
+		-- Also restore aliases from existing attributes
+		if player:GetAttribute("OwnsPass_11111111") then player:SetAttribute("OwnsPass_x2Distance", true) end
+		if player:GetAttribute("OwnsPass_22222222") then player:SetAttribute("OwnsPass_x2Acceleration", true) end
+		if player:GetAttribute("OwnsPass_33333333") then player:SetAttribute("OwnsPass_x2RacePrize", true) end
 
 		-- Fallback check: If player already owns the exclusive board (e.g. StarterPac_Board or Hoverboard_Starter),
 		-- mark the event/pack as purchased!
@@ -359,6 +397,14 @@ Players.PlayerRemoving:Connect(function(player)
 			end
 		end
 
+		local ppList = {}
+		local ppFolder = player:FindFirstChild("PurchasedPasses")
+		if ppFolder then
+			for _, child in ipairs(ppFolder:GetChildren()) do
+				table.insert(ppList, child.Name)
+			end
+		end
+
 		local dataToSave = {
 			Gold = gold.Value,
 			Wins = player.leaderstats.Wins.Value,
@@ -370,6 +416,7 @@ Players.PlayerRemoving:Connect(function(player)
 			OwnedSkills = sList,
 			EquippedSkills = eList,
 			PurchasedEvents = peList,
+			PurchasedPasses = ppList,
 			MaxSkillSlots = maxSkillSlots.Value,
 			LastAttendanceDate = lastDate and lastDate.Value or "",
 			AttendanceStreak = streak and streak.Value or 0,

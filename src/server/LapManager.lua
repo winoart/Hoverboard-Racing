@@ -182,7 +182,7 @@ function LapManager.startTracking(mapName: string, startTime: number)
 									elseif data.finalRank == 3 then 
 										reward = 300
 									end
-									local hasX2 = player:GetAttribute("OwnsPass_33333333") == true
+									local hasX2 = player:GetAttribute("OwnsPass_33333333") == true or player:GetAttribute("OwnsPass_x2RacePrize") == true
 									if hasX2 then
 										reward *= 2
 										print("✨ [DEBUG] " .. player.Name .. " has X2 Race Prize GamePass! Reward doubled to " .. reward)
@@ -360,7 +360,7 @@ function LapManager.getFinalScoreboardData()
 				timeStr = string.format("%.2fs", data.finishTime)
 			end
 			local reward = data.earnedGold or 0
-			local hasX2Prize = p:GetAttribute("OwnsPass_33333333") == true
+			local hasX2Prize = p:GetAttribute("OwnsPass_33333333") == true or p:GetAttribute("OwnsPass_x2RacePrize") == true
 			
 			if reward > 0 then
 				task.delay(0.5, function()

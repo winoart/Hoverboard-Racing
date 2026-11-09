@@ -1075,9 +1075,9 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 		
 		-- 테스트용 게임패스 버프 시뮬레이션 (상점에서 가상 구매 시 Attribute로 설정됨)
 		-- TODO: 나중에 실제 MarketPlaceService 및 서버 데이터 연동으로 교체
-		local ownsDistancePass = LocalPlayer:GetAttribute("OwnsPass_11111111") == true
-		local ownsAccePass = LocalPlayer:GetAttribute("OwnsPass_22222222") == true
-		local ownsGoldPass = LocalPlayer:GetAttribute("OwnsPass_33333333") == true
+		local ownsDistancePass = LocalPlayer:GetAttribute("OwnsPass_11111111") == true or LocalPlayer:GetAttribute("OwnsPass_x2Distance") == true
+		local ownsAccePass = LocalPlayer:GetAttribute("OwnsPass_22222222") == true or LocalPlayer:GetAttribute("OwnsPass_x2Acceleration") == true
+		local ownsGoldPass = LocalPlayer:GetAttribute("OwnsPass_33333333") == true or LocalPlayer:GetAttribute("OwnsPass_x2RacePrize") == true
 		
 		if updateBuffIcon then
 			if ownsAccePass then

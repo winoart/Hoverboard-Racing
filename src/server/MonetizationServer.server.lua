@@ -48,6 +48,36 @@ if not simulatePurchaseFunc then
 	simulatePurchaseFunc.Parent = remotesFolder
 end
 
+-- 패스 소유권 등록 및 DataStore 폴더 동기화 공통 함수
+local function markPassOwnedOnServer(player: Player, passId: any, passName: string?)
+	local pidStr = tostring(passId)
+	player:SetAttribute("OwnsPass_" .. pidStr, true)
+	
+	local ppFolder = player:FindFirstChild("PurchasedPasses")
+	if not ppFolder then
+		ppFolder = Instance.new("Folder")
+		ppFolder.Name = "PurchasedPasses"
+		ppFolder.Parent = player
+	end
+	if not ppFolder:FindFirstChild(pidStr) then
+		local b = Instance.new("BoolValue")
+		b.Name = pidStr
+		b.Value = true
+		b.Parent = ppFolder
+	end
+	
+	if passName == "x2 Distance" or pidStr == "11111111" then
+		player:SetAttribute("OwnsPass_x2Distance", true)
+		player:SetAttribute("OwnsPass_11111111", true)
+	elseif passName == "x2 Acceleration" or pidStr == "22222222" then
+		player:SetAttribute("OwnsPass_x2Acceleration", true)
+		player:SetAttribute("OwnsPass_22222222", true)
+	elseif passName == "x2 Race Prize" or pidStr == "33333333" then
+		player:SetAttribute("OwnsPass_x2RacePrize", true)
+		player:SetAttribute("OwnsPass_33333333", true)
+	end
+end
+
 -- =========================================================================
 -- 보상 지급 공통 함수
 -- =========================================================================
@@ -150,17 +180,7 @@ simulatePurchaseFunc.OnServerInvoke = function(player: Player, productId: any, c
 	if foundProduct then
 		local isPass = (category == "Passes" or foundProduct.isGamePass == true)
 		if isPass then
-			player:SetAttribute("OwnsPass_" .. tostring(foundProduct.id), true)
-			if foundProduct.name == "x2 Distance" then
-				player:SetAttribute("OwnsPass_x2Distance", true)
-				player:SetAttribute("OwnsPass_11111111", true)
-			elseif foundProduct.name == "x2 Acceleration" then
-				player:SetAttribute("OwnsPass_x2Acceleration", true)
-				player:SetAttribute("OwnsPass_22222222", true)
-			elseif foundProduct.name == "x2 Race Prize" then
-				player:SetAttribute("OwnsPass_x2RacePrize", true)
-				player:SetAttribute("OwnsPass_33333333", true)
-			end
+			markPassOwnedOnServer(player, foundProduct.id, foundProduct.name)
 			grantProductRewards(player, foundProduct)
 			return true, "패스 구매 완료!", foundProduct
 		else
@@ -169,7 +189,7 @@ simulatePurchaseFunc.OnServerInvoke = function(player: Player, productId: any, c
 		end
 	else
 		if category == "Passes" then
-			player:SetAttribute("OwnsPass_" .. tostring(productId), true)
+			markPassOwnedOnServer(player, productId, "CustomPass")
 			return true, "패스 활성화 완료!", { name = "Pass", id = productId }
 		end
 	end
@@ -178,10 +198,7 @@ simulatePurchaseFunc.OnServerInvoke = function(player: Player, productId: any, c
 end
 
 simulatePassPurchaseEvent.OnServerEvent:Connect(function(player: Player, passId: number)
-	player:SetAttribute("OwnsPass_" .. tostring(passId), true)
-	if passId == 11111111 then player:SetAttribute("OwnsPass_x2Distance", true) end
-	if passId == 22222222 then player:SetAttribute("OwnsPass_x2Acceleration", true) end
-	if passId == 33333333 then player:SetAttribute("OwnsPass_x2RacePrize", true) end
+	markPassOwnedOnServer(player, passId, nil)
 	print("🛠️ [MonetizationServer] " .. player.Name .. " 테스트 게임패스 서버 동기화 완료: " .. tostring(passId))
 end)
 
@@ -328,9 +345,6 @@ print("🛒 [MonetizationServer] Started processing receipts.")
 -- 게임패스 인게임 구매 성공 처리
 MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player, gamePassId, wasPurchased)
 	if wasPurchased then
-		player:SetAttribute("OwnsPass_" .. tostring(gamePassId), true)
-		print("🛒 [MonetizationServer] " .. player.Name .. " purchased GamePass: " .. tostring(gamePassId))
-		
 		-- 상품 탐색 후 보상 지급 (스타터 팩 등 이벤트/패스에 설정된 보상 지급)
 		local foundProduct = nil
 		local categoryList = {cachedShopData.Events, cachedShopData.Passes}
@@ -345,6 +359,9 @@ MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player, gameP
 			end
 			if foundProduct then break end
 		end
+		
+		markPassOwnedOnServer(player, gamePassId, foundProduct and foundProduct.name)
+		print("🛒 [MonetizationServer] " .. player.Name .. " purchased GamePass: " .. tostring(gamePassId))
 		
 		if foundProduct then
 			grantProductRewards(player, foundProduct)

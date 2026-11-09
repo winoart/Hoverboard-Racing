@@ -390,7 +390,13 @@ local function initializeShop()
 				clone.ItemName.Text = item.name
 			end
 			clone.ItemIcon.Image = item.icon
-			if item.isGamePass and player:GetAttribute("OwnsPass_" .. tostring(item.id)) then
+			local isPassOwned = (item.isGamePass or not isGoldTab) and (
+				player:GetAttribute("OwnsPass_" .. tostring(item.id)) == true
+				or (item.name == "x2 Distance" and player:GetAttribute("OwnsPass_x2Distance") == true)
+				or (item.name == "x2 Acceleration" and player:GetAttribute("OwnsPass_x2Acceleration") == true)
+				or (item.name == "x2 Race Prize" and player:GetAttribute("OwnsPass_x2RacePrize") == true)
+			)
+			if isPassOwned then
 				clone.PriceButton.TextLabel.Text = "OWNED"
 				clone.PriceButton.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
 			else
