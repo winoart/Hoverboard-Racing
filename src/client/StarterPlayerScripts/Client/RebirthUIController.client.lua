@@ -451,7 +451,7 @@ local function createRebirthWindow()
 	guideTitle.Position = UDim2.new(0, 10, 0, 8)
 	guideTitle.BackgroundTransparency = 1
 	guideTitle.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
-	guideTitle.Text = "🛹 호버보드 상점 등급 해금 단계 (Shop Unlocks)"
+	guideTitle.Text = "🛹 HOVERBOARD SHOP UNLOCK MILESTONES"
 	guideTitle.TextColor3 = Color3.fromRGB(255, 230, 100)
 	guideTitle.TextSize = 16
 	guideTitle.Parent = shopGuideFrame
@@ -519,7 +519,7 @@ local function createRebirthWindow()
 	guideTip.Position = UDim2.new(0, 10, 1, -24)
 	guideTip.BackgroundTransparency = 1
 	guideTip.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
-	guideTip.Text = "⚡ 누적 거리를 채우면 자동 레벨업! 해당 레벨 달성 시 호버보드 상점에서 새 등급 구매 가능"
+	guideTip.Text = "⚡ Reach the required distance to level up automatically & unlock new boards in shop!"
 	guideTip.TextColor3 = Color3.fromRGB(180, 240, 255)
 	guideTip.TextSize = 13
 	guideTip.Parent = shopGuideFrame
@@ -615,7 +615,7 @@ local function updateRebirthWindow()
 			if nextLvlTitle then nextLvlTitle.Text = "-" end
 			if boostSpeedLabel then boostSpeedLabel.Text = "MAX LEVEL REACHED" end
 			if shopOpenLabel then shopOpenLabel.Visible = false end
-			if reqDistLabel then reqDistLabel.Text = "최고 레벨 달성!" end
+			if reqDistLabel then reqDistLabel.Text = "Max Level Reached!" end
 		end
 	end
 
