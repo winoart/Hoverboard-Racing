@@ -83,9 +83,9 @@ SkillStoreConfig.Skills = {
 	},
 	{
 		id = "Skill_Premium",
-		name = "골든 프리즈",
-		description = "스타터팩 전용! 금빛 얼음으로 상대를 더 길게 얼어붙게 만듭니다.",
-		imageId = "rbxassetid://13583568770", -- Placeholder
+		name = "Gold Freeze",
+		description = "Starter Pack Exclusive! Freezes opponents for longer.",
+		imageId = "rbxassetid://81959011754721",
 		goldPrice = 0,
 		cooldownType = "Charges",
 		maxUses = 3,

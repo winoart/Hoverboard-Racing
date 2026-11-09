@@ -251,6 +251,31 @@ local function initializeShop()
 				local sSlot = rContainer:FindFirstChild("SkillReward")
 				local gSlot = rContainer:FindFirstChild("GoldReward")
 				
+				-- 3개 보상 슬롯 모두 화이트 배경 & 라운드 테두리로 스타일 통일
+				for _, slot in ipairs({bSlot, sSlot, gSlot}) do
+					if slot then
+						slot.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+						slot.BackgroundTransparency = 0
+						slot.ClipsDescendants = false
+						
+						local corner = slot:FindFirstChildOfClass("UICorner")
+						if not corner then
+							corner = Instance.new("UICorner")
+							corner.Parent = slot
+						end
+						corner.CornerRadius = UDim.new(0, 12)
+						
+						local stroke = slot:FindFirstChildOfClass("UIStroke")
+						if not stroke then
+							stroke = Instance.new("UIStroke")
+							stroke.Parent = slot
+						end
+						stroke.Color = Color3.fromRGB(0, 0, 0)
+						stroke.Thickness = 2.0
+						stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
+					end
+				end
+				
 				if item.rewards then
 					for _, r in ipairs(item.rewards) do
 						if r.type == "Gold" and gSlot then
@@ -266,10 +291,14 @@ local function initializeShop()
 							else
 								gSlot.Label.Text = tostring(r.value)
 							end
-							gSlot.Icon.Image = "rbxassetid://127099213486402" -- 변경된 골드 아이콘
+							gSlot.Icon.Image = "rbxassetid://127099213486402" -- 골드 아이콘
+							gSlot.Icon.AnchorPoint = Vector2.new(0.5, 0.5)
+							gSlot.Icon.Position = UDim2.new(0.5, 0, 0.38, 0)
+							gSlot.Icon.Size = UDim2.new(0.85, 0, 0.62, 0)
+							gSlot.Icon.ScaleType = Enum.ScaleType.Fit
+							gSlot.Icon.BackgroundTransparency = 1
 						elseif r.type == "Hoverboard" and bSlot then
 							bSlot.Visible = true
-							bSlot.ClipsDescendants = true
 							
 							-- StoreConfig에서 보드 정보 찾기
 							local bName = tostring(r.value)
@@ -287,22 +316,18 @@ local function initializeShop()
 							bSlot.Label.Text = bName
 							bSlot.Icon.Image = bIcon
 							
-							-- 보드 아이콘을 슬롯에 시원하게 꽉 차도록 확대 & 라운딩
+							-- 보드가 잘리지 않고 라운드 테두리 안에 쏙 들어가도록 배치
 							bSlot.Icon.AnchorPoint = Vector2.new(0.5, 0.5)
 							bSlot.Icon.Position = UDim2.new(0.5, 0, 0.38, 0)
-							bSlot.Icon.Size = UDim2.new(1.3, 0, 1.3, 0)
+							bSlot.Icon.Size = UDim2.new(0.96, 0, 0.72, 0)
 							bSlot.Icon.ScaleType = Enum.ScaleType.Fit
-							if not bSlot.Icon:FindFirstChildOfClass("UICorner") then
-								local icCorner = Instance.new("UICorner")
-								icCorner.CornerRadius = UDim.new(0, 10)
-								icCorner.Parent = bSlot.Icon
-							end
+							bSlot.Icon.BackgroundTransparency = 1
 						elseif r.type == "Skill" and sSlot then
 							sSlot.Visible = true
 							
 							-- SkillStoreConfig에서 스킬 정보 찾기
 							local sName = tostring(r.value)
-							local sIcon = "rbxassetid://13511855909"
+							local sIcon = "rbxassetid://81959011754721"
 							if SkillStoreConfig and SkillStoreConfig.Skills then
 								for _, skillData in ipairs(SkillStoreConfig.Skills) do
 									if skillData.id == r.value then
@@ -315,6 +340,11 @@ local function initializeShop()
 							
 							sSlot.Label.Text = sName
 							sSlot.Icon.Image = sIcon
+							sSlot.Icon.AnchorPoint = Vector2.new(0.5, 0.5)
+							sSlot.Icon.Position = UDim2.new(0.5, 0, 0.38, 0)
+							sSlot.Icon.Size = UDim2.new(0.85, 0, 0.62, 0)
+							sSlot.Icon.ScaleType = Enum.ScaleType.Fit
+							sSlot.Icon.BackgroundTransparency = 1
 						end
 					end
 				end
