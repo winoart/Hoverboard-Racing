@@ -192,7 +192,10 @@ local function initializeShop()
 		firstJoinTime = os.time()
 	end
 	
+	local hideRewardBubble = nil
+
 	local function switchTab(tabName)
+		if hideRewardBubble then hideRewardBubble(true) end
 		eventScroll.Visible = (tabName == "Event")
 		passScroll.Visible = (tabName == "Pass")
 		goldScroll.Visible = (tabName == "Gold")
@@ -215,6 +218,148 @@ local function initializeShop()
 	-- 닫기 버튼 연결
 	local closeBtn = mainFrame:WaitForChild("CloseButton")
 	closeBtn.MouseButton1Click:Connect(function()
+		shopGui.Enabled = false
+	end)
+	
+	-- 💬 글로벌 보상 설명 말풍선 툴팁 (PC 호버 / 모바일 탭)
+	local rewardBubble = mainFrame:FindFirstChild("RewardBubbleTooltip")
+	if not rewardBubble then
+		rewardBubble = Instance.new("Frame")
+		rewardBubble.Name = "RewardBubbleTooltip"
+		rewardBubble.Size = UDim2.new(0, 280, 0, 95)
+		rewardBubble.AnchorPoint = Vector2.new(0.5, 1)
+		rewardBubble.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+		rewardBubble.ZIndex = 100
+		rewardBubble.Visible = false
+		rewardBubble.Parent = mainFrame
+
+		local bCorner = Instance.new("UICorner")
+		bCorner.CornerRadius = UDim.new(0, 12)
+		bCorner.Parent = rewardBubble
+
+		local bStroke = Instance.new("UIStroke")
+		bStroke.Color = Color3.fromRGB(0, 0, 0)
+		bStroke.Thickness = 2.5
+		bStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
+		bStroke.Parent = rewardBubble
+
+		-- 말풍선 꼬리 (아래쪽 45도 회전 사각형)
+		local tail = Instance.new("Frame")
+		tail.Name = "Tail"
+		tail.Size = UDim2.new(0, 14, 0, 14)
+		tail.AnchorPoint = Vector2.new(0.5, 0.5)
+		tail.Position = UDim2.new(0.5, 0, 1, 0)
+		tail.Rotation = 45
+		tail.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+		tail.BorderSizePixel = 0
+		tail.ZIndex = 99
+		tail.Parent = rewardBubble
+
+		local tailStroke = Instance.new("UIStroke")
+		tailStroke.Color = Color3.fromRGB(0, 0, 0)
+		tailStroke.Thickness = 2.5
+		tailStroke.Parent = tail
+
+		local tailCover = Instance.new("Frame")
+		tailCover.Name = "Cover"
+		tailCover.Size = UDim2.new(0, 20, 0, 8)
+		tailCover.AnchorPoint = Vector2.new(0.5, 1)
+		tailCover.Position = UDim2.new(0.5, 0, 1, 0)
+		tailCover.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+		tailCover.BorderSizePixel = 0
+		tailCover.ZIndex = 101
+		tailCover.Parent = rewardBubble
+
+		-- 제목 (Title)
+		local titleLbl = Instance.new("TextLabel")
+		titleLbl.Name = "Title"
+		titleLbl.Size = UDim2.new(1, -38, 0, 22)
+		titleLbl.Position = UDim2.new(0, 14, 0, 10)
+		titleLbl.BackgroundTransparency = 1
+		titleLbl.Font = Enum.Font.FredokaOne
+		titleLbl.TextSize = 16
+		titleLbl.TextColor3 = Color3.fromRGB(25, 25, 35)
+		titleLbl.TextXAlignment = Enum.TextXAlignment.Left
+		titleLbl.ZIndex = 102
+		titleLbl.Parent = rewardBubble
+
+		-- 설명 (Description)
+		local descLbl = Instance.new("TextLabel")
+		descLbl.Name = "Description"
+		descLbl.Size = UDim2.new(1, -28, 0, 54)
+		descLbl.Position = UDim2.new(0, 14, 0, 32)
+		descLbl.BackgroundTransparency = 1
+		descLbl.Font = Enum.Font.GothamMedium
+		descLbl.TextSize = 13
+		descLbl.TextColor3 = Color3.fromRGB(60, 65, 75)
+		descLbl.TextXAlignment = Enum.TextXAlignment.Left
+		descLbl.TextYAlignment = Enum.TextYAlignment.Top
+		descLbl.TextWrapped = true
+		descLbl.ZIndex = 102
+		descLbl.Parent = rewardBubble
+
+		-- 닫기 버튼 [X]
+		local closeBubbleBtn = Instance.new("TextButton")
+		closeBubbleBtn.Name = "CloseBtn"
+		closeBubbleBtn.Size = UDim2.new(0, 20, 0, 20)
+		closeBubbleBtn.Position = UDim2.new(1, -26, 0, 8)
+		closeBubbleBtn.BackgroundColor3 = Color3.fromRGB(240, 60, 60)
+		closeBubbleBtn.Text = "X"
+		closeBubbleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+		closeBubbleBtn.Font = Enum.Font.GothamBold
+		closeBubbleBtn.TextSize = 12
+		closeBubbleBtn.ZIndex = 103
+		closeBubbleBtn.Parent = rewardBubble
+
+		local cCorner = Instance.new("UICorner")
+		cCorner.CornerRadius = UDim.new(1, 0)
+		cCorner.Parent = closeBubbleBtn
+	end
+
+	local currentPinnedSlot = nil
+
+	local function showRewardBubble(slot, title, desc, isClick)
+		rewardBubble.Title.Text = title
+		rewardBubble.Description.Text = desc
+
+		local slotCenter = slot.AbsolutePosition + slot.AbsoluteSize * Vector2.new(0.5, 0)
+		local mainPos = mainFrame.AbsolutePosition
+		local relX = slotCenter.X - mainPos.X
+		local relY = slot.AbsolutePosition.Y - mainPos.Y
+
+		local bubbleWidth = rewardBubble.AbsoluteSize.X > 0 and rewardBubble.AbsoluteSize.X or 280
+		local halfWidth = bubbleWidth / 2
+		local mainWidth = mainFrame.AbsoluteSize.X > 0 and mainFrame.AbsoluteSize.X or 720
+		local clampedX = math.clamp(relX, halfWidth + 10, mainWidth - halfWidth - 10)
+		local tailOffset = relX - clampedX
+
+		rewardBubble.Position = UDim2.new(0, clampedX, 0, relY - 10)
+		rewardBubble.Tail.Position = UDim2.new(0.5, tailOffset, 1, 0)
+		rewardBubble.Cover.Position = UDim2.new(0.5, tailOffset, 1, 0)
+		rewardBubble.Visible = true
+
+		if isClick then
+			currentPinnedSlot = slot
+		end
+	end
+
+	hideRewardBubble = function(force)
+		if force or not currentPinnedSlot then
+			rewardBubble.Visible = false
+			currentPinnedSlot = nil
+		end
+	end
+
+	rewardBubble.CloseBtn.Activated:Connect(function()
+		hideRewardBubble(true)
+	end)
+
+	eventScroll:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
+		hideRewardBubble(true)
+	end)
+
+	closeBtn.MouseButton1Click:Connect(function()
+		hideRewardBubble(true)
 		shopGui.Enabled = false
 	end)
 	
@@ -276,126 +421,6 @@ local function initializeShop()
 					end
 				end
 				
-				-- 💬 보상 설명 말풍선 툴팁 (PC 호버 / 모바일 탭)
-				local bubble = Instance.new("Frame")
-				bubble.Name = "BubbleTooltip"
-				bubble.Size = UDim2.new(0, 230, 0, 74)
-				bubble.AnchorPoint = Vector2.new(0.5, 1)
-				bubble.BackgroundColor3 = Color3.fromRGB(20, 22, 30)
-				bubble.BackgroundTransparency = 0.05
-				bubble.ZIndex = 50
-				bubble.Visible = false
-				bubble.Parent = clone
-
-				local bCorner = Instance.new("UICorner")
-				bCorner.CornerRadius = UDim.new(0, 10)
-				bCorner.Parent = bubble
-
-				local bStroke = Instance.new("UIStroke")
-				bStroke.Color = Color3.fromRGB(255, 205, 50)
-				bStroke.Thickness = 2.0
-				bStroke.Parent = bubble
-
-				-- 말풍선 꼬리 (아래쪽 45도 회전 사각형)
-				local tail = Instance.new("Frame")
-				tail.Name = "Tail"
-				tail.Size = UDim2.new(0, 10, 0, 10)
-				tail.AnchorPoint = Vector2.new(0.5, 0.5)
-				tail.Position = UDim2.new(0.5, 0, 1, -1)
-				tail.Rotation = 45
-				tail.BackgroundColor3 = Color3.fromRGB(20, 22, 30)
-				tail.BorderSizePixel = 0
-				tail.ZIndex = 52
-				tail.Parent = bubble
-
-				local tailStroke = Instance.new("UIStroke")
-				tailStroke.Color = Color3.fromRGB(255, 205, 50)
-				tailStroke.Thickness = 2.0
-				tailStroke.Parent = tail
-
-				local titleLbl = Instance.new("TextLabel")
-				titleLbl.Name = "Title"
-				titleLbl.Size = UDim2.new(1, -28, 0, 18)
-				titleLbl.Position = UDim2.new(0, 10, 0, 6)
-				titleLbl.BackgroundTransparency = 1
-				titleLbl.Font = Enum.Font.FredokaOne
-				titleLbl.TextSize = 13
-				titleLbl.TextColor3 = Color3.fromRGB(255, 215, 0)
-				titleLbl.TextXAlignment = Enum.TextXAlignment.Left
-				titleLbl.ZIndex = 51
-				titleLbl.Parent = bubble
-
-				local titleStroke = Instance.new("UIStroke")
-				titleStroke.Color = Color3.fromRGB(0, 0, 0)
-				titleStroke.Thickness = 1.5
-				titleStroke.Parent = titleLbl
-
-				local descLbl = Instance.new("TextLabel")
-				descLbl.Name = "Description"
-				descLbl.Size = UDim2.new(1, -20, 0, 42)
-				descLbl.Position = UDim2.new(0, 10, 0, 24)
-				descLbl.BackgroundTransparency = 1
-				descLbl.Font = Enum.Font.GothamMedium
-				descLbl.TextSize = 11
-				descLbl.TextColor3 = Color3.fromRGB(240, 240, 240)
-				descLbl.TextXAlignment = Enum.TextXAlignment.Left
-				descLbl.TextYAlignment = Enum.TextYAlignment.Top
-				descLbl.TextWrapped = true
-				descLbl.ZIndex = 51
-				descLbl.Parent = bubble
-
-				-- 닫기 버튼 [X] (모바일 터치 닫기 지원)
-				local closeBtn = Instance.new("TextButton")
-				closeBtn.Name = "CloseBtn"
-				closeBtn.Size = UDim2.new(0, 16, 0, 16)
-				closeBtn.Position = UDim2.new(1, -20, 0, 6)
-				closeBtn.BackgroundColor3 = Color3.fromRGB(230, 60, 60)
-				closeBtn.Text = "X"
-				closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-				closeBtn.Font = Enum.Font.GothamBold
-				closeBtn.TextSize = 11
-				closeBtn.ZIndex = 53
-				closeBtn.Parent = bubble
-
-				local cCorner = Instance.new("UICorner")
-				cCorner.CornerRadius = UDim.new(1, 0)
-				cCorner.Parent = closeBtn
-
-				local currentPinnedSlot = nil
-
-				local function showBubble(slot, title, desc, isClick)
-					titleLbl.Text = title
-					descLbl.Text = desc
-
-					local slotCenter = slot.AbsolutePosition + slot.AbsoluteSize * Vector2.new(0.5, 0)
-					local cardPos = clone.AbsolutePosition
-					local relX = slotCenter.X - cardPos.X
-					local relY = slot.AbsolutePosition.Y - cardPos.Y
-
-					local cardWidth = clone.AbsoluteSize.X
-					local clampedX = math.clamp(relX, 120, math.max(120, cardWidth - 120))
-					local tailOffset = relX - clampedX
-
-					bubble.Position = UDim2.new(0, clampedX, 0, relY - 8)
-					tail.Position = UDim2.new(0.5, tailOffset, 1, -1)
-					bubble.Visible = true
-
-					if isClick then
-						currentPinnedSlot = slot
-					end
-				end
-
-				local function hideBubble(force)
-					if force or not currentPinnedSlot then
-						bubble.Visible = false
-						currentPinnedSlot = nil
-					end
-				end
-
-				closeBtn.Activated:Connect(function()
-					hideBubble(true)
-				end)
-
 				local function bindSlotTooltip(slot, title, desc)
 					local hitBtn = slot:FindFirstChild("TooltipHitArea")
 					if not hitBtn then
@@ -404,29 +429,29 @@ local function initializeShop()
 						hitBtn.Size = UDim2.new(1, 0, 1, 0)
 						hitBtn.BackgroundTransparency = 1
 						hitBtn.Text = ""
-						hitBtn.ZIndex = 10
+						hitBtn.ZIndex = 15
 						hitBtn.Parent = slot
 					end
 
 					-- 1. PC: 마우스 호버 시 표시 / 마우스 벗어날 시 숨김
 					hitBtn.MouseEnter:Connect(function()
 						if currentPinnedSlot ~= slot then
-							showBubble(slot, title, desc, false)
+							showRewardBubble(slot, title, desc, false)
 						end
 					end)
 
 					hitBtn.MouseLeave:Connect(function()
 						if currentPinnedSlot ~= slot then
-							hideBubble(false)
+							hideRewardBubble(false)
 						end
 					end)
 
 					-- 2. 모바일: 탭 시 말풍선 토글 (열기 / 닫기)
 					hitBtn.Activated:Connect(function()
-						if currentPinnedSlot == slot and bubble.Visible then
-							hideBubble(true)
+						if currentPinnedSlot == slot and rewardBubble.Visible then
+							hideRewardBubble(true)
 						else
-							showBubble(slot, title, desc, true)
+							showRewardBubble(slot, title, desc, true)
 						end
 					end)
 				end
