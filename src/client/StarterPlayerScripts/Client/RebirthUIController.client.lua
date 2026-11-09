@@ -13,11 +13,44 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local RebirthConfig = require(Shared:WaitForChild("RebirthConfig"))
 
 local hoverRemotes = ReplicatedStorage:WaitForChild("HoverboardRemotes")
-local requestRebirthRemote = hoverRemotes:WaitForChild("RequestRebirth") :: RemoteFunction
 
 local rebirthButton = nil
 local rebirthWindow = nil
 local isWindowOpen = false
+
+-- 🛹 호버보드 등급 해금 레벨 설정 (StoreConfig와 동기화)
+local HOVERBOARD_UNLOCKS = {
+	{ level = 1, rarity = "Common", name = "Common", krName = "일반", color = Color3.fromRGB(250, 195, 25), bg = Color3.fromRGB(150, 115, 10) },
+	{ level = 10, rarity = "Uncommon", name = "Uncommon", krName = "고급", color = Color3.fromRGB(0, 165, 255), bg = Color3.fromRGB(10, 85, 150) },
+	{ level = 50, rarity = "Rare", name = "Rare", krName = "희귀", color = Color3.fromRGB(180, 75, 255), bg = Color3.fromRGB(95, 30, 145) },
+	{ level = 90, rarity = "Super Rare", name = "Super Rare", krName = "초희귀", color = Color3.fromRGB(255, 75, 75), bg = Color3.fromRGB(150, 30, 30) },
+}
+
+local function getExactUnlock(level: number)
+	for _, u in ipairs(HOVERBOARD_UNLOCKS) do
+		if u.level == level then return u end
+	end
+	return nil
+end
+
+local function getHighestUnlocked(level: number)
+	local highest = HOVERBOARD_UNLOCKS[1]
+	for _, u in ipairs(HOVERBOARD_UNLOCKS) do
+		if level >= u.level then
+			highest = u
+		end
+	end
+	return highest
+end
+
+local function getNextUnlock(level: number)
+	for _, u in ipairs(HOVERBOARD_UNLOCKS) do
+		if u.level > level then
+			return u
+		end
+	end
+	return nil
+end
 
 local function formatDistance(meters: number): string
 	if meters >= 1000 then
@@ -168,8 +201,8 @@ local function createRebirthWindow()
 	-- Info Container
 	local infoContainer = Instance.new("Frame")
 	infoContainer.Name = "InfoContainer"
-	infoContainer.Size = UDim2.new(1, -60, 0, 250)
-	infoContainer.Position = UDim2.new(0, 30, 0, 100)
+	infoContainer.Size = UDim2.new(1, -60, 0, 240)
+	infoContainer.Position = UDim2.new(0, 30, 0, 95)
 	infoContainer.BackgroundTransparency = 1
 	infoContainer.Parent = panel
 
@@ -177,7 +210,7 @@ local function createRebirthWindow()
 	local function createCard(name, pos, color, imageId)
 		local card = Instance.new("Frame")
 		card.Name = name
-		card.Size = UDim2.new(0, 260, 1, 0)
+		card.Size = UDim2.new(0, 260, 0, 240)
 		card.Position = pos
 		card.BackgroundColor3 = color
 		card.Parent = infoContainer
@@ -216,8 +249,8 @@ local function createRebirthWindow()
 
 		local crest = Instance.new("ImageLabel")
 		crest.Name = "CrestImage"
-		crest.Size = UDim2.new(0, 160, 0, 160)
-		crest.Position = UDim2.new(0.5, -80, 0, -15)
+		crest.Size = UDim2.new(0, 140, 0, 140)
+		crest.Position = UDim2.new(0.5, -70, 0, -10)
 		crest.BackgroundTransparency = 1
 		crest.Image = imageId
 		crest.ZIndex = 2
@@ -225,13 +258,13 @@ local function createRebirthWindow()
 
 		local rTitle = Instance.new("TextLabel")
 		rTitle.Name = "RebirthLevel"
-		rTitle.Size = UDim2.new(1, 0, 0, 40)
-		rTitle.Position = UDim2.new(0, 0, 0.5, -20) -- 숫자를 위로 올려 방패 중앙에 배치
+		rTitle.Size = UDim2.new(1, 0, 0, 36)
+		rTitle.Position = UDim2.new(0, 0, 0.5, -18)
 		rTitle.BackgroundTransparency = 1
 		rTitle.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
 		rTitle.Text = "X"
 		rTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
-		rTitle.TextSize = 42 -- 숫자 크기 살짝 조정
+		rTitle.TextSize = 38
 		rTitle.ZIndex = 3
 		rTitle.Parent = crest
 		
@@ -242,13 +275,13 @@ local function createRebirthWindow()
 		
 		local benefit = Instance.new("TextLabel")
 		benefit.Name = "BenefitText"
-		benefit.Size = UDim2.new(1, -20, 0, 110)
-		benefit.Position = UDim2.new(0, 10, 0, 135)
+		benefit.Size = UDim2.new(1, -20, 0, 68)
+		benefit.Position = UDim2.new(0, 10, 0, 122)
 		benefit.BackgroundTransparency = 1
 		benefit.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
 		benefit.Text = "Benefit Details"
 		benefit.TextColor3 = Color3.new(1, 1, 1)
-		benefit.TextSize = 22
+		benefit.TextSize = 18
 		benefit.RichText = true
 		benefit.TextWrapped = true
 		benefit.TextYAlignment = Enum.TextYAlignment.Center
@@ -259,6 +292,41 @@ local function createRebirthWindow()
 		bStroke.Color = Color3.fromRGB(0, 0, 0)
 		bStroke.Thickness = 2
 		bStroke.Parent = benefit
+
+		-- 🛹 Hoverboard Unlock Badge under the Level / Benefit
+		local unlockBadge = Instance.new("Frame")
+		unlockBadge.Name = "UnlockBadge"
+		unlockBadge.Size = UDim2.new(1, -20, 0, 34)
+		unlockBadge.Position = UDim2.new(0, 10, 0, 194)
+		unlockBadge.BackgroundColor3 = Color3.fromRGB(30, 35, 48)
+		unlockBadge.ZIndex = 3
+		unlockBadge.Parent = card
+
+		local ubCorner = Instance.new("UICorner")
+		ubCorner.CornerRadius = UDim.new(0, 8)
+		ubCorner.Parent = unlockBadge
+
+		local ubStroke = Instance.new("UIStroke")
+		ubStroke.Name = "Stroke"
+		ubStroke.Color = Color3.fromRGB(0, 0, 0)
+		ubStroke.Thickness = 2
+		ubStroke.Parent = unlockBadge
+
+		local ubText = Instance.new("TextLabel")
+		ubText.Name = "UnlockText"
+		ubText.Size = UDim2.new(1, 0, 1, 0)
+		ubText.BackgroundTransparency = 1
+		ubText.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
+		ubText.Text = ""
+		ubText.TextColor3 = Color3.fromRGB(255, 255, 255)
+		ubText.TextSize = 13
+		ubText.ZIndex = 4
+		ubText.Parent = unlockBadge
+
+		local ubtStroke = Instance.new("UIStroke")
+		ubtStroke.Color = Color3.fromRGB(0, 0, 0)
+		ubtStroke.Thickness = 2
+		ubtStroke.Parent = ubText
 
 		return card
 	end
@@ -282,118 +350,108 @@ local function createRebirthWindow()
 	a1Stroke.Thickness = 4
 	a1Stroke.Parent = arrow1
 
-	-- Action Button
-	local doRebirthBtn = Instance.new("TextButton")
-	doRebirthBtn.Name = "DoRebirthBtn"
-	doRebirthBtn.Size = UDim2.new(0, 320, 0, 70)
-	doRebirthBtn.Position = UDim2.new(0.5, -160, 1, -95)
-	doRebirthBtn.BackgroundColor3 = Color3.fromRGB(100, 220, 110)
-	doRebirthBtn.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
-	doRebirthBtn.Text = "LEVEL UP"
-	doRebirthBtn.TextColor3 = Color3.new(1, 1, 1)
-	doRebirthBtn.TextSize = 36
-	doRebirthBtn.Parent = panel
+	-- =========================================================================
+	-- 🛹 HOVERBOARD SHOP UNLOCK MILESTONE GUIDE (기존 불필요한 레벨업 버튼 대체)
+	-- =========================================================================
+	local shopGuideFrame = Instance.new("Frame")
+	shopGuideFrame.Name = "ShopGuideFrame"
+	shopGuideFrame.Size = UDim2.new(1, -60, 0, 115)
+	shopGuideFrame.Position = UDim2.new(0, 30, 0, 345)
+	shopGuideFrame.BackgroundColor3 = Color3.fromRGB(24, 30, 44)
+	shopGuideFrame.BackgroundTransparency = 0.25
+	shopGuideFrame.Parent = panel
 
-	local btnCorner = Instance.new("UICorner")
-	btnCorner.CornerRadius = UDim.new(0, 20)
-	btnCorner.Parent = doRebirthBtn
-	
-	local btnStroke = Instance.new("UIStroke")
-	btnStroke.Color = Color3.fromRGB(0, 0, 0)
-	btnStroke.Thickness = 6
-	btnStroke.Parent = doRebirthBtn
-	
-	local btnTextStroke = Instance.new("UIStroke")
-	btnTextStroke.Color = Color3.fromRGB(0, 0, 0)
-	btnTextStroke.Thickness = 3
-	btnTextStroke.Parent = doRebirthBtn
-	
-	local function playRebirthCelebration()
-		local screenGui = Instance.new("ScreenGui")
-		screenGui.Name = "RebirthCelebrationGui"
-		screenGui.DisplayOrder = 1000 -- 환생 UI(999) 앞쪽에서 폭죽이 터지게
-		screenGui.Parent = PlayerGui
-		
-		-- Sound
-		local sound = Instance.new("Sound")
-		sound.SoundId = "rbxassetid://138090716" -- Classic Win
-		sound.Volume = 0.8
-		sound.Parent = screenGui
-		sound:Play()
-		
-		-- Confetti
-		local colors = {
-			Color3.fromRGB(255, 50, 50),
-			Color3.fromRGB(50, 255, 50),
-			Color3.fromRGB(50, 50, 255),
-			Color3.fromRGB(255, 255, 50),
-			Color3.fromRGB(255, 50, 255),
-			Color3.fromRGB(50, 255, 255)
-		}
-		
-		local rng = Random.new()
-		for i = 1, 60 do
-			local confetti = Instance.new("Frame")
-			confetti.Size = UDim2.new(0, rng:NextInteger(10, 20), 0, rng:NextInteger(10, 20))
-			local startX = rng:NextNumber(0, 1)
-			confetti.Position = UDim2.new(startX, 0, -0.1, 0)
-			confetti.BackgroundColor3 = colors[rng:NextInteger(1, #colors)]
-			confetti.Rotation = rng:NextInteger(0, 360)
-			confetti.BorderSizePixel = 0
-			confetti.Parent = screenGui
-			
-			local duration = rng:NextNumber(2.5, 4.5)
-			local endX = startX + rng:NextNumber(-0.2, 0.2)
-			local endRot = confetti.Rotation + rng:NextInteger(360, 1080)
-			
-			local tween = TweenService:Create(confetti, TweenInfo.new(duration, Enum.EasingStyle.Linear, Enum.EasingDirection.In), {
-				Position = UDim2.new(endX, 0, 1.1, 0),
-				Rotation = endRot
-			})
-			
-			task.delay(rng:NextNumber(0, 0.5), function()
-				tween:Play()
-			end)
-		end
-		
-		-- 폭죽 연출 후 화면에서 제거 (5초 뒤)
-		task.delay(5, function()
-			if screenGui and screenGui.Parent then
-				screenGui:Destroy()
-			end
-		end)
+	local guideCorner = Instance.new("UICorner")
+	guideCorner.CornerRadius = UDim.new(0, 16)
+	guideCorner.Parent = shopGuideFrame
+
+	local guideStroke = Instance.new("UIStroke")
+	guideStroke.Color = Color3.fromRGB(0, 0, 0)
+	guideStroke.Thickness = 4
+	guideStroke.Parent = shopGuideFrame
+
+	-- Title Bar inside Guide
+	local guideTitle = Instance.new("TextLabel")
+	guideTitle.Name = "GuideTitle"
+	guideTitle.Size = UDim2.new(1, -20, 0, 22)
+	guideTitle.Position = UDim2.new(0, 10, 0, 8)
+	guideTitle.BackgroundTransparency = 1
+	guideTitle.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
+	guideTitle.Text = "🛹 호버보드 상점 등급 해금 단계 (Shop Unlocks)"
+	guideTitle.TextColor3 = Color3.fromRGB(255, 230, 100)
+	guideTitle.TextSize = 16
+	guideTitle.Parent = shopGuideFrame
+
+	local gtStroke = Instance.new("UIStroke")
+	gtStroke.Color = Color3.fromRGB(0, 0, 0)
+	gtStroke.Thickness = 2
+	gtStroke.Parent = guideTitle
+
+	-- Badges Container (Horizontal List)
+	local badgesContainer = Instance.new("Frame")
+	badgesContainer.Name = "BadgesContainer"
+	badgesContainer.Size = UDim2.new(1, -16, 0, 42)
+	badgesContainer.Position = UDim2.new(0, 8, 0, 34)
+	badgesContainer.BackgroundTransparency = 1
+	badgesContainer.Parent = shopGuideFrame
+
+	local badgeLayout = Instance.new("UIListLayout")
+	badgeLayout.FillDirection = Enum.FillDirection.Horizontal
+	badgeLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	badgeLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+	badgeLayout.Padding = UDim.new(0, 8)
+	badgeLayout.Parent = badgesContainer
+
+	-- Create 4 Rarity Milestone Cards
+	for _, unlock in ipairs(HOVERBOARD_UNLOCKS) do
+		local badge = Instance.new("Frame")
+		badge.Name = "Badge_" .. unlock.rarity
+		badge.Size = UDim2.new(0.23, -2, 1, 0)
+		badge.BackgroundColor3 = Color3.fromRGB(35, 40, 52)
+		badge.Parent = badgesContainer
+
+		local bCorner = Instance.new("UICorner")
+		bCorner.CornerRadius = UDim.new(0, 10)
+		bCorner.Parent = badge
+
+		local bStroke = Instance.new("UIStroke")
+		bStroke.Name = "Stroke"
+		bStroke.Color = Color3.fromRGB(0, 0, 0)
+		bStroke.Thickness = 2
+		bStroke.Parent = badge
+
+		local bLabel = Instance.new("TextLabel")
+		bLabel.Name = "BadgeLabel"
+		bLabel.Size = UDim2.new(1, 0, 1, 0)
+		bLabel.BackgroundTransparency = 1
+		bLabel.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
+		bLabel.Text = string.format("Lv.%d %s", unlock.level, unlock.name)
+		bLabel.TextColor3 = Color3.fromRGB(160, 170, 185)
+		bLabel.TextSize = 13
+		bLabel.Parent = badge
+
+		local blStroke = Instance.new("UIStroke")
+		blStroke.Color = Color3.fromRGB(0, 0, 0)
+		blStroke.Thickness = 2
+		blStroke.Parent = bLabel
 	end
 
-	doRebirthBtn.MouseButton1Click:Connect(function()
-		local pcallSuccess, success, msg = pcall(function()
-			return requestRebirthRemote:InvokeServer()
-		end)
-		
-		if not pcallSuccess then
-			msg = "Server Error"
-			success = false
-		end
-		
-		if success then
-			doRebirthBtn.Text = "LEVEL UP!"
-			doRebirthBtn.BackgroundColor3 = Color3.fromRGB(50, 255, 50)
-			
-			playRebirthCelebration()
-			
-			task.delay(1.5, function()
-				-- 레벨업 성공 후 창 닫지 않고 버튼만 원상복구
-				doRebirthBtn.Text = "LEVEL UP"
-				doRebirthBtn.BackgroundColor3 = Color3.fromRGB(100, 220, 110)
-			end)
-		else
-			doRebirthBtn.Text = msg or "Failed" -- Show error message to debug
-			doRebirthBtn.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
-			task.delay(1.5, function()
-				doRebirthBtn.Text = "LEVEL UP"
-				doRebirthBtn.BackgroundColor3 = Color3.fromRGB(100, 220, 110)
-			end)
-		end
-	end)
+	-- Subtitle Info (Auto Level Up explanation)
+	local guideTip = Instance.new("TextLabel")
+	guideTip.Name = "GuideTip"
+	guideTip.Size = UDim2.new(1, -20, 0, 20)
+	guideTip.Position = UDim2.new(0, 10, 1, -24)
+	guideTip.BackgroundTransparency = 1
+	guideTip.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
+	guideTip.Text = "⚡ 누적 거리를 채우면 자동 레벨업! 해당 레벨 달성 시 호버보드 상점에서 새 등급 구매 가능"
+	guideTip.TextColor3 = Color3.fromRGB(180, 240, 255)
+	guideTip.TextSize = 13
+	guideTip.Parent = shopGuideFrame
+
+	local gTipStroke = Instance.new("UIStroke")
+	gTipStroke.Color = Color3.fromRGB(0, 0, 0)
+	gTipStroke.Thickness = 1.5
+	gTipStroke.Parent = guideTip
 
 	-- =========================================================================
 	-- 📱 RESPONSIVE UI SCALING
@@ -422,8 +480,8 @@ local function updateRebirthWindow()
 	if not panel then return end
 	
 	local infoContainer = panel:FindFirstChild("InfoContainer")
-	local doRebirthBtn = panel:FindFirstChild("DoRebirthBtn") :: TextButton
-	if not infoContainer or not doRebirthBtn then return end
+	local shopGuideFrame = panel:FindFirstChild("ShopGuideFrame")
+	if not infoContainer or not shopGuideFrame then return end
 	
 	local leaderstats = LocalPlayer:FindFirstChild("leaderstats")
 	local currentRebirths = 0
@@ -443,12 +501,17 @@ local function updateRebirthWindow()
 		local crest = card:FindFirstChild("CrestImage")
 		local rTitle = crest and crest:FindFirstChild("RebirthLevel") :: TextLabel
 		local benefitText = card:FindFirstChild("BenefitText") :: TextLabel
+		local unlockBadge = card:FindFirstChild("UnlockBadge") :: Frame
+		local ubText = unlockBadge and unlockBadge:FindFirstChild("UnlockText") :: TextLabel
 		
-		if not rTitle or not benefitText then return end
+		if not rTitle or not benefitText or not unlockBadge or not ubText then return end
 		
 		if rLevel < 0 then
 			rTitle.Text = "-"
-			benefitText.Text = "No Record"
+			benefitText.Text = "최대 레벨 도달!"
+			unlockBadge.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
+			ubText.Text = "🎉 모든 등급 해금 완료!"
+			ubText.TextColor3 = Color3.fromRGB(0, 0, 0)
 			return
 		end
 		
@@ -457,14 +520,50 @@ local function updateRebirthWindow()
 		
 		local bText = ""
 		if rLevel == 0 then
-			bText = "Base\n<font size=\"30\">Booster Speed</font>"
+			bText = "Base\n<font size=\"20\">Booster Speed</font>"
 		else
-			bText = string.format("Booster Speed\n<font size=\"34\">+%.1f km/h</font>", rData.BoostSpeedBonus)
 			if isActive then
-				bText = bText .. string.format("\nReq. Distance:\n<font size=\"24\">%s</font>", formatDistance(rData.RequiredDistance))
+				bText = string.format("Booster Speed: <b>+%.1f km/h</b>\nReq. Distance:\n<font size=\"20\"><b>%s</b></font>", rData.BoostSpeedBonus, formatDistance(rData.RequiredDistance))
+			else
+				bText = string.format("Booster Speed\n<font size=\"26\"><b>+%.1f km/h</b></font>", rData.BoostSpeedBonus)
 			end
 		end
 		benefitText.Text = bText
+
+		-- 🛹 Hoverboard Shop Unlock 안내 (해당 레벨 밑 안내)
+		local exactUnlock = getExactUnlock(rLevel)
+		if isActive then
+			-- NextCard
+			if exactUnlock then
+				unlockBadge.BackgroundColor3 = exactUnlock.color
+				ubText.Text = string.format("🎉 달성 시 [%s] 보드 해금!", exactUnlock.name)
+				ubText.TextColor3 = Color3.fromRGB(255, 255, 255)
+			else
+				local nextU = getNextUnlock(currentRebirths)
+				if nextU then
+					local remain = nextU.level - currentRebirths
+					unlockBadge.BackgroundColor3 = Color3.fromRGB(36, 32, 48)
+					ubText.Text = string.format("다음 보드: Lv.%d [%s] (%d Lv)", nextU.level, nextU.name, remain)
+					ubText.TextColor3 = Color3.fromRGB(255, 205, 100)
+				else
+					unlockBadge.BackgroundColor3 = Color3.fromRGB(25, 45, 30)
+					ubText.Text = "모든 보드 등급 해금 완료!"
+					ubText.TextColor3 = Color3.fromRGB(120, 255, 140)
+				end
+			end
+		else
+			-- CurrentCard
+			if exactUnlock then
+				unlockBadge.BackgroundColor3 = exactUnlock.bg
+				ubText.Text = string.format("✨ 샵 [%s] 등급 해금됨!", exactUnlock.name)
+				ubText.TextColor3 = Color3.fromRGB(255, 255, 255)
+			else
+				local highestU = getHighestUnlocked(rLevel)
+				unlockBadge.BackgroundColor3 = Color3.fromRGB(28, 36, 52)
+				ubText.Text = string.format("🛒 샵 해금: [%s] 등급", highestU.name)
+				ubText.TextColor3 = highestU.color
+			end
+		end
 	end
 	
 	setCardData("CurrentCard", currentRebirths, false)
@@ -472,18 +571,33 @@ local function updateRebirthWindow()
 	local nextRebirthData = RebirthConfig.GetNextRebirthData(currentRebirths)
 	if nextRebirthData then
 		setCardData("NextCard", currentRebirths + 1, true)
-		
-		if currentDist >= nextRebirthData.RequiredDistance then
-			doRebirthBtn.Text = "LEVEL UP"
-			doRebirthBtn.BackgroundColor3 = Color3.fromRGB(100, 220, 110)
-		else
-			doRebirthBtn.Text = "LEVEL UP"
-			doRebirthBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
-		end
 	else
-		setCardData("NextCard", -1, false)
-		doRebirthBtn.Text = "MAX LEVEL REACHED!"
-		doRebirthBtn.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
+		setCardData("NextCard", -1, true)
+	end
+
+	-- 하단 4개 마일스톤 뱃지 갱신
+	local badgesContainer = shopGuideFrame:FindFirstChild("BadgesContainer")
+	if badgesContainer then
+		for _, unlock in ipairs(HOVERBOARD_UNLOCKS) do
+			local badge = badgesContainer:FindFirstChild("Badge_" .. unlock.rarity) :: Frame?
+			if badge then
+				local bLabel = badge:FindFirstChild("BadgeLabel") :: TextLabel?
+				local bStroke = badge:FindFirstChild("Stroke") :: UIStroke?
+				if bLabel then
+					if currentRebirths >= unlock.level then
+						badge.BackgroundColor3 = unlock.color
+						if bStroke then bStroke.Color = Color3.fromRGB(0, 0, 0) end
+						bLabel.Text = string.format("✓ Lv.%d %s", unlock.level, unlock.name)
+						bLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+					else
+						badge.BackgroundColor3 = Color3.fromRGB(32, 36, 46)
+						if bStroke then bStroke.Color = Color3.fromRGB(50, 55, 68) end
+						bLabel.Text = string.format("🔒 Lv.%d %s", unlock.level, unlock.name)
+						bLabel.TextColor3 = Color3.fromRGB(140, 150, 165)
+					end
+				end
+			end
+		end
 	end
 end
 
