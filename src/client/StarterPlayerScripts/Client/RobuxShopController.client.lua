@@ -269,6 +269,7 @@ local function initializeShop()
 							gSlot.Icon.Image = "rbxassetid://127099213486402" -- 변경된 골드 아이콘
 						elseif r.type == "Hoverboard" and bSlot then
 							bSlot.Visible = true
+							bSlot.ClipsDescendants = true
 							
 							-- StoreConfig에서 보드 정보 찾기
 							local bName = tostring(r.value)
@@ -285,6 +286,17 @@ local function initializeShop()
 							
 							bSlot.Label.Text = bName
 							bSlot.Icon.Image = bIcon
+							
+							-- 보드 아이콘을 슬롯에 시원하게 꽉 차도록 확대 & 라운딩
+							bSlot.Icon.AnchorPoint = Vector2.new(0.5, 0.5)
+							bSlot.Icon.Position = UDim2.new(0.5, 0, 0.38, 0)
+							bSlot.Icon.Size = UDim2.new(1.3, 0, 1.3, 0)
+							bSlot.Icon.ScaleType = Enum.ScaleType.Fit
+							if not bSlot.Icon:FindFirstChildOfClass("UICorner") then
+								local icCorner = Instance.new("UICorner")
+								icCorner.CornerRadius = UDim.new(0, 10)
+								icCorner.Parent = bSlot.Icon
+							end
 						elseif r.type == "Skill" and sSlot then
 							sSlot.Visible = true
 							
