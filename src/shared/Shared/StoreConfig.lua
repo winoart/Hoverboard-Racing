@@ -49,7 +49,7 @@ StoreConfig.Items = {
 	{
 		id = "StarterPac_Board",
 		name = "Golden Star",
-		imageId = "rbxassetid://98211009044526", -- 임시 아이콘 (나중에 데칼 이미지로 변경 가능)
+		imageId = "rbxassetid://132032648388075", -- Golden Star 골드 보드 아이콘
 		rarity = "Super Rare",
 		weight = 0, -- 시작할 때 기본 지급되거나 팩 전용이므로 뽑기 확률 0
 		price = 0,
