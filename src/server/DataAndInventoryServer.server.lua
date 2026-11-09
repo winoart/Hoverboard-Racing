@@ -164,6 +164,21 @@ Players.PlayerAdded:Connect(function(player)
 				questDataJSON.Value = encoded
 			end
 		end
+
+		-- Load Purchased Events / Packs
+		local peFolder = Instance.new("Folder")
+		peFolder.Name = "PurchasedEvents"
+		peFolder.Parent = player
+		
+		local pEvents = data.PurchasedEvents or {}
+		for _, eId in ipairs(pEvents) do
+			local val = Instance.new("BoolValue")
+			val.Name = tostring(eId)
+			val.Value = true
+			val.Parent = peFolder
+			player:SetAttribute("PurchasedEvent_" .. tostring(eId), true)
+			player:SetAttribute("OwnsPass_" .. tostring(eId), true)
+		end
 		
 		local SkillStoreConfig = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("SkillStoreConfig"))
 		
@@ -217,19 +232,77 @@ Players.PlayerAdded:Connect(function(player)
 			s.Parent = ownedSkills
 		end
 
+		local peFolder = Instance.new("Folder")
+		peFolder.Name = "PurchasedEvents"
+		peFolder.Parent = player
+
 		print("🆕 [DataServer] New profile for " .. player.Name)
 	end
 	
-	-- Check GamePass Ownership
+	-- Check GamePass & Event Ownership
 	task.spawn(function()
 		local MarketplaceService = game:GetService("MarketplaceService")
 		local passIds = {11111111, 22222222, 33333333}
+		
+		-- Dynamically pull all Event and Pass IDs from MonetizationConfig
+		local Shared = ReplicatedStorage:FindFirstChild("Shared")
+		local MonetizationConfig = Shared and require(Shared:WaitForChild("MonetizationConfig", 2) :: any)
+		if MonetizationConfig and MonetizationConfig.ShopData then
+			if MonetizationConfig.ShopData.Passes then
+				for _, p in ipairs(MonetizationConfig.ShopData.Passes) do
+					local pid = tonumber(p.id)
+					if pid and pid > 0 and not table.find(passIds, pid) then
+						table.insert(passIds, pid)
+					end
+				end
+			end
+			if MonetizationConfig.ShopData.Events then
+				for _, e in ipairs(MonetizationConfig.ShopData.Events) do
+					local eid = tonumber(e.id)
+					if eid and eid > 0 and not table.find(passIds, eid) then
+						table.insert(passIds, eid)
+					end
+				end
+			end
+		end
+
+		local peFolder = player:FindFirstChild("PurchasedEvents")
+
 		for _, passId in ipairs(passIds) do
 			local success, owns = pcall(function()
 				return MarketplaceService:UserOwnsGamePassAsync(player.UserId, passId)
 			end)
 			if success and owns then
 				player:SetAttribute("OwnsPass_" .. tostring(passId), true)
+				player:SetAttribute("PurchasedEvent_" .. tostring(passId), true)
+				if peFolder and not peFolder:FindFirstChild(tostring(passId)) then
+					local val = Instance.new("BoolValue")
+					val.Name = tostring(passId)
+					val.Value = true
+					val.Parent = peFolder
+				end
+			end
+		end
+
+		-- Fallback check: If player already owns the exclusive board (e.g. StarterPac_Board or Hoverboard_Starter),
+		-- mark the event/pack as purchased!
+		if MonetizationConfig and MonetizationConfig.ShopData and MonetizationConfig.ShopData.Events then
+			for _, eventItem in ipairs(MonetizationConfig.ShopData.Events) do
+				if eventItem.rewards then
+					for _, r in ipairs(eventItem.rewards) do
+						if r.type == "Hoverboard" and ownedBoards:FindFirstChild(tostring(r.value)) then
+							player:SetAttribute("PurchasedEvent_" .. tostring(eventItem.id), true)
+							player:SetAttribute("OwnsPass_" .. tostring(eventItem.id), true)
+							if peFolder and not peFolder:FindFirstChild(tostring(eventItem.id)) then
+								local val = Instance.new("BoolValue")
+								val.Name = tostring(eventItem.id)
+								val.Value = true
+								val.Parent = peFolder
+							end
+							break
+						end
+					end
+				end
 			end
 		end
 	end)
@@ -278,6 +351,14 @@ Players.PlayerRemoving:Connect(function(player)
 			table.insert(eList, child.Name)
 		end
 
+		local peList = {}
+		local peFolder = player:FindFirstChild("PurchasedEvents")
+		if peFolder then
+			for _, child in ipairs(peFolder:GetChildren()) do
+				table.insert(peList, child.Name)
+			end
+		end
+
 		local dataToSave = {
 			Gold = gold.Value,
 			Wins = player.leaderstats.Wins.Value,
@@ -288,6 +369,7 @@ Players.PlayerRemoving:Connect(function(player)
 			EquippedHoverboardId = equippedBoardId.Value,
 			OwnedSkills = sList,
 			EquippedSkills = eList,
+			PurchasedEvents = peList,
 			MaxSkillSlots = maxSkillSlots.Value,
 			LastAttendanceDate = lastDate and lastDate.Value or "",
 			AttendanceStreak = streak and streak.Value or 0,

@@ -93,9 +93,21 @@ local function initializeShop()
 			return
 		end
 
-		-- 이미 소유한 게임패스인 경우 무시
-		if (item.isGamePass or category == "Passes") and player:GetAttribute("OwnsPass_" .. tostring(pId)) then
-			showToast("이미 보유하고 있는 패스입니다!", true)
+		-- 이미 소유한 패스/이벤트인 경우 무시
+		local isOwned = player:GetAttribute("OwnsPass_" .. tostring(pId)) == true 
+			or player:GetAttribute("PurchasedEvent_" .. tostring(pId)) == true
+		if not isOwned and item.rewards then
+			local ownedBoards = player:FindFirstChild("OwnedHoverboards") or (player:FindFirstChild("Inventory") and player.Inventory:FindFirstChild("OwnedHoverboards"))
+			for _, r in ipairs(item.rewards) do
+				if r.type == "Hoverboard" and ownedBoards and ownedBoards:FindFirstChild(tostring(r.value)) then
+					isOwned = true
+					break
+				end
+			end
+		end
+
+		if (item.isGamePass or category == "Passes" or category == "Events") and isOwned then
+			showToast("이미 보유하고 있는 상품입니다!", true)
 			return
 		end
 
@@ -136,12 +148,13 @@ local function initializeShop()
 				if simulatePurchaseFunc then
 					local success, msg, prodData = simulatePurchaseFunc:InvokeServer(pId, category)
 					if success then
-						if isPass or category == "Passes" then
+						if isPass or category == "Passes" or category == "Events" then
 							player:SetAttribute("OwnsPass_" .. tostring(pId), true)
+							player:SetAttribute("PurchasedEvent_" .. tostring(pId), true)
 							local tLbl = priceButton:FindFirstChild("TextLabel") :: TextLabel?
 							if tLbl then tLbl.Text = "OWNED" end
 							priceButton.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
-							showToast("🎉 [테스트 결제] 패스 구매 완료!", true)
+							showToast("🎉 [테스트 결제] 구매 완료!", true)
 						else
 							showToast("💰 [테스트 결제] 골드가 충전되었습니다!", true)
 						end
@@ -295,10 +308,33 @@ local function initializeShop()
 				end
 			end
 			
-			clone.PriceButton.TextLabel.Text = tostring(item.price)
+			-- 구매 완료 여부 스마트 판별 (Attribute, Pass, 또는 보상 보드 보유 여부)
+			local isAlreadyOwned = player:GetAttribute("PurchasedEvent_" .. tostring(item.id)) == true
+				or player:GetAttribute("OwnsPass_" .. tostring(item.id)) == true
+			
+			if not isAlreadyOwned and item.rewards then
+				local ownedBoards = player:FindFirstChild("OwnedHoverboards") or (player:FindFirstChild("Inventory") and player.Inventory:FindFirstChild("OwnedHoverboards"))
+				for _, r in ipairs(item.rewards) do
+					if r.type == "Hoverboard" and ownedBoards and ownedBoards:FindFirstChild(tostring(r.value)) then
+						isAlreadyOwned = true
+						break
+					end
+				end
+			end
+			
+			if isAlreadyOwned then
+				clone.PriceButton.TextLabel.Text = "OWNED"
+				clone.PriceButton.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
+			else
+				clone.PriceButton.TextLabel.Text = tostring(item.price)
+			end
 			
 			-- 스마트 결제 연동 (GamePass / Developer Product / 가상 시뮬레이션 지원)
 			clone.PriceButton.MouseButton1Click:Connect(function()
+				if isAlreadyOwned or player:GetAttribute("PurchasedEvent_" .. tostring(item.id)) == true or player:GetAttribute("OwnsPass_" .. tostring(item.id)) == true then
+					showToast("이미 구매한 상품입니다!", true)
+					return
+				end
 				handleSmartPurchase(item, clone.PriceButton, "Events")
 			end)
 			
@@ -306,26 +342,30 @@ local function initializeShop()
 			if item.isStarter then
 				local timerLabel = clone:FindFirstChild("TimerLabel")
 				if timerLabel then
-					local connectionName = "StarterTimer_" .. item.id
-					timerConnections[connectionName] = RunService.Heartbeat:Connect(function()
-						local currentTime = os.time()
-						local elapsedTime = currentTime - firstJoinTime
-						local timeRemaining = 86400 - elapsedTime -- 24시간(86400초) 기준
-						
-						if timeRemaining > 0 then
-							local hours = math.floor(timeRemaining / 3600)
-							local minutes = math.floor((timeRemaining % 3600) / 60)
-							local seconds = timeRemaining % 60
-							timerLabel.Text = string.format("%02d<font color=\"#FFFFFF\">h</font> %02d<font color=\"#FFFFFF\">m</font> %02d<font color=\"#FFFFFF\">s</font>", hours, minutes, seconds)
-						else
-							-- 시간이 다 되면 숨김 처리 및 타이머 종료
-							clone.Visible = false
-							if timerConnections[connectionName] then
-								timerConnections[connectionName]:Disconnect()
-								timerConnections[connectionName] = nil
+					if isAlreadyOwned then
+						timerLabel.Text = "<font color=\"#00FF88\">구매 완료</font>"
+					else
+						local connectionName = "StarterTimer_" .. item.id
+						timerConnections[connectionName] = RunService.Heartbeat:Connect(function()
+							local currentTime = os.time()
+							local elapsedTime = currentTime - firstJoinTime
+							local timeRemaining = 86400 - elapsedTime -- 24시간(86400초) 기준
+							
+							if timeRemaining > 0 then
+								local hours = math.floor(timeRemaining / 3600)
+								local minutes = math.floor((timeRemaining % 3600) / 60)
+								local seconds = timeRemaining % 60
+								timerLabel.Text = string.format("%02d<font color=\"#FFFFFF\">h</font> %02d<font color=\"#FFFFFF\">m</font> %02d<font color=\"#FFFFFF\">s</font>", hours, minutes, seconds)
+							else
+								-- 시간이 다 되면 숨김 처리 및 타이머 종료
+								clone.Visible = false
+								if timerConnections[connectionName] then
+									timerConnections[connectionName]:Disconnect()
+									timerConnections[connectionName] = nil
+								end
 							end
-						end
-					end)
+						end)
+					end
 				end
 			end
 			
@@ -405,6 +445,18 @@ local function initializeShop()
 		if resizeConn then resizeConn:Disconnect() end
 	end)
 	
+	-- 구매 완료 이벤트 수신 시 UI 즉시 갱신
+	MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(plr, passId, wasPurchased)
+		if plr == player and wasPurchased then
+			player:SetAttribute("OwnsPass_" .. tostring(passId), true)
+			player:SetAttribute("PurchasedEvent_" .. tostring(passId), true)
+			task.wait(0.2)
+			populateEvents()
+			populateItems(shopData.Passes, passScroll, false)
+			showToast("🎉 구매가 완료되었습니다!", true)
+		end
+	end)
+
 	-- 상점 열기 버튼 연결 (UI 생성 및 함수 정의 완료 후 호출)
 	local function bindShopButton()
 		local shopToggleGui = playerGui:FindFirstChild("RobuxShop")

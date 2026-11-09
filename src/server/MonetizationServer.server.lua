@@ -108,6 +108,24 @@ local function grantProductRewards(player: Player, product: any)
 			maxSkillSlots.Value = 4
 		end
 	end
+
+	-- 3. 구매 완료 영구 태그 및 Attribute 세팅 (스타터팩 및 일회성 패키지 중복 구매 방지)
+	if product.id then
+		local peFolder = player:FindFirstChild("PurchasedEvents")
+		if not peFolder then
+			peFolder = Instance.new("Folder")
+			peFolder.Name = "PurchasedEvents"
+			peFolder.Parent = player
+		end
+		if not peFolder:FindFirstChild(tostring(product.id)) then
+			local val = Instance.new("BoolValue")
+			val.Name = tostring(product.id)
+			val.Value = true
+			val.Parent = peFolder
+		end
+		player:SetAttribute("PurchasedEvent_" .. tostring(product.id), true)
+		player:SetAttribute("OwnsPass_" .. tostring(product.id), true)
+	end
 end
 
 -- 가상/테스트 구매 시뮬레이션 핸들러 (패스 및 골드 모두 지원)
