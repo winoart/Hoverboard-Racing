@@ -130,25 +130,35 @@ local function createRebirthWindow()
 
 	local closeBtn = Instance.new("TextButton")
 	closeBtn.Name = "CloseBtn"
-	closeBtn.Size = UDim2.new(0, 44, 0, 44)
-	closeBtn.Position = UDim2.new(1, -22, 0, -22)
-	closeBtn.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
-	closeBtn.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
+	closeBtn.AnchorPoint = Vector2.new(0.5, 0.5)
+	closeBtn.Size = UDim2.new(0, 46, 0, 46)
+	closeBtn.Position = UDim2.new(1, 0, 0, 0)
+	closeBtn.BackgroundColor3 = Color3.fromRGB(255, 75, 75)
+	closeBtn.Font = Enum.Font.FredokaOne
 	closeBtn.Text = "X"
 	closeBtn.TextColor3 = Color3.new(1, 1, 1)
-	closeBtn.TextSize = 28
-	closeBtn.ZIndex = 5
+	closeBtn.TextSize = 26
+	closeBtn.TextStrokeTransparency = 1
+	closeBtn.ZIndex = 25
 	closeBtn.Parent = panel
 	
 	local closeCorner = Instance.new("UICorner")
 	closeCorner.CornerRadius = UDim.new(1, 0)
 	closeCorner.Parent = closeBtn
 	
-	local closeStroke = Instance.new("UIStroke")
-	closeStroke.Color = Color3.fromRGB(0, 0, 0)
-	closeStroke.Thickness = 4
-	closeStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-	closeStroke.Parent = closeBtn
+	local closeBorderStroke = Instance.new("UIStroke")
+	closeBorderStroke.Name = "BorderStroke"
+	closeBorderStroke.Color = Color3.fromRGB(0, 0, 0)
+	closeBorderStroke.Thickness = 4.0
+	closeBorderStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	closeBorderStroke.Parent = closeBtn
+
+	local closeTextStroke = Instance.new("UIStroke")
+	closeTextStroke.Name = "TextStroke"
+	closeTextStroke.Color = Color3.fromRGB(0, 0, 0)
+	closeTextStroke.Thickness = 3.0
+	closeTextStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
+	closeTextStroke.Parent = closeBtn
 
 	closeBtn.MouseButton1Click:Connect(function()
 		bg.Visible = false

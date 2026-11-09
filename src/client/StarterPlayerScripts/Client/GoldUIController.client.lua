@@ -186,29 +186,35 @@ titleStroke.Thickness = 4
 titleStroke.Parent = shopTitle
 
 local closeButton = Instance.new("TextButton")
-closeButton.Size = UDim2.new(0, 48, 0, 48)
-closeButton.Position = UDim2.new(1, 0, 0, 0)
+closeButton.Name = "CloseButton"
 closeButton.AnchorPoint = Vector2.new(0.5, 0.5)
-closeButton.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
+closeButton.Size = UDim2.new(0, 46, 0, 46)
+closeButton.Position = UDim2.new(1, 0, 0, 0)
+closeButton.BackgroundColor3 = Color3.fromRGB(255, 75, 75)
 closeButton.Font = Enum.Font.FredokaOne
 closeButton.Text = "X"
 closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-closeButton.TextSize = 28
-closeButton.ZIndex = 10
+closeButton.TextSize = 26
+closeButton.TextStrokeTransparency = 1
+closeButton.ZIndex = 25
 closeButton.Parent = shopModal
 
 local closeCorner = Instance.new("UICorner")
 closeCorner.CornerRadius = UDim.new(1, 0)
 closeCorner.Parent = closeButton
 
-local closeStroke = Instance.new("UIStroke")
-closeStroke.Color = Color3.fromRGB(0, 0, 0)
-closeStroke.Thickness = 6
-closeStroke.Parent = closeButton
+local closeBorderStroke = Instance.new("UIStroke")
+closeBorderStroke.Name = "BorderStroke"
+closeBorderStroke.Color = Color3.fromRGB(0, 0, 0)
+closeBorderStroke.Thickness = 4.0
+closeBorderStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+closeBorderStroke.Parent = closeButton
 
 local closeTextStroke = Instance.new("UIStroke")
+closeTextStroke.Name = "TextStroke"
 closeTextStroke.Color = Color3.fromRGB(0, 0, 0)
-closeTextStroke.Thickness = 3
+closeTextStroke.Thickness = 3.0
+closeTextStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
 closeTextStroke.Parent = closeButton
 
 local productContainer = Instance.new("ScrollingFrame")

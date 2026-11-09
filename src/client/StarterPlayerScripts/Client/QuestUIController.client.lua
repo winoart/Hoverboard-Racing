@@ -76,23 +76,35 @@ titleStroke.Parent = titleText
 -- Close Button
 local closeBtn = Instance.new("TextButton")
 closeBtn.Name = "CloseBtn"
-closeBtn.Size = UDim2.new(0, 50, 0, 50)
-closeBtn.Position = UDim2.new(1, -25, 0, -25)
-closeBtn.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
-closeBtn.Text = "X"
+closeBtn.AnchorPoint = Vector2.new(0.5, 0.5)
+closeBtn.Size = UDim2.new(0, 46, 0, 46)
+closeBtn.Position = UDim2.new(1, 0, 0, 0)
+closeBtn.BackgroundColor3 = Color3.fromRGB(255, 75, 75)
 closeBtn.Font = Enum.Font.FredokaOne
-closeBtn.TextSize = 28
+closeBtn.Text = "X"
 closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeBtn.TextSize = 26
+closeBtn.TextStrokeTransparency = 1
+closeBtn.ZIndex = 25
 closeBtn.Parent = mainPanel
 
 local closeCorner = Instance.new("UICorner")
 closeCorner.CornerRadius = UDim.new(1, 0)
 closeCorner.Parent = closeBtn
 
-local closeStroke = Instance.new("UIStroke")
-closeStroke.Color = Color3.fromRGB(0, 0, 0)
-closeStroke.Thickness = 5
-closeStroke.Parent = closeBtn
+local closeBorderStroke = Instance.new("UIStroke")
+closeBorderStroke.Name = "BorderStroke"
+closeBorderStroke.Color = Color3.fromRGB(0, 0, 0)
+closeBorderStroke.Thickness = 4.0
+closeBorderStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+closeBorderStroke.Parent = closeBtn
+
+local closeTextStroke = Instance.new("UIStroke")
+closeTextStroke.Name = "TextStroke"
+closeTextStroke.Color = Color3.fromRGB(0, 0, 0)
+closeTextStroke.Thickness = 3.0
+closeTextStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
+closeTextStroke.Parent = closeBtn
 
 -- Tabs
 local tabContainer = Instance.new("Frame")

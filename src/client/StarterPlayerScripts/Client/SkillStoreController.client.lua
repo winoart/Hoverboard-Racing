@@ -124,14 +124,16 @@ if not closeBtn then
 	closeBtn.Name = "CloseButton"
 	closeBtn.Parent = bgFrame
 end
-closeBtn.Size = UDim2.new(0, 44, 0, 44)
-closeBtn.Position = UDim2.new(1, -22, 0, -22)
-closeBtn.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
+closeBtn.AnchorPoint = Vector2.new(0.5, 0.5)
+closeBtn.Size = UDim2.new(0, 46, 0, 46)
+closeBtn.Position = UDim2.new(1, 0, 0, 0)
+closeBtn.BackgroundColor3 = Color3.fromRGB(255, 75, 75)
 closeBtn.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
 closeBtn.Text = "X"
 closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-closeBtn.TextSize = 28
-closeBtn.ZIndex = 5
+closeBtn.TextSize = 26
+closeBtn.TextStrokeTransparency = 1
+closeBtn.ZIndex = 25
 applyCorner(closeBtn, UDim.new(1, 0))
 applyStroke(closeBtn, 4, Color3.fromRGB(0, 0, 0), Enum.ApplyStrokeMode.Border)
 
@@ -142,7 +144,8 @@ if not closeTextStroke then
 	closeTextStroke.Parent = closeBtn
 end
 closeTextStroke.Color = Color3.fromRGB(0, 0, 0)
-closeTextStroke.Thickness = 2
+closeTextStroke.Thickness = 3
+closeTextStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
 
 closeBtn.MouseButton1Click:Connect(function()
 	storeGui.Enabled = false
