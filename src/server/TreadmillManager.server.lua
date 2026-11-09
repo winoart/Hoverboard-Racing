@@ -19,7 +19,7 @@ local TREADMILL_MODELS = {}
 local TREADMILL_HITBOXES = {}
 local playersOnTreadmill = {}
 
--- Setup Treadmills & Animation Loop
+-- Setup Treadmills
 task.spawn(function()
 	local lounge = nil
 	for _ = 1, 20 do
@@ -49,132 +49,6 @@ task.spawn(function()
 					end
 				end
 			end
-			
-			-- 셰브론 화살표 & 벨트 & 터빈 애니메이션
-			local chevronsFolder = model:FindFirstChild("Chevrons")
-			local chevrons = {}
-			if chevronsFolder then
-				for i = 1, 5 do
-					local ch = chevronsFolder:FindFirstChild("Chevron_" .. i)
-					if ch and ch:IsA("Model") then
-						local apex = ch:FindFirstChild("Apex") :: BasePart?
-						if apex then ch.PrimaryPart = apex end
-						table.insert(chevrons, ch)
-					end
-				end
-			end
-			
-			local belt = model:FindFirstChild("Belt")
-			local tex = belt and belt:FindFirstChild("BeltTexture") :: Texture?
-			
-			local turbineEmitters = {}
-			for _, child in ipairs(model:GetChildren()) do
-				if child.Name == "TurbineCore" then
-					local pe = child:FindFirstChild("WindStream")
-					if pe and pe:IsA("ParticleEmitter") then
-						table.insert(turbineEmitters, pe)
-					end
-				end
-			end
-			
-			local hudSpeedVal = nil
-			local hudBarFill = nil
-			local hudSubHeader = nil
-			if screen then
-				local sg = screen:FindFirstChild("HoverSimulatorHUD")
-				local bg = sg and sg:FindFirstChildOfClass("Frame")
-				if bg then
-					hudSubHeader = bg:FindFirstChild("TextLabel") and bg:GetChildren()[3] :: TextLabel?
-					local gaugeBox = bg:FindFirstChild("Frame") :: Frame?
-					if gaugeBox then
-						hudSpeedVal = gaugeBox:FindFirstChild("TextLabel") and gaugeBox:GetChildren()[3] :: TextLabel?
-						local pBarBg = gaugeBox:FindFirstChildOfClass("Frame") :: Frame?
-						hudBarFill = pBarBg and pBarBg:FindFirstChildOfClass("Frame") :: Frame?
-					end
-				end
-			end
-			
-			-- 상수 정의
-			local X_MIN = -21.0
-			local X_MAX = -5.5
-			local X_LEN = X_MAX - X_MIN
-			local BASE_Y = 89.83
-			local CENTER_Z = -32.0
-			local SPACING = X_LEN / #chevrons
-			if #chevrons == 0 then SPACING = 3.1 end
-			
-			local currentAnimSpeed = 12.0
-			local scrollOffset = 0
-			local elapsedRide = 0
-			
-			RunService.Heartbeat:Connect(function(dt)
-				local isAnyoneRiding = (next(playersOnTreadmill) ~= nil)
-				local targetSpeed = isAnyoneRiding and 40.0 or 12.0
-				currentAnimSpeed = currentAnimSpeed + (targetSpeed - currentAnimSpeed) * math.clamp(dt * 6, 0, 1)
-				
-				-- 1. 셰브론 3D 네온 화살표 이동
-				if #chevrons > 0 then
-					scrollOffset = (scrollOffset + currentAnimSpeed * dt) % X_LEN
-					
-					for i, chModel in ipairs(chevrons) do
-						local newX = X_MIN + (((i - 1) * SPACING) + scrollOffset) % X_LEN
-						chModel:PivotTo(CFrame.new(newX, BASE_Y, CENTER_Z))
-						
-						-- 양 끝단 부드러운 페이드 인/아웃
-						local fadeDist = 1.8
-						local alpha = 0
-						if newX < (X_MIN + fadeDist) then
-							alpha = 1 - math.clamp((newX - X_MIN) / fadeDist, 0, 1)
-						elseif newX > (X_MAX - fadeDist) then
-							alpha = math.clamp((newX - (X_MAX - fadeDist)) / fadeDist, 0, 1)
-						end
-						
-						for _, p in ipairs(chModel:GetChildren()) do
-							if p:IsA("BasePart") then
-								p.Transparency = alpha
-							end
-						end
-					end
-				end
-				
-				-- 2. 벨트 텍스처 스크롤
-				if tex and tex.StudsPerTileV > 0 then
-					tex.OffsetStudsV = (tex.OffsetStudsV - dt * currentAnimSpeed * 0.4) % tex.StudsPerTileV
-				end
-				
-				-- 3. 터빈 바람 파티클 조절
-				local targetRate = isAnyoneRiding and 50 or 12
-				local targetWindSpeed = isAnyoneRiding and 35 or 15
-				for _, pe in ipairs(turbineEmitters) do
-					pe.Rate = targetRate
-					pe.Speed = NumberRange.new(targetWindSpeed * 0.85, targetWindSpeed * 1.15)
-				end
-				
-				-- 4. 전면 HUD 디스플레이 갱신
-				if hudSpeedVal and hudBarFill then
-					if isAnyoneRiding then
-						elapsedRide = elapsedRide + dt
-						local jitter = math.sin(elapsedRide * 8) * 3
-						local spd = math.floor(150 + jitter)
-						hudSpeedVal.Text = string.format("%d <font size=\"32\" color=\"#FFB91E\">KM/H</font>", spd)
-						hudBarFill.Size = UDim2.new(0.88, 0, 1, 0)
-						hudBarFill.BackgroundColor3 = Color3.fromRGB(0, 255, 180)
-						if hudSubHeader then
-							hudSubHeader.Text = "SYSTEM STATUS: 🔥 HIGH VELOCITY TEST 🔥"
-							hudSubHeader.TextColor3 = Color3.fromRGB(255, 190, 40)
-						end
-					else
-						elapsedRide = 0
-						hudSpeedVal.Text = "0 <font size=\"32\" color=\"#7890AA\">KM/H</font>"
-						hudBarFill.Size = UDim2.new(0.08, 0, 1, 0)
-						hudBarFill.BackgroundColor3 = Color3.fromRGB(0, 240, 255)
-						if hudSubHeader then
-							hudSubHeader.Text = "SYSTEM STATUS: READY  |  WIND TUNNEL: IDLE"
-							hudSubHeader.TextColor3 = Color3.fromRGB(120, 255, 150)
-						end
-					end
-				end
-			end)
 		end
 	end
 end)
