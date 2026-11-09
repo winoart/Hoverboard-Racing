@@ -84,7 +84,7 @@ SkillStoreConfig.Skills = {
 	{
 		id = "Skill_Premium",
 		name = "Golden Freeze",
-		description = "Starter Pack Exclusive! Freezes opponents for longer.",
+		description = "Freezes the leading opponent in golden ice for 5 seconds! (Max 3 uses per race)",
 		imageId = "rbxassetid://76040627389377",
 		goldPrice = 0,
 		cooldownType = "Charges",

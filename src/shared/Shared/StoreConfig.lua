@@ -53,7 +53,7 @@ StoreConfig.Items = {
 		rarity = "Super Rare",
 		weight = 0, -- 시작할 때 기본 지급되거나 팩 전용이므로 뽑기 확률 0
 		price = 0,
-		desc = "A luxurious, gold-plated VIP hoverboard exclusively for Starter Pack owners.",
+		desc = "A luxurious, gold-plated VIP hoverboard with booster speed +150 km/h!",
 	},
 	{
 		id = "ClassicRookie",

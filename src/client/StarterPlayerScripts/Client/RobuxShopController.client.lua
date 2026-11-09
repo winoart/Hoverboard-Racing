@@ -276,38 +276,201 @@ local function initializeShop()
 					end
 				end
 				
+				-- 💬 보상 설명 말풍선 툴팁 (PC 호버 / 모바일 탭)
+				local bubble = Instance.new("Frame")
+				bubble.Name = "BubbleTooltip"
+				bubble.Size = UDim2.new(0, 230, 0, 74)
+				bubble.AnchorPoint = Vector2.new(0.5, 1)
+				bubble.BackgroundColor3 = Color3.fromRGB(20, 22, 30)
+				bubble.BackgroundTransparency = 0.05
+				bubble.ZIndex = 50
+				bubble.Visible = false
+				bubble.Parent = clone
+
+				local bCorner = Instance.new("UICorner")
+				bCorner.CornerRadius = UDim.new(0, 10)
+				bCorner.Parent = bubble
+
+				local bStroke = Instance.new("UIStroke")
+				bStroke.Color = Color3.fromRGB(255, 205, 50)
+				bStroke.Thickness = 2.0
+				bStroke.Parent = bubble
+
+				-- 말풍선 꼬리 (아래쪽 45도 회전 사각형)
+				local tail = Instance.new("Frame")
+				tail.Name = "Tail"
+				tail.Size = UDim2.new(0, 10, 0, 10)
+				tail.AnchorPoint = Vector2.new(0.5, 0.5)
+				tail.Position = UDim2.new(0.5, 0, 1, -1)
+				tail.Rotation = 45
+				tail.BackgroundColor3 = Color3.fromRGB(20, 22, 30)
+				tail.BorderSizePixel = 0
+				tail.ZIndex = 52
+				tail.Parent = bubble
+
+				local tailStroke = Instance.new("UIStroke")
+				tailStroke.Color = Color3.fromRGB(255, 205, 50)
+				tailStroke.Thickness = 2.0
+				tailStroke.Parent = tail
+
+				local titleLbl = Instance.new("TextLabel")
+				titleLbl.Name = "Title"
+				titleLbl.Size = UDim2.new(1, -28, 0, 18)
+				titleLbl.Position = UDim2.new(0, 10, 0, 6)
+				titleLbl.BackgroundTransparency = 1
+				titleLbl.Font = Enum.Font.FredokaOne
+				titleLbl.TextSize = 13
+				titleLbl.TextColor3 = Color3.fromRGB(255, 215, 0)
+				titleLbl.TextXAlignment = Enum.TextXAlignment.Left
+				titleLbl.ZIndex = 51
+				titleLbl.Parent = bubble
+
+				local titleStroke = Instance.new("UIStroke")
+				titleStroke.Color = Color3.fromRGB(0, 0, 0)
+				titleStroke.Thickness = 1.5
+				titleStroke.Parent = titleLbl
+
+				local descLbl = Instance.new("TextLabel")
+				descLbl.Name = "Description"
+				descLbl.Size = UDim2.new(1, -20, 0, 42)
+				descLbl.Position = UDim2.new(0, 10, 0, 24)
+				descLbl.BackgroundTransparency = 1
+				descLbl.Font = Enum.Font.GothamMedium
+				descLbl.TextSize = 11
+				descLbl.TextColor3 = Color3.fromRGB(240, 240, 240)
+				descLbl.TextXAlignment = Enum.TextXAlignment.Left
+				descLbl.TextYAlignment = Enum.TextYAlignment.Top
+				descLbl.TextWrapped = true
+				descLbl.ZIndex = 51
+				descLbl.Parent = bubble
+
+				-- 닫기 버튼 [X] (모바일 터치 닫기 지원)
+				local closeBtn = Instance.new("TextButton")
+				closeBtn.Name = "CloseBtn"
+				closeBtn.Size = UDim2.new(0, 16, 0, 16)
+				closeBtn.Position = UDim2.new(1, -20, 0, 6)
+				closeBtn.BackgroundColor3 = Color3.fromRGB(230, 60, 60)
+				closeBtn.Text = "X"
+				closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+				closeBtn.Font = Enum.Font.GothamBold
+				closeBtn.TextSize = 11
+				closeBtn.ZIndex = 53
+				closeBtn.Parent = bubble
+
+				local cCorner = Instance.new("UICorner")
+				cCorner.CornerRadius = UDim.new(1, 0)
+				cCorner.Parent = closeBtn
+
+				local currentPinnedSlot = nil
+
+				local function showBubble(slot, title, desc, isClick)
+					titleLbl.Text = title
+					descLbl.Text = desc
+
+					local slotCenter = slot.AbsolutePosition + slot.AbsoluteSize * Vector2.new(0.5, 0)
+					local cardPos = clone.AbsolutePosition
+					local relX = slotCenter.X - cardPos.X
+					local relY = slot.AbsolutePosition.Y - cardPos.Y
+
+					local cardWidth = clone.AbsoluteSize.X
+					local clampedX = math.clamp(relX, 120, math.max(120, cardWidth - 120))
+					local tailOffset = relX - clampedX
+
+					bubble.Position = UDim2.new(0, clampedX, 0, relY - 8)
+					tail.Position = UDim2.new(0.5, tailOffset, 1, -1)
+					bubble.Visible = true
+
+					if isClick then
+						currentPinnedSlot = slot
+					end
+				end
+
+				local function hideBubble(force)
+					if force or not currentPinnedSlot then
+						bubble.Visible = false
+						currentPinnedSlot = nil
+					end
+				end
+
+				closeBtn.Activated:Connect(function()
+					hideBubble(true)
+				end)
+
+				local function bindSlotTooltip(slot, title, desc)
+					local hitBtn = slot:FindFirstChild("TooltipHitArea")
+					if not hitBtn then
+						hitBtn = Instance.new("TextButton")
+						hitBtn.Name = "TooltipHitArea"
+						hitBtn.Size = UDim2.new(1, 0, 1, 0)
+						hitBtn.BackgroundTransparency = 1
+						hitBtn.Text = ""
+						hitBtn.ZIndex = 10
+						hitBtn.Parent = slot
+					end
+
+					-- 1. PC: 마우스 호버 시 표시 / 마우스 벗어날 시 숨김
+					hitBtn.MouseEnter:Connect(function()
+						if currentPinnedSlot ~= slot then
+							showBubble(slot, title, desc, false)
+						end
+					end)
+
+					hitBtn.MouseLeave:Connect(function()
+						if currentPinnedSlot ~= slot then
+							hideBubble(false)
+						end
+					end)
+
+					-- 2. 모바일: 탭 시 말풍선 토글 (열기 / 닫기)
+					hitBtn.Activated:Connect(function()
+						if currentPinnedSlot == slot and bubble.Visible then
+							hideBubble(true)
+						else
+							showBubble(slot, title, desc, true)
+						end
+					end)
+				end
+				
 				if item.rewards then
 					for _, r in ipairs(item.rewards) do
 						if r.type == "Gold" and gSlot then
 							gSlot.Visible = true
 							local val = tonumber(r.value) or 0
+							local formattedVal = tostring(val)
 							if val >= 1000 then
 								local kVal = val / 1000
 								if kVal == math.floor(kVal) then
-									gSlot.Label.Text = tostring(kVal) .. "k"
+									formattedVal = tostring(kVal) .. "k"
 								else
-									gSlot.Label.Text = string.format("%.1fk", kVal)
+									formattedVal = string.format("%.1fk", kVal)
 								end
-							else
-								gSlot.Label.Text = tostring(r.value)
 							end
+							gSlot.Label.Text = formattedVal
 							gSlot.Icon.Image = "rbxassetid://127099213486402" -- 골드 아이콘
 							gSlot.Icon.AnchorPoint = Vector2.new(0.5, 0.5)
 							gSlot.Icon.Position = UDim2.new(0.5, 0, 0.38, 0)
 							gSlot.Icon.Size = UDim2.new(0.85, 0, 0.62, 0)
 							gSlot.Icon.ScaleType = Enum.ScaleType.Fit
 							gSlot.Icon.BackgroundTransparency = 1
+
+							local goldTitle = string.format("%s Gold", formattedVal)
+							local goldDesc = "Gold currency used to unlock and upgrade hoverboards, or purchase special skills in the shop!"
+							bindSlotTooltip(gSlot, goldTitle, goldDesc)
 						elseif r.type == "Hoverboard" and bSlot then
 							bSlot.Visible = true
 							
 							-- StoreConfig에서 보드 정보 찾기
 							local bName = tostring(r.value)
 							local bIcon = "rbxassetid://13511855909"
+							local bRarity = "Super Rare"
+							local bDesc = "A luxurious gold-plated VIP hoverboard with booster speed +150 km/h!"
 							if StoreConfig and StoreConfig.Items then
 								for _, itemData in ipairs(StoreConfig.Items) do
-									if itemData.id == r.value then
+									if itemData.id == r.value or (r.value == "Hoverboard_Starter" and itemData.id == "StarterPac_Board") then
 										bName = itemData.name or bName
 										bIcon = itemData.imageId or bIcon
+										bRarity = itemData.rarity or bRarity
+										bDesc = itemData.desc or bDesc
 										break
 									end
 								end
@@ -322,17 +485,22 @@ local function initializeShop()
 							bSlot.Icon.Size = UDim2.new(0.96, 0, 0.72, 0)
 							bSlot.Icon.ScaleType = Enum.ScaleType.Fit
 							bSlot.Icon.BackgroundTransparency = 1
+
+							local boardTitle = string.format("%s [%s]", bName, bRarity)
+							bindSlotTooltip(bSlot, boardTitle, bDesc)
 						elseif r.type == "Skill" and sSlot then
 							sSlot.Visible = true
 							
 							-- SkillStoreConfig에서 스킬 정보 찾기
 							local sName = tostring(r.value)
 							local sIcon = "rbxassetid://76040627389377"
+							local sDesc = "Freezes the lead opponent in golden ice for 5 seconds! (Max 3 uses per race)"
 							if SkillStoreConfig and SkillStoreConfig.Skills then
 								for _, skillData in ipairs(SkillStoreConfig.Skills) do
 									if skillData.id == r.value then
 										sName = skillData.name or sName
 										sIcon = skillData.imageId or sIcon
+										sDesc = skillData.description or sDesc
 										break
 									end
 								end
@@ -345,6 +513,9 @@ local function initializeShop()
 							sSlot.Icon.Size = UDim2.new(0.85, 0, 0.62, 0)
 							sSlot.Icon.ScaleType = Enum.ScaleType.Fit
 							sSlot.Icon.BackgroundTransparency = 1
+
+							local skillTitle = string.format("%s [Exclusive]", sName)
+							bindSlotTooltip(sSlot, skillTitle, sDesc)
 						end
 					end
 				end
