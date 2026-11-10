@@ -9,11 +9,23 @@ local UserInputService = game:GetService("UserInputService")
 local ContextActionService = game:GetService("ContextActionService")
 local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
+local SoundService = game:GetService("SoundService")
+local ContentProvider = game:GetService("ContentProvider")
 
 local StarterGui = game:GetService("StarterGui")
 local GuiService = game:GetService("GuiService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
+
+-- 골드 보상 사운드 프리로드 (1,2,3등 결과창 연출용)
+task.spawn(function()
+	local preloadSound = Instance.new("Sound")
+	preloadSound.SoundId = "rbxassetid://128773194382802"
+	pcall(function()
+		ContentProvider:PreloadAsync({ preloadSound })
+	end)
+	preloadSound:Destroy()
+end)
 
 -- Hide Roblox Default Backpack Tool Slot [1] UI
 task.spawn(function()
@@ -130,6 +142,19 @@ end
 
 local function spawnGoldEffect(startPos: Vector2, target: GuiObject?, rank: number)
 	if not target or not guiScreen then return end
+	
+	-- 1, 2, 3등 골드 보상 획득 시 사운드 재생
+	if rank >= 1 and rank <= 3 then
+		pcall(function()
+			local snd = Instance.new("Sound")
+			snd.Name = "RaceGoldSound"
+			snd.SoundId = "rbxassetid://128773194382802"
+			snd.Volume = 1.0
+			snd.Parent = SoundService
+			snd:Play()
+			snd.Ended:Connect(function() snd:Destroy() end)
+		end)
+	end
 	
 	local targetPos = UDim2.new(0, target.AbsolutePosition.X + (target.AbsoluteSize.X / 2), 0, target.AbsolutePosition.Y + (target.AbsoluteSize.Y / 2))
 	
