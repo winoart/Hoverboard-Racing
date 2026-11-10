@@ -7,6 +7,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local SoundService = game:GetService("SoundService")
+local ContentProvider = game:GetService("ContentProvider")
 
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
@@ -16,6 +17,16 @@ local RebirthConfig = require(Shared:WaitForChild("RebirthConfig"))
 
 local hoverRemotes = ReplicatedStorage:WaitForChild("HoverboardRemotes")
 local requestRebirthRemote = hoverRemotes:WaitForChild("RequestRebirth") :: RemoteFunction
+
+-- 사운드 에셋 프리로드 (즉시 반응형 재생)
+task.spawn(function()
+	local preloadSound = Instance.new("Sound")
+	preloadSound.SoundId = "rbxassetid://8156890810"
+	pcall(function()
+		ContentProvider:PreloadAsync({ preloadSound })
+	end)
+	preloadSound:Destroy()
+end)
 
 -- =========================================================================
 -- 1. UI 생성 (ScreenGui: LevelBarHUD)
@@ -210,10 +221,11 @@ end
 local isLevelingUp = false
 
 local function playCelebration(newLevel: number)
-	-- 사운드 재생
+	-- 사운드 재생 (레벨업 축하 효과음)
 	pcall(function()
 		local snd = Instance.new("Sound")
-		snd.SoundId = "rbxassetid://9069609268" -- 상쾌하고 웅장한 축하 차임
+		snd.Name = "LevelUpSound"
+		snd.SoundId = "rbxassetid://8156890810"
 		snd.Volume = 1.0
 		snd.Parent = SoundService
 		snd:Play()
