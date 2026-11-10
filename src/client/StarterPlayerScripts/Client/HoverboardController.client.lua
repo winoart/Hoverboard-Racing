@@ -17,14 +17,17 @@ local GuiService = game:GetService("GuiService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
 
--- 골드 보상 사운드 프리로드 (1,2,3등 결과창 연출용)
+-- 오디오 사운드 프리로드 (골드 보상 및 레이스 스타트 GO!)
 task.spawn(function()
-	local preloadSound = Instance.new("Sound")
-	preloadSound.SoundId = "rbxassetid://128773194382802"
+	local sound1 = Instance.new("Sound")
+	sound1.SoundId = "rbxassetid://128773194382802"
+	local sound2 = Instance.new("Sound")
+	sound2.SoundId = "rbxassetid://124292776701163"
 	pcall(function()
-		ContentProvider:PreloadAsync({ preloadSound })
+		ContentProvider:PreloadAsync({ sound1, sound2 })
 	end)
-	preloadSound:Destroy()
+	sound1:Destroy()
+	sound2:Destroy()
 end)
 
 -- Hide Roblox Default Backpack Tool Slot [1] UI
@@ -1997,6 +2000,17 @@ countdownRemote.OnClientEvent:Connect(function(count: number)
 		label.Text = "GO! 🏁"
 		label.TextColor3 = Color3.fromRGB(0, 240, 255) -- ⚡ Cyan/Gold GO!
 		label.TextSize = 110
+
+		-- 🔊 GO! 스타트 사운드 재생
+		pcall(function()
+			local snd = Instance.new("Sound")
+			snd.Name = "RaceGoSound"
+			snd.SoundId = "rbxassetid://124292776701163"
+			snd.Volume = 1.0
+			snd.Parent = SoundService
+			snd:Play()
+			snd.Ended:Connect(function() snd:Destroy() end)
+		end)
 
 		-- ⏱️ RECORD TIMER STARTS AT GO!
 		raceStartTime = os.clock()
