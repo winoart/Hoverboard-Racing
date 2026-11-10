@@ -253,14 +253,6 @@ local function spawnGoldEffect(startPos: Vector2, target: GuiObject?, rank: numb
 		end
 	end)
 end
-		
-		task.delay((i - 1) * 0.12, function()
-			if icon.Parent then
-				popTween:Play()
-			end
-		end)
-	end
-end
 
 -- Create Authentic Arcade Racing Layout HUD UI
 local function createHUDUI()
