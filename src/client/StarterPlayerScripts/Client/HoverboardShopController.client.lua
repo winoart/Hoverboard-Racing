@@ -17,6 +17,45 @@ local catalogUpdatedRemote = remotesFolder:WaitForChild("HoverboardsCatalogUpdat
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local StoreConfig = require(Shared:WaitForChild("StoreConfig") :: ModuleScript)
+local SoundService = game:GetService("SoundService")
+local ContentProvider = game:GetService("ContentProvider")
+
+-- 🎵 사운드 설정 (샵 오픈: 78897892629188, 아이템 셀렉: 9119730203)
+local openSound = Instance.new("Sound")
+openSound.Name = "HoverboardShopOpenSound"
+openSound.SoundId = "rbxassetid://78897892629188"
+openSound.Volume = 0.9
+openSound.Parent = SoundService
+
+local selectSound = Instance.new("Sound")
+selectSound.Name = "HoverboardItemSelectSound"
+selectSound.SoundId = "rbxassetid://9119730203"
+selectSound.Volume = 0.9
+selectSound.Parent = SoundService
+
+task.spawn(function()
+	pcall(function()
+		ContentProvider:PreloadAsync({ openSound, selectSound })
+	end)
+end)
+
+local function playOpenSound()
+	pcall(function()
+		openSound.TimePosition = 0
+		openSound:Play()
+	end)
+end
+
+local lastSelectTime = 0
+local function playSelectSound()
+	local now = os.clock()
+	if now - lastSelectTime < 0.05 then return end
+	lastSelectTime = now
+	pcall(function()
+		selectSound.TimePosition = 0
+		selectSound:Play()
+	end)
+end
 
 -- UI 참조
 local screenGui = playerGui:WaitForChild("HoverboardShopHUD")
@@ -300,8 +339,10 @@ local function renderCatalog(catalogList)
 					buyBtn.BackgroundColor3 = Color3.fromRGB(50, 205, 50)
 					buyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 					buyBtn.Active = true
+					buyBtn:SetAttribute("IgnoreClickSound", true)
 					
 					buyBtn.MouseButton1Click:Connect(function()
+						playSelectSound()
 						if checkOwned(board.id) then return end
 						local success, msg = buyRemote:InvokeServer(board.id)
 						if success then
@@ -313,6 +354,14 @@ local function renderCatalog(catalogList)
 					end)
 				end
 			end
+			
+			-- 카드 클릭 시 아이템 셀렉 사운드 재생
+			card:SetAttribute("IgnoreClickSound", true)
+			card.InputBegan:Connect(function(input)
+				if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+					playSelectSound()
+				end
+			end)
 			
 			card.Visible = true
 			card.Parent = gridContainer
@@ -327,7 +376,14 @@ local function openShop()
 	renderCatalog(catalog)
 	isShopOpen = true
 	screenGui.Enabled = true
+	playOpenSound()
 end
+
+screenGui:GetPropertyChangedSignal("Enabled"):Connect(function()
+	if screenGui.Enabled then
+		playOpenSound()
+	end
+end)
 
 openShopRemote.OnClientEvent:Connect(openShop)
 

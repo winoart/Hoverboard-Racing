@@ -15,6 +15,45 @@ local purchaseItemRemote = remotesFolder:WaitForChild("PurchaseSkill") :: Remote
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local SkillStoreConfig = require(Shared:WaitForChild("SkillStoreConfig") :: ModuleScript)
+local SoundService = game:GetService("SoundService")
+local ContentProvider = game:GetService("ContentProvider")
+
+-- 🎵 사운드 설정 (샵 오픈: 78897892629188, 아이템 셀렉: 9119730203)
+local openSound = Instance.new("Sound")
+openSound.Name = "SkillStoreOpenSound"
+openSound.SoundId = "rbxassetid://78897892629188"
+openSound.Volume = 0.9
+openSound.Parent = SoundService
+
+local selectSound = Instance.new("Sound")
+selectSound.Name = "SkillItemSelectSound"
+selectSound.SoundId = "rbxassetid://9119730203"
+selectSound.Volume = 0.9
+selectSound.Parent = SoundService
+
+task.spawn(function()
+	pcall(function()
+		ContentProvider:PreloadAsync({ openSound, selectSound })
+	end)
+end)
+
+local function playOpenSound()
+	pcall(function()
+		openSound.TimePosition = 0
+		openSound:Play()
+	end)
+end
+
+local lastSelectTime = 0
+local function playSelectSound()
+	local now = os.clock()
+	if now - lastSelectTime < 0.05 then return end
+	lastSelectTime = now
+	pcall(function()
+		selectSound.TimePosition = 0
+		selectSound:Play()
+	end)
+end
 
 print("💻 [SkillStoreController] Thick Cartoon Style 스킬상점 UI 가동 시작!")
 
@@ -357,9 +396,19 @@ for idx, item in ipairs(SkillStoreConfig.Skills) do
 	end
 	table.insert(cardUpdaters, updateCardState)
 
+	actionBtn:SetAttribute("IgnoreClickSound", true)
+	card:SetAttribute("IgnoreClickSound", true)
+
+	card.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			playSelectSound()
+		end
+	end)
+
 	-- Purchase Click Handler
 	local isBuying = false
 	actionBtn.MouseButton1Click:Connect(function()
+		playSelectSound()
 		-- 🛑 이미 보유 중이면 절대 동작하지 않고 즉시 차단!
 		if checkOwnsSkill() then
 			updateCardState()
@@ -427,6 +476,13 @@ end)
 openStoreRemote.OnClientEvent:Connect(function()
 	refreshAllCards()
 	storeGui.Enabled = true
+	playOpenSound()
+end)
+
+storeGui:GetPropertyChangedSignal("Enabled"):Connect(function()
+	if storeGui.Enabled then
+		playOpenSound()
+	end
 end)
 
 -- =========================================================================

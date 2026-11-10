@@ -6,6 +6,28 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local StarterGui = game:GetService("StarterGui")
+local SoundService = game:GetService("SoundService")
+local ContentProvider = game:GetService("ContentProvider")
+
+local openSound = Instance.new("Sound")
+openSound.Name = "RouletteOpenSound"
+openSound.SoundId = "rbxassetid://78897892629188"
+openSound.Volume = 0.9
+openSound.Parent = SoundService
+
+task.spawn(function()
+	pcall(function()
+		ContentProvider:PreloadAsync({ openSound })
+	end)
+end)
+
+local function playOpenSound()
+	pcall(function()
+		openSound.TimePosition = 0
+		openSound:Play()
+	end)
+end
+
 
 local LocalPlayer = Players.LocalPlayer
 local playerGui = LocalPlayer:WaitForChild("PlayerGui")
@@ -198,5 +220,12 @@ end)
 openStoreRemote.OnClientEvent:Connect(function()
 	if not isSpinning then
 		gui.Enabled = true
+		playOpenSound()
+	end
+end)
+
+gui:GetPropertyChangedSignal("Enabled"):Connect(function()
+	if gui.Enabled then
+		playOpenSound()
 	end
 end)

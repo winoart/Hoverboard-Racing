@@ -24,6 +24,33 @@ local SkillStoreConfig = require(Shared:WaitForChild("SkillStoreConfig") :: Modu
 local HoverboardBuilder = require(Shared:WaitForChild("HoverboardBuilder") :: ModuleScript)
 local RunService = game:GetService("RunService")
 
+local SoundService = game:GetService("SoundService")
+local ContentProvider = game:GetService("ContentProvider")
+
+-- 🎵 아이템 셀렉 사운드 (9119730203)
+local itemSelectSound = Instance.new("Sound")
+itemSelectSound.Name = "InventoryItemSelectSound"
+itemSelectSound.SoundId = "rbxassetid://9119730203"
+itemSelectSound.Volume = 0.9
+itemSelectSound.Parent = SoundService
+
+task.spawn(function()
+	pcall(function()
+		ContentProvider:PreloadAsync({ itemSelectSound })
+	end)
+end)
+
+local lastSelectTime = 0
+local function playItemSelectSound()
+	local now = os.clock()
+	if now - lastSelectTime < 0.05 then return end
+	lastSelectTime = now
+	pcall(function()
+		itemSelectSound.TimePosition = 0
+		itemSelectSound:Play()
+	end)
+end
+
 -- Folder for custom models
 local customModelsFolder = ReplicatedStorage:FindFirstChild("HoverboardModels")
 
@@ -314,6 +341,7 @@ end
 local function selectItem(item, iType)
 	selectedItem = item
 	selectedItemType = iType
+	playItemSelectSound()
 	
 	for _, data in ipairs(allCards) do
 		if data.item.id == item.id then
@@ -390,6 +418,7 @@ local function createInvCard(item, itemType, parentScroll, layoutOrder)
 	
 	table.insert(allCards, {card = cardBtn, stroke = cardStroke, item = item, itemType = itemType, checkIcon = checkIcon, img = img})
 	
+	cardBtn:SetAttribute("IgnoreClickSound", true)
 	cardBtn.MouseButton1Click:Connect(function()
 		selectItem(item, itemType)
 	end)
