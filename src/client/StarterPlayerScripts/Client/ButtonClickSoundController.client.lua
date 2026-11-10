@@ -1,6 +1,6 @@
 --!strict
 -- ButtonClickSoundController.client.luau
--- 🎵 중앙 집중식 UI 버튼 클릭 사운드 시스템
+-- 🎵 중앙 집중식 UI 버튼 클릭 사운드 시스템 (초고속 제로 레이턴시 최적화)
 -- 사운드 ID: rbxassetid://87437544236708 (설정, 출석리워드, Items, Quest, Level, Robux, AFK, 닫기 X 버튼 등)
 
 local Players = game:GetService("Players")
@@ -11,34 +11,44 @@ local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 local BUTTON_CLICK_SOUND_ID = "rbxassetid://87437544236708"
+local SOUND_ATTACK_OFFSET = 0.02 -- 음원 선행 무음 구간(Dead Air) 건너뛰기 (초)
 
--- 사운드 템플릿 생성 및 프리로드
-local clickSoundTemplate = Instance.new("Sound")
-clickSoundTemplate.Name = "UIButtonClickSound"
-clickSoundTemplate.SoundId = BUTTON_CLICK_SOUND_ID
-clickSoundTemplate.Volume = 0.85
-clickSoundTemplate.RollOffMode = Enum.RollOffMode.Linear
+-- 🚀 1. 사운드 오브젝트 풀링 (Sound Pool) - 동적 생성/삭제 딜레이 0초화
+local SOUND_POOL_SIZE = 6
+local soundPool = {}
+local poolIndex = 1
 
+for i = 1, SOUND_POOL_SIZE do
+	local snd = Instance.new("Sound")
+	snd.Name = "UIButtonClickSound_" .. i
+	snd.SoundId = BUTTON_CLICK_SOUND_ID
+	snd.Volume = 0.95
+	snd.RollOffMode = Enum.RollOffMode.Linear
+	snd.Parent = SoundService
+	table.insert(soundPool, snd)
+end
+
+-- 사운드 에셋 사전 로딩 (Preload)
 task.spawn(function()
 	pcall(function()
-		ContentProvider:PreloadAsync({ clickSoundTemplate })
+		ContentProvider:PreloadAsync(soundPool)
 	end)
 end)
 
--- 사운드 재생 함수 (연타 시 겹침 방지 및 0.05초 디바운스 적용)
+-- ⚡ 2. 초고속 제로 레이턴시 사운드 재생 함수 (디바운스 0.04초로 중복 방지)
 local lastPlayTime = 0
 local function playButtonClickSound()
 	local now = os.clock()
-	if now - lastPlayTime < 0.05 then return end
+	if now - lastPlayTime < 0.04 then return end
 	lastPlayTime = now
 
+	local snd = soundPool[poolIndex]
+	poolIndex = (poolIndex % SOUND_POOL_SIZE) + 1
+
 	pcall(function()
-		local sound = clickSoundTemplate:Clone()
-		sound.Parent = SoundService
-		sound:Play()
-		sound.Ended:Connect(function()
-			sound:Destroy()
-		end)
+		-- 선행 무음 구간을 건너뛰고 첫 타격음(Attack Peak)부터 즉시 재생
+		snd.TimePosition = SOUND_ATTACK_OFFSET
+		snd:Play()
 	end)
 end
 
@@ -123,7 +133,7 @@ local function shouldPlayClickSound(btn: GuiButton): boolean
 	return false
 end
 
--- 버튼 이벤트 연결
+-- 🎯 버튼 이벤트 연결 (마우스를 누르는 '다운' 즉시 0ms 반응)
 local function hookButton(btn: GuiButton)
 	if not btn:IsA("GuiButton") then return end
 	if btn:GetAttribute("ClickSoundHooked") then return end
@@ -131,9 +141,18 @@ local function hookButton(btn: GuiButton)
 
 	btn:SetAttribute("ClickSoundHooked", true)
 
-	-- Activated(PC/모바일/패드 공통) 및 MouseButton1Click 둘 다 안전 연결 (디바운스로 중복 방지)
+	-- ⚡ 1. PC 마우스 클릭 다운 즉시 발동 (손을 뗄 때까지 기다리는 150ms 딜레이 제거)
+	btn.MouseButton1Down:Connect(playButtonClickSound)
+
+	-- ⚡ 2. 모바일 터치 / 게임패드 입력 다운 즉시 발동
+	btn.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			playButtonClickSound()
+		end
+	end)
+
+	-- 🛡️ 3. 백업 안전망 (Activated: 디바운스로 중복 방지)
 	btn.Activated:Connect(playButtonClickSound)
-	btn.MouseButton1Click:Connect(playButtonClickSound)
 end
 
 -- 기존 생성되어 있는 모든 버튼 검색 및 연결
@@ -155,5 +174,4 @@ end)
 -- 초기 스캔 실행
 scanAndHookAll()
 
-print("🔊 [ButtonClickSoundController] UI 버튼 클릭 사운드 시스템 가동 완료! (ID: " .. BUTTON_CLICK_SOUND_ID .. ")")
-
+print("🔊 [ButtonClickSoundController] 초고속 제로 레이턴시 UI 버튼 사운드 가동 완료! (ID: " .. BUTTON_CLICK_SOUND_ID .. ")")
