@@ -13,7 +13,7 @@ local phaseRemote = remotesFolder:WaitForChild("GamePhaseChanged") :: RemoteEven
 
 -- Configure Map BGM Sound IDs here
 local BGM_IDS = {
-	Lobby = "rbxassetid://0", -- 로비/대기실 BGM (ID를 입력하세요, 예: "rbxassetid://183784928")
+	Lobby = "rbxassetid://1840383905", -- 🎵 로비/대기실 BGM (Happy Shoppers)
 	OvalSpeedway = "rbxassetid://119805423797573", -- Oval Speedway 맵 BGM
 	DesertTrack = "rbxassetid://70712183409265", -- Desert Track 맵 BGM
 	MagmaRidge = "rbxassetid://0", -- Magma Ridge 맵 BGM
@@ -41,7 +41,7 @@ local function playBGM(soundId: string)
 
 	if soundId and soundId ~= "rbxassetid://0" and soundId ~= "" then
 		local newSound = Instance.new("Sound")
-		newSound.Name = "BGM_" .. string.match(soundId, "%d+")
+		newSound.Name = "BGM_" .. (string.match(soundId, "%d+") or "Custom")
 		newSound.SoundId = soundId
 		newSound.Looped = true
 		newSound.Volume = 0
@@ -50,7 +50,7 @@ local function playBGM(soundId: string)
 		
 		local isBGMEnabled = LocalPlayer:GetAttribute("BGMEnabled") ~= false
 		local targetVolume = isBGMEnabled and 0.45 or 0
-		local fadeIn = TweenService:Create(newSound, TweenInfo.new(1), {Volume = targetVolume}) -- 기본 음악 볼륨 상승 (0.45)
+		local fadeIn = TweenService:Create(newSound, TweenInfo.new(1), {Volume = targetVolume}) -- 기본 음악 볼륨 (0.45)
 		fadeIn:Play()
 		currentSound = newSound
 	else
@@ -59,19 +59,22 @@ local function playBGM(soundId: string)
 end
 
 local function updateBGM()
+	local isRacing = LocalPlayer:GetAttribute("IsRacing") == true
+	local isAFK = LocalPlayer:GetAttribute("IsAFK") == true
+
 	if currentPhase == "INTERMISSION" or currentPhase == "MAP_VOTING" then
 		playBGM(BGM_IDS.Lobby)
 	elseif currentPhase == "MAP_BUILDING" or currentPhase == "PLAYER_SYNC" then
-		-- 맵 로딩 중일 때 BGM 정지
+		-- 맵 로딩 중일 때 BGM 부드럽게 정지
 		playBGM("") 
 	elseif currentPhase == "RACE_MATCH" then
-		local isAFK = LocalPlayer:GetAttribute("IsAFK")
-		if isAFK then
+		-- 대기실에 남아있거나 AFK 상태인 유저는 대기실 BGM 유지/재생!
+		if not isRacing or isAFK then
 			playBGM(BGM_IDS.Lobby)
 			return
 		end
 
-		local mapBGM = BGM_IDS.Lobby -- 맵에 해당하는 브금이 없으면 일단 로비 브금(또는 무음) 재생
+		local mapBGM = BGM_IDS.Lobby -- 맵에 해당하는 브금이 없으면 로비 브금 재생
 		if currentMap == "Oval Speedway" then
 			mapBGM = BGM_IDS.OvalSpeedway
 		elseif currentMap == "Desert Track" then
@@ -99,6 +102,11 @@ LocalPlayer:GetAttributeChangedSignal("IsAFK"):Connect(function()
 	updateBGM()
 end)
 
+-- 레이싱 상태 변경 리스너 (레이스 종료 후 대기실 복귀 시 로비 BGM 즉시 복구)
+LocalPlayer:GetAttributeChangedSignal("IsRacing"):Connect(function()
+	updateBGM()
+end)
+
 -- BGM 활성화/비활성화 설정 리스너
 LocalPlayer:GetAttributeChangedSignal("BGMEnabled"):Connect(function()
 	local isEnabled = LocalPlayer:GetAttribute("BGMEnabled") ~= false
@@ -114,3 +122,4 @@ end)
 
 -- 초기 실행
 updateBGM()
+print("🎵 [BGMController] 대기실 BGM(Happy Shoppers, 1840383905) 및 맵 BGM 시스템 가동 완료!")
