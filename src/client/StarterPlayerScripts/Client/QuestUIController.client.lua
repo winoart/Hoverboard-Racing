@@ -231,6 +231,30 @@ local function getGoldTarget(): GuiObject?
 	return nil
 end
 
+local activeQuestGoldBounceTween: Tween? = nil
+
+local function bounceGoldTarget(target: GuiObject?)
+	if not target or not target.Parent then return end
+	local uiScale = target:FindFirstChild("GoldBounceScale") :: UIScale?
+	if not uiScale then
+		uiScale = Instance.new("UIScale")
+		uiScale.Name = "GoldBounceScale"
+		uiScale.Scale = 1.0
+		uiScale.Parent = target
+	end
+	
+	if activeQuestGoldBounceTween then
+		activeQuestGoldBounceTween:Cancel()
+		activeQuestGoldBounceTween = nil
+	end
+	
+	uiScale.Scale = 1.2
+	activeQuestGoldBounceTween = TweenService:Create(uiScale, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Scale = 1.0
+	})
+	activeQuestGoldBounceTween:Play()
+end
+
 local function spawnGoldEffect(startPos: Vector2, target: GuiObject?, amount: number)
 	if not target or not questScreenGui then return end
 	
@@ -276,27 +300,25 @@ local function spawnGoldEffect(startPos: Vector2, target: GuiObject?, amount: nu
 		
 		flyTween.Completed:Connect(function()
 			icon:Destroy()
-			
-			-- 도착 시 골드 아이콘 흔들림 효과 (무한 커짐 방지)
-			if target and target.Parent then
-				local uiScale = target:FindFirstChild("GoldBounceScale")
-				if not uiScale then
-					uiScale = Instance.new("UIScale")
-					uiScale.Name = "GoldBounceScale"
-					uiScale.Scale = 1.0
-					uiScale.Parent = target
-				end
-				
-				TweenService:Create(uiScale, TweenInfo.new(0.05, Enum.EasingStyle.Sine, Enum.EasingDirection.Out, 1, true), {
-					Scale = 1.3
-				}):Play()
-			end
+			bounceGoldTarget(target)
 		end)
 		
 		task.delay(math.random() * 0.2, function()
-			popTween:Play()
+			if icon.Parent then
+				popTween:Play()
+			end
 		end)
 	end
+	
+	-- 최종 안전 복구
+	task.delay(1.5, function()
+		if target and target.Parent then
+			local uiScale = target:FindFirstChild("GoldBounceScale") :: UIScale?
+			if uiScale then
+				uiScale.Scale = 1.0
+			end
+		end
+	end)
 end
 
 local function createQuestCard(questInfo, config, category: string)

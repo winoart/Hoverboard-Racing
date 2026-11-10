@@ -140,6 +140,31 @@ local function getGoldTarget(): GuiObject?
 	return nil
 end
 
+local activeGoldBounceTween: Tween? = nil
+
+local function bounceGoldTarget(target: GuiObject?)
+	if not target or not target.Parent then return end
+	local uiScale = target:FindFirstChild("GoldBounceScale") :: UIScale?
+	if not uiScale then
+		uiScale = Instance.new("UIScale")
+		uiScale.Name = "GoldBounceScale"
+		uiScale.Scale = 1.0
+		uiScale.Parent = target
+	end
+	
+	if activeGoldBounceTween then
+		activeGoldBounceTween:Cancel()
+		activeGoldBounceTween = nil
+	end
+	
+	-- 매 타격 시 1.2배로 펀치 후, 확실하게 1.0으로 복귀 트윈
+	uiScale.Scale = 1.2
+	activeGoldBounceTween = TweenService:Create(uiScale, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Scale = 1.0
+	})
+	activeGoldBounceTween:Play()
+end
+
 local function spawnGoldEffect(startPos: Vector2, target: GuiObject?, rank: number)
 	if not target or not guiScreen then return end
 	
@@ -205,31 +230,26 @@ local function spawnGoldEffect(startPos: Vector2, target: GuiObject?, rank: numb
 		
 		flyTween.Completed:Connect(function()
 			icon:Destroy()
-			
-			-- 타겟(골드 아이콘) 흔들림 효과 (무한 커짐 방지를 위해 UIScale 사용)
-			if target and target.Parent then
-				local uiScale = target:FindFirstChild("GoldBounceScale")
-				if not uiScale then
-					uiScale = Instance.new("UIScale")
-					uiScale.Name = "GoldBounceScale"
-					uiScale.Scale = 1.0
-					uiScale.Parent = target
-				end
-				
-				-- 이전 트윈이 진행 중이더라도 UIScale.Scale을 1.2로 목표로 설정하면 안전함
-				local shakeTween = TweenService:Create(uiScale, TweenInfo.new(0.1, Enum.EasingStyle.Sine, Enum.EasingDirection.Out, 0, true), {
-					Scale = 1.3
-				})
-				shakeTween:Play()
-				
-				-- 안전장치: 혹시 트윈 꼬임을 대비해 잠시 후 1.0으로 강제 복구
-				task.delay(0.25, function()
-					if uiScale then
-						uiScale.Scale = 1.0
-					end
-				end)
+			bounceGoldTarget(target)
+		end)
+		
+		task.delay((i - 1) * 0.12, function()
+			if icon.Parent then
+				popTween:Play()
 			end
 		end)
+	end
+	
+	-- 최종 안전 복구: 모든 동전이 다 날아간 뒤 확실하게 1.0 복귀
+	task.delay((coinCount * 0.12) + 1.2, function()
+		if target and target.Parent then
+			local uiScale = target:FindFirstChild("GoldBounceScale") :: UIScale?
+			if uiScale then
+				uiScale.Scale = 1.0
+			end
+		end
+	end)
+end
 		
 		task.delay((i - 1) * 0.12, function()
 			if icon.Parent then

@@ -26,6 +26,12 @@ local goldFrame = screenGui:WaitForChild("GoldFrame")
 local goldIcon = goldFrame:WaitForChild("GoldIcon")
 local goldTextLabel = goldFrame:WaitForChild("GoldTextLabel")
 
+-- GoldIcon 스케일 보정 (비정상 크기 고정 방지)
+local bounceScale = goldIcon:FindFirstChild("GoldBounceScale") :: UIScale?
+if bounceScale then
+	bounceScale.Scale = 1.0
+end
+
 local goldTextStroke = Instance.new("UIStroke")
 goldTextStroke.Color = Color3.fromRGB(0, 0, 0)
 goldTextStroke.Thickness = 3
