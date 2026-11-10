@@ -1,6 +1,6 @@
 --!strict
 -- ButtonClickSoundController.client.luau
--- 🎵 중앙 집중식 UI 버튼 클릭 사운드 시스템 (초고속 제로 레이턴시 최적화)
+-- 🎵 중앙 집중식 UI 버튼 클릭 사운드 시스템
 -- 사운드 ID: rbxassetid://87437544236708 (설정, 출석리워드, Items, Quest, Level, Robux, AFK, 닫기 X 버튼 등)
 
 local Players = game:GetService("Players")
@@ -11,12 +11,9 @@ local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 local BUTTON_CLICK_SOUND_ID = "rbxassetid://87437544236708"
--- 🎯 0.088초: 선행 소프트 틱(0~0.08초)을 건너뛰고 강력한 메인 스냅 피크로 직행하여 체감 딜레이 완전 소멸
-local SOUND_ATTACK_OFFSET = 0.088 
-local SOUND_PLAYBACK_SPEED = 1.25 -- 25% 가속으로 쫀득하고 즉각적인 아케이드 타격감 구현
 
--- 🚀 1. 사운드 오브젝트 풀링 (Sound Pool) - 동적 생성/삭제 딜레이 0초화
-local SOUND_POOL_SIZE = 6
+-- 🚀 1. 사운드 오브젝트 풀링 (Sound Pool) - 원본 음질/음높이 100% 유지 (PlaybackSpeed = 1.0)
+local SOUND_POOL_SIZE = 4
 local soundPool = {}
 local poolIndex = 1
 
@@ -24,8 +21,8 @@ for i = 1, SOUND_POOL_SIZE do
 	local snd = Instance.new("Sound")
 	snd.Name = "UIButtonClickSound_" .. i
 	snd.SoundId = BUTTON_CLICK_SOUND_ID
-	snd.Volume = 1.0
-	snd.PlaybackSpeed = SOUND_PLAYBACK_SPEED
+	snd.Volume = 0.9
+	snd.PlaybackSpeed = 1.0 -- 원본 음높이 및 속도 유지 (소리가 높아지지 않음)
 	snd.RollOffMode = Enum.RollOffMode.Linear
 	snd.Parent = SoundService
 	table.insert(soundPool, snd)
@@ -38,20 +35,19 @@ task.spawn(function()
 	end)
 end)
 
--- ⚡ 2. 초고속 제로 레이턴시 사운드 재생 함수 (디바운스 0.03초)
+-- ⚡ 2. 사운드 재생 함수 (정확히 단 1회만 재생, 디바운스 0.08초)
 local lastPlayTime = 0
 local function playButtonClickSound()
 	local now = os.clock()
-	if now - lastPlayTime < 0.03 then return end
+	if now - lastPlayTime < 0.08 then return end
 	lastPlayTime = now
 
 	local snd = soundPool[poolIndex]
 	poolIndex = (poolIndex % SOUND_POOL_SIZE) + 1
 
 	pcall(function()
+		snd.TimePosition = 0 -- 원본 처음 위치부터 완전하게 1회 재생
 		snd:Play()
-		-- Play 직후 오프셋을 강제 지정하여 FMOD 버퍼링 지연 없이 메인 타격 피크 즉각 출력
-		snd.TimePosition = SOUND_ATTACK_OFFSET
 	end)
 end
 
@@ -146,7 +142,7 @@ local function shouldPlayClickSound(btn: GuiButton): boolean
 	return false
 end
 
--- 닫기 버튼 전용 즉시 닫기 처리 (마우스를 뗄 때까지 기다리지 않고 누르는 즉시 닫힘)
+-- 닫기 버튼 전용 창 닫기 처리
 local function executeInstantClose(btn: GuiButton)
 	pcall(function()
 		local screen = btn:FindFirstAncestorOfClass("ScreenGui")
@@ -172,7 +168,7 @@ local function executeInstantClose(btn: GuiButton)
 	end)
 end
 
--- 🎯 버튼 이벤트 연결 (마우스를 누르는 '다운' 즉시 0ms 반응)
+-- 🎯 버튼 이벤트 연결 (단 1회만 깔끔하게 Activated 이벤트로 연결하여 중복 출력 원천 차단)
 local function hookButton(btn: GuiButton)
 	if not btn:IsA("GuiButton") then return end
 	if btn:GetAttribute("ClickSoundHooked") then return end
@@ -181,25 +177,12 @@ local function hookButton(btn: GuiButton)
 	btn:SetAttribute("ClickSoundHooked", true)
 	local isClose = isCloseButton(btn)
 
-	local function onTrigger()
+	btn.Activated:Connect(function()
 		playButtonClickSound()
 		if isClose then
 			executeInstantClose(btn)
 		end
-	end
-
-	-- ⚡ 1. PC 마우스 클릭 다운 즉시 발동 (손을 뗄 때까지 기다리는 150ms 딜레이 제거)
-	btn.MouseButton1Down:Connect(onTrigger)
-
-	-- ⚡ 2. 모바일 터치 / 게임패드 입력 다운 즉시 발동
-	btn.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-			onTrigger()
-		end
 	end)
-
-	-- 🛡️ 3. 백업 안전망 (Activated: 디바운스로 중복 방지)
-	btn.Activated:Connect(onTrigger)
 end
 
 -- 기존 생성되어 있는 모든 버튼 검색 및 연결
@@ -221,4 +204,4 @@ end)
 -- 초기 스캔 실행
 scanAndHookAll()
 
-print("🔊 [ButtonClickSoundController] 초고속 제로 레이턴시 UI 버튼 사운드 가동 완료! (ID: " .. BUTTON_CLICK_SOUND_ID .. ")")
+print("🔊 [ButtonClickSoundController] 원본 음질 UI 버튼 사운드 가동 완료! (ID: " .. BUTTON_CLICK_SOUND_ID .. ")")

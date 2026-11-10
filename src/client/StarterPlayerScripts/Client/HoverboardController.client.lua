@@ -1954,6 +1954,17 @@ local function getOrCreateCountdownUI(): TextLabel
 end
 
 countdownRemote.OnClientEvent:Connect(function(count: number)
+	-- 🏁 대기실에 있거나 AFK 모드인 경우 레이스 카운트다운 UI 및 GO! 사운드 재생 완전 차단!
+	local isRacing = LocalPlayer:GetAttribute("IsRacing") == true
+	local isAFK = LocalPlayer:GetAttribute("IsAFK") == true
+	if not isRacing or isAFK then
+		local existingLabel = guiScreen and guiScreen:FindFirstChild("CountdownLabel")
+		if existingLabel then
+			existingLabel.Visible = false
+		end
+		return
+	end
+
 	if count == 5 then
 		isFinished = false
 		-- Also clear any existing FINISHED text if it exists
