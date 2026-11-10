@@ -117,26 +117,28 @@ RunService.RenderStepped:Connect(function(dt)
 
 	-- C. 전면 대시보드 HUD 실시간 반영
 	if hudElements and hudElements.speedVal and hudElements.pBarFill then
-		if isOnTreadmill then
-			elapsedRidingTime = elapsedRidingTime + dt
-			local jitter = math.sin(elapsedRidingTime * 8) * 3
-			local spd = math.floor(150 + jitter)
-			hudSpeedVal.Text = string.format("%d <font size=\"32\" color=\"#FFB91E\">KM/H</font>", spd)
-			hudBarFill.Size = UDim2.new(0.88, 0, 1, 0)
-			hudBarFill.BackgroundColor3 = Color3.fromRGB(0, 255, 180)
-			if hudSubHeader then
-				hudSubHeader.Text = "SYSTEM STATUS: 🔥 HIGH VELOCITY TEST 🔥"
-				hudSubHeader.TextColor3 = Color3.fromRGB(255, 190, 40)
+		pcall(function()
+			if isOnTreadmill then
+				elapsedRidingTime = elapsedRidingTime + dt
+				local jitter = math.sin(elapsedRidingTime * 8) * 3
+				local spd = math.floor(150 + jitter)
+				hudElements.speedVal.Text = string.format("%d <font size=\"32\" color=\"#FFB91E\">KM/H</font>", spd)
+				hudElements.pBarFill.Size = UDim2.new(0.88, 0, 1, 0)
+				hudElements.pBarFill.BackgroundColor3 = Color3.fromRGB(0, 255, 180)
+				if hudElements.subHeader then
+					hudElements.subHeader.Text = "SYSTEM STATUS: 🔥 HIGH VELOCITY TEST 🔥"
+					hudElements.subHeader.TextColor3 = Color3.fromRGB(255, 190, 40)
+				end
+			else
+				elapsedRidingTime = 0
+				hudElements.speedVal.Text = "0 <font size=\"32\" color=\"#7890AA\">KM/H</font>"
+				hudElements.pBarFill.Size = UDim2.new(0.08, 0, 1, 0)
+				hudElements.pBarFill.BackgroundColor3 = Color3.fromRGB(0, 240, 255)
+				if hudElements.subHeader then
+					hudElements.subHeader.Text = "SYSTEM STATUS: READY  |  WIND TUNNEL: IDLE"
+					hudElements.subHeader.TextColor3 = Color3.fromRGB(120, 255, 150)
+				end
 			end
-		else
-			elapsedRidingTime = 0
-			hudSpeedVal.Text = "0 <font size=\"32\" color=\"#7890AA\">KM/H</font>"
-			hudBarFill.Size = UDim2.new(0.08, 0, 1, 0)
-			hudBarFill.BackgroundColor3 = Color3.fromRGB(0, 240, 255)
-			if hudSubHeader then
-				hudSubHeader.Text = "SYSTEM STATUS: READY  |  WIND TUNNEL: IDLE"
-				hudSubHeader.TextColor3 = Color3.fromRGB(120, 255, 150)
-			end
-		end
+		end)
 	end
 end)
