@@ -5,6 +5,22 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
+local SoundService = game:GetService("SoundService")
+local ContentProvider = game:GetService("ContentProvider")
+
+-- 맵 선택 시 재생할 사운드 설정
+local MAP_SELECT_SOUND_ID = "rbxassetid://762117042"
+local mapSelectSound = Instance.new("Sound")
+mapSelectSound.Name = "MapSelectSound"
+mapSelectSound.SoundId = MAP_SELECT_SOUND_ID
+mapSelectSound.Volume = 0.9
+mapSelectSound.Parent = SoundService
+ContentProvider:PreloadAsync({ mapSelectSound })
+
+local function playMapSelectSound()
+	mapSelectSound.TimePosition = 0
+	mapSelectSound:Play()
+end
 
 local LocalPlayer = Players.LocalPlayer
 local playerGui = LocalPlayer:WaitForChild("PlayerGui")
@@ -18,6 +34,7 @@ local mainGuiScreen: ScreenGui? = nil
 local headerBannerFrame: Frame? = nil
 local headerStatusLabel: TextLabel? = nil
 local headerTimerLabel: TextLabel? = nil
+local reopenVoteButton: TextButton? = nil
 
 local votingModalFrame: Frame? = nil
 local modalFooterTimerLabel: TextLabel? = nil
@@ -156,10 +173,12 @@ local function refreshDisplays()
 
 		-- Modal 1: 15s Map Voting Modal
 		if votingModalFrame then
-			if currentPhase == "MAP_VOTING" and not isVotingModalDismissed and not LocalPlayer:GetAttribute("IsAFK") then
-				votingModalFrame.Visible = true
-			else
-				votingModalFrame.Visible = false
+			local shouldShowModal = (currentPhase == "MAP_VOTING" and not isVotingModalDismissed and not LocalPlayer:GetAttribute("IsAFK"))
+			votingModalFrame.Visible = shouldShowModal
+
+			-- X로 닫았지만 아직 투표 시간(MAP_VOTING)이 남아있는 경우, 상단 타이머 옆에 [🗳️ Vote] 버튼 노출
+			if reopenVoteButton then
+				reopenVoteButton.Visible = (currentPhase == "MAP_VOTING" and isVotingModalDismissed and not LocalPlayer:GetAttribute("IsAFK"))
 			end
 		end
 	end)
@@ -234,6 +253,34 @@ local function createGameLoopUI()
 	timerStroke.Color = Color3.fromRGB(0, 0, 0)
 	timerStroke.Thickness = 5
 	timerStroke.Parent = headerTimerLabel
+
+	-- 🗳️ 투표창을 X로 닫았을 때 다시 열 수 있는 상단 바 [🗳️ Vote Map] 버튼
+	reopenVoteButton = Instance.new("TextButton")
+	reopenVoteButton.Name = "ReopenVoteButton"
+	reopenVoteButton.Size = UDim2.new(0, 130, 0, 42)
+	reopenVoteButton.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
+	reopenVoteButton.Font = Enum.Font.FredokaOne
+	reopenVoteButton.Text = "🗳️ Vote"
+	reopenVoteButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+	reopenVoteButton.TextSize = 22
+	reopenVoteButton.LayoutOrder = 3
+	reopenVoteButton.ZIndex = 32
+	reopenVoteButton.Visible = false
+	reopenVoteButton.Parent = headerBannerFrame
+
+	local reopenCorner = Instance.new("UICorner")
+	reopenCorner.CornerRadius = UDim.new(0, 12)
+	reopenCorner.Parent = reopenVoteButton
+
+	local reopenStroke = Instance.new("UIStroke")
+	reopenStroke.Color = Color3.fromRGB(0, 0, 0)
+	reopenStroke.Thickness = 3
+	reopenStroke.Parent = reopenVoteButton
+
+	reopenVoteButton.MouseButton1Click:Connect(function()
+		isVotingModalDismissed = false
+		refreshDisplays()
+	end)
 
 	-- [2] 3-CARD MAP VOTING MODAL UI (15s)
 	votingModalFrame = Instance.new("Frame")
@@ -473,6 +520,7 @@ local function createGameLoopUI()
 		clickBtn.Parent = card
 
 		clickBtn.MouseButton1Click:Connect(function()
+			playMapSelectSound()
 			selectedMapName = config.id
 
 			-- Local Optimistic Vote Update

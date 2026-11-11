@@ -151,6 +151,13 @@ local function initializeShop()
 						if isPass or category == "Passes" or category == "Events" then
 							player:SetAttribute("OwnsPass_" .. tostring(pId), true)
 							player:SetAttribute("PurchasedEvent_" .. tostring(pId), true)
+							if item.name == "x2 Distance" then
+								player:SetAttribute("OwnsPass_x2Distance", true)
+							elseif item.name == "x2 Acceleration" then
+								player:SetAttribute("OwnsPass_x2Acceleration", true)
+							elseif item.name == "x2 Race Prize" then
+								player:SetAttribute("OwnsPass_x2RacePrize", true)
+							end
 							local tLbl = priceButton:FindFirstChild("TextLabel") :: TextLabel?
 							if tLbl then tLbl.Text = "OWNED" end
 							priceButton.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
@@ -183,6 +190,26 @@ local function initializeShop()
 	
 	-- 1. 서버에서 최신 상점 데이터 가져오기
 	shopData = getActivePromosFunc:InvokeServer()
+	_G.CachedShopData = shopData
+
+	-- 상점 패스 ID와 플레이어 소유권 매칭하여 OwnsPass_x2... 속성 즉시 초기화
+	if shopData and shopData.Passes then
+		for _, p in ipairs(shopData.Passes) do
+			local pidStr = tostring(p.id)
+			if player:GetAttribute("OwnsPass_" .. pidStr) == true then
+				if p.name == "x2 Distance" then
+					player:SetAttribute("OwnsPass_x2Distance", true)
+					player:SetAttribute("OwnsPass_11111111", true)
+				elseif p.name == "x2 Acceleration" then
+					player:SetAttribute("OwnsPass_x2Acceleration", true)
+					player:SetAttribute("OwnsPass_22222222", true)
+				elseif p.name == "x2 Race Prize" then
+					player:SetAttribute("OwnsPass_x2RacePrize", true)
+					player:SetAttribute("OwnsPass_33333333", true)
+				end
+			end
+		end
+	end
 	
 	-- 2. FirstJoinTime 가져오기 (타이머용)
 	local firstJoinTimeValue = player:WaitForChild("FirstJoinTime", 10) :: IntValue?
@@ -669,8 +696,18 @@ local function initializeShop()
 	-- 구매 완료 이벤트 수신 시 UI 즉시 갱신
 	MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(plr, passId, wasPurchased)
 		if plr == player and wasPurchased then
-			player:SetAttribute("OwnsPass_" .. tostring(passId), true)
-			player:SetAttribute("PurchasedEvent_" .. tostring(passId), true)
+			local pidStr = tostring(passId)
+			player:SetAttribute("OwnsPass_" .. pidStr, true)
+			player:SetAttribute("PurchasedEvent_" .. pidStr, true)
+			if shopData and shopData.Passes then
+				for _, p in ipairs(shopData.Passes) do
+					if tostring(p.id) == pidStr then
+						if p.name == "x2 Distance" then player:SetAttribute("OwnsPass_x2Distance", true) end
+						if p.name == "x2 Acceleration" then player:SetAttribute("OwnsPass_x2Acceleration", true) end
+						if p.name == "x2 Race Prize" then player:SetAttribute("OwnsPass_x2RacePrize", true) end
+					end
+				end
+			end
 			task.wait(0.2)
 			populateEvents()
 			populateItems(shopData.Passes, passScroll, false)
@@ -696,6 +733,24 @@ local function initializeShop()
 					if shopGui.Enabled then
 						-- 상점 오픈 시 최신 데이터로 새로고침
 						shopData = getActivePromosFunc:InvokeServer()
+						_G.CachedShopData = shopData
+						if shopData and shopData.Passes then
+							for _, p in ipairs(shopData.Passes) do
+								local pidStr = tostring(p.id)
+								if player:GetAttribute("OwnsPass_" .. pidStr) == true then
+									if p.name == "x2 Distance" then
+										player:SetAttribute("OwnsPass_x2Distance", true)
+										player:SetAttribute("OwnsPass_11111111", true)
+									elseif p.name == "x2 Acceleration" then
+										player:SetAttribute("OwnsPass_x2Acceleration", true)
+										player:SetAttribute("OwnsPass_22222222", true)
+									elseif p.name == "x2 Race Prize" then
+										player:SetAttribute("OwnsPass_x2RacePrize", true)
+										player:SetAttribute("OwnsPass_33333333", true)
+									end
+								end
+							end
+						end
 						populateEvents()
 						populateItems(shopData.Passes, passScroll, false)
 						populateItems(shopData.Golds, goldScroll, true)

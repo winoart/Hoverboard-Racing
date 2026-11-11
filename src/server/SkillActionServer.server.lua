@@ -102,7 +102,7 @@ local function cleanupReflect(player: Player, playBreakSound: boolean?)
 		if reflectPart then
 			if playBreakSound and char.PrimaryPart then
 				local breakSound = Instance.new("Sound")
-				breakSound.SoundId = "rbxassetid://258057783"
+				breakSound.SoundId = "rbxassetid://131018142172471"
 				breakSound.Volume = 1
 				breakSound.Parent = char.PrimaryPart
 				breakSound:Play()
@@ -495,10 +495,11 @@ local function fireShield(player: Player)
 	
 	-- 발동 사운드
 	local startSound = Instance.new("Sound")
-	startSound.SoundId = "rbxassetid://12222076" -- SF 에너지 쉴드 발동음
+	startSound.SoundId = "rbxassetid://86925927032494" -- SF 에너지 쉴드 발동음
+	startSound.Volume = 1.0
 	startSound.Parent = root
 	startSound:Play()
-	game:GetService("Debris"):AddItem(startSound, 2)
+	game:GetService("Debris"):AddItem(startSound, 3)
 	
 	-- 맥박 뛰는(Pulse) 애니메이션
 	local pulseInfo = TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true)
@@ -541,9 +542,9 @@ local function fireShield(player: Player)
 				if skillWarningRemote then
 					skillWarningRemote:FireAllClients(player.Name, "SYSTEM", "Skill_Shield_Break")
 				end
-				-- 방어 성공(무력화) 사운드
+				-- 방어 성공(무력화/파괴) 사운드
 				local breakSound = Instance.new("Sound")
-				breakSound.SoundId = "rbxassetid://258057783" -- 에너지 충돌/튕겨내는 소리
+				breakSound.SoundId = "rbxassetid://131018142172471" -- 쉴드 깨지는 소리
 				breakSound.Volume = 1
 				breakSound.Parent = root
 				breakSound:Play()
@@ -901,7 +902,7 @@ local function fireEMP(player: Player)
 						activeShields[target.UserId] = false
 						
 						local shieldBreakSound = Instance.new("Sound")
-						shieldBreakSound.SoundId = "rbxassetid://600832910" 
+						shieldBreakSound.SoundId = "rbxassetid://131018142172471" 
 						shieldBreakSound.Volume = 1
 						shieldBreakSound.Parent = tRoot
 						shieldBreakSound:Play()
@@ -1041,10 +1042,11 @@ local function activateReflect(player: Player)
 	
 	-- 발동 사운드
 	local startSound = Instance.new("Sound")
-	startSound.SoundId = "rbxassetid://12222076" -- SF 에너지 쉴드 발동음
+	startSound.SoundId = "rbxassetid://86925927032494" -- SF 에너지 쉴드 발동음
+	startSound.Volume = 1.0
 	startSound.Parent = root
 	startSound:Play()
-	game:GetService("Debris"):AddItem(startSound, 2)
+	game:GetService("Debris"):AddItem(startSound, 3)
 	
 	-- 맥박 뛰는(Pulse) 애니메이션
 	local pulseInfo = TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true)

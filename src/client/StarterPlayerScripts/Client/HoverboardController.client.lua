@@ -47,6 +47,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local HoverboardConfig = require(Shared:WaitForChild("HoverboardConfig") :: ModuleScript)
 local SkillMessages = require(Shared:WaitForChild("SkillMessages") :: ModuleScript)
 local RebirthConfig = require(Shared:WaitForChild("RebirthConfig") :: ModuleScript)
+local MonetizationConfig = require(Shared:WaitForChild("MonetizationConfig") :: any)
 
 local remotesFolder = ReplicatedStorage:WaitForChild("HoverboardRemotes")
 local mountRemote = remotesFolder:WaitForChild("MountRequest") :: RemoteEvent
@@ -110,6 +111,19 @@ local function setMountedAnimationState(char: Model, mounted: boolean)
 	if animator and mounted then
 		for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
 			track:Stop(0)
+		end
+	end
+
+	-- 🔇 호버보드 탑승 중 로블록스 기본 캐릭터 달리기/발걸음 소리(Running Sound) 음소거
+	local rootPart = char:FindFirstChild("HumanoidRootPart")
+	if rootPart then
+		local runningSound = rootPart:FindFirstChild("Running") :: Sound?
+		if runningSound then
+			if mounted then
+				runningSound.Volume = 0
+			else
+				runningSound.Volume = 0.65 -- 기본 로블록스 달리기 사운드 볼륨 복구
+			end
 		end
 	end
 end
@@ -1137,9 +1151,30 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 		
 		-- 테스트용 게임패스 버프 시뮬레이션 (상점에서 가상 구매 시 Attribute로 설정됨)
 		-- TODO: 나중에 실제 MarketPlaceService 및 서버 데이터 연동으로 교체
-		local ownsDistancePass = LocalPlayer:GetAttribute("OwnsPass_11111111") == true or LocalPlayer:GetAttribute("OwnsPass_x2Distance") == true
-		local ownsAccePass = LocalPlayer:GetAttribute("OwnsPass_22222222") == true or LocalPlayer:GetAttribute("OwnsPass_x2Acceleration") == true
-		local ownsGoldPass = LocalPlayer:GetAttribute("OwnsPass_33333333") == true or LocalPlayer:GetAttribute("OwnsPass_x2RacePrize") == true
+		local ppFolder = LocalPlayer:FindFirstChild("PurchasedPasses")
+		local ownsDistancePass = LocalPlayer:GetAttribute("OwnsPass_11111111") == true 
+			or LocalPlayer:GetAttribute("OwnsPass_x2Distance") == true
+			or (ppFolder and (ppFolder:FindFirstChild("11111111") or ppFolder:FindFirstChild("x2Distance")) ~= nil)
+
+		local ownsAccePass = LocalPlayer:GetAttribute("OwnsPass_22222222") == true 
+			or LocalPlayer:GetAttribute("OwnsPass_x2Acceleration") == true
+			or (ppFolder and (ppFolder:FindFirstChild("22222222") or ppFolder:FindFirstChild("x2Acceleration")) ~= nil)
+
+		local ownsGoldPass = LocalPlayer:GetAttribute("OwnsPass_33333333") == true 
+			or LocalPlayer:GetAttribute("OwnsPass_x2RacePrize") == true
+			or (ppFolder and (ppFolder:FindFirstChild("33333333") or ppFolder:FindFirstChild("x2RacePrize")) ~= nil)
+
+		if MonetizationConfig and MonetizationConfig.ShopData and MonetizationConfig.ShopData.Passes then
+			for _, pass in ipairs(MonetizationConfig.ShopData.Passes) do
+				local pIdStr = tostring(pass.id)
+				local hasThisPass = (LocalPlayer:GetAttribute("OwnsPass_" .. pIdStr) == true) or (ppFolder and ppFolder:FindFirstChild(pIdStr) ~= nil)
+				if hasThisPass then
+					if pass.name == "x2 Distance" then ownsDistancePass = true end
+					if pass.name == "x2 Acceleration" then ownsAccePass = true end
+					if pass.name == "x2 Race Prize" then ownsGoldPass = true end
+				end
+			end
+		end
 		
 		if updateBuffIcon then
 			if ownsAccePass then
@@ -1326,6 +1361,12 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 
 			humanoid.WalkSpeed = currentWalkSpeed
 			
+			-- 🔇 호버보드 탑승 중 로블록스 기본 캐릭터 달리기 발소리(Running Sound) 완벽 차단
+			local defaultRunningSound = hrp:FindFirstChild("Running") :: Sound?
+			if defaultRunningSound and defaultRunningSound.Volume > 0 then
+				defaultRunningSound.Volume = 0
+			end
+
 			-- 🎵 4. SFX Sound Controller (Default active)
 			if engineSound then
 				if isMounted and currentWalkSpeed > 0.5 then

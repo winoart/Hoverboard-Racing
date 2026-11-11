@@ -3,6 +3,20 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
+local SoundService = game:GetService("SoundService")
+
+local CLAIM_SOUND_ID = "rbxassetid://104644728934074"
+local claimSound = Instance.new("Sound")
+claimSound.Name = "QuestClaimSound"
+claimSound.SoundId = CLAIM_SOUND_ID
+claimSound.Volume = 0.9
+claimSound.Parent = SoundService
+game:GetService("ContentProvider"):PreloadAsync({ claimSound })
+
+local function playClaimSound()
+	claimSound.TimePosition = 0
+	claimSound:Play()
+end
 
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
@@ -424,6 +438,7 @@ local function createQuestCard(questInfo, config, category: string)
 			local success, result = claimQuestRemote:InvokeServer(questInfo.id, category)
 			if success then
 				questInfo.claimed = true
+				playClaimSound()
 				if updateQuestNotification then
 					updateQuestNotification()
 				end

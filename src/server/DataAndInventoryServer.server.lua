@@ -197,6 +197,27 @@ Players.PlayerAdded:Connect(function(player)
 			if pidStr == "22222222" then player:SetAttribute("OwnsPass_x2Acceleration", true) end
 			if pidStr == "33333333" then player:SetAttribute("OwnsPass_x2RacePrize", true) end
 		end
+
+		-- 저장된 패스 ID가 실제 상품의 ID와 일치할 때 영문 별칭(OwnsPass_x2...)도 즉시 복원
+		local Shared = ReplicatedStorage:FindFirstChild("Shared")
+		local MonetizationConfig = Shared and require(Shared:WaitForChild("MonetizationConfig", 2) :: any)
+		if MonetizationConfig and MonetizationConfig.ShopData and MonetizationConfig.ShopData.Passes then
+			for _, passItem in ipairs(MonetizationConfig.ShopData.Passes) do
+				local pidStr = tostring(passItem.id)
+				if player:GetAttribute("OwnsPass_" .. pidStr) == true then
+					if passItem.name == "x2 Distance" then
+						player:SetAttribute("OwnsPass_x2Distance", true)
+						player:SetAttribute("OwnsPass_11111111", true)
+					elseif passItem.name == "x2 Acceleration" then
+						player:SetAttribute("OwnsPass_x2Acceleration", true)
+						player:SetAttribute("OwnsPass_22222222", true)
+					elseif passItem.name == "x2 Race Prize" then
+						player:SetAttribute("OwnsPass_x2RacePrize", true)
+						player:SetAttribute("OwnsPass_33333333", true)
+					end
+				end
+			end
+		end
 		
 		local SkillStoreConfig = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("SkillStoreConfig"))
 		
@@ -266,24 +287,30 @@ Players.PlayerAdded:Connect(function(player)
 		local MarketplaceService = game:GetService("MarketplaceService")
 		local passIds = {11111111, 22222222, 33333333}
 		
-		-- Dynamically pull all Event and Pass IDs from MonetizationConfig
+		-- Dynamically pull all Event and Pass IDs from MonetizationConfig & AdminConfig DataStore
 		local Shared = ReplicatedStorage:FindFirstChild("Shared")
 		local MonetizationConfig = Shared and require(Shared:WaitForChild("MonetizationConfig", 2) :: any)
-		if MonetizationConfig and MonetizationConfig.ShopData then
-			if MonetizationConfig.ShopData.Passes then
-				for _, p in ipairs(MonetizationConfig.ShopData.Passes) do
-					local pid = tonumber(p.id)
-					if pid and pid > 0 and not table.find(passIds, pid) then
-						table.insert(passIds, pid)
-					end
+		local shopDataV2 = nil
+		pcall(function()
+			shopDataV2 = DataStoreService:GetDataStore("AdminConfig_v1"):GetAsync("ShopData_v2")
+		end)
+
+		local allPassList = (shopDataV2 and shopDataV2.Passes) or (MonetizationConfig and MonetizationConfig.ShopData and MonetizationConfig.ShopData.Passes)
+		if allPassList then
+			for _, p in ipairs(allPassList) do
+				local pid = tonumber(p.id)
+				if pid and pid > 0 and not table.find(passIds, pid) then
+					table.insert(passIds, pid)
 				end
 			end
-			if MonetizationConfig.ShopData.Events then
-				for _, e in ipairs(MonetizationConfig.ShopData.Events) do
-					local eid = tonumber(e.id)
-					if eid and eid > 0 and not table.find(passIds, eid) then
-						table.insert(passIds, eid)
-					end
+		end
+
+		local allEventList = (shopDataV2 and shopDataV2.Events) or (MonetizationConfig and MonetizationConfig.ShopData and MonetizationConfig.ShopData.Events)
+		if allEventList then
+			for _, e in ipairs(allEventList) do
+				local eid = tonumber(e.id)
+				if eid and eid > 0 and not table.find(passIds, eid) then
+					table.insert(passIds, eid)
 				end
 			end
 		end
@@ -314,6 +341,23 @@ Players.PlayerAdded:Connect(function(player)
 				if pidStr == "11111111" then player:SetAttribute("OwnsPass_x2Distance", true) end
 				if pidStr == "22222222" then player:SetAttribute("OwnsPass_x2Acceleration", true) end
 				if pidStr == "33333333" then player:SetAttribute("OwnsPass_x2RacePrize", true) end
+
+				if allPassList then
+					for _, passItem in ipairs(allPassList) do
+						if tostring(passItem.id) == pidStr then
+							if passItem.name == "x2 Distance" then
+								player:SetAttribute("OwnsPass_x2Distance", true)
+								player:SetAttribute("OwnsPass_11111111", true)
+							elseif passItem.name == "x2 Acceleration" then
+								player:SetAttribute("OwnsPass_x2Acceleration", true)
+								player:SetAttribute("OwnsPass_22222222", true)
+							elseif passItem.name == "x2 Race Prize" then
+								player:SetAttribute("OwnsPass_x2RacePrize", true)
+								player:SetAttribute("OwnsPass_33333333", true)
+							end
+						end
+					end
+				end
 			end
 		end
 

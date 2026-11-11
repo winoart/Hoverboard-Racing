@@ -15,6 +15,70 @@ local addDistanceRemote = remotesFolder:WaitForChild("AddDistance") :: RemoteEve
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local RebirthConfig = require(Shared:WaitForChild("RebirthConfig"))
 local HoverboardConfig = require(Shared:WaitForChild("HoverboardConfig"))
+local MonetizationConfig = require(Shared:WaitForChild("MonetizationConfig"))
+
+-- x2 Distance 게임패스 소유 여부 판별 함수
+local function checkOwnsDistancePass(): boolean
+	-- 1. 직관적인 영문 속성 확인
+	if LocalPlayer:GetAttribute("OwnsPass_x2Distance") == true or LocalPlayer:GetAttribute("OwnsPass_11111111") == true then
+		return true
+	end
+
+	-- 2. PurchasedPasses 폴더 확인 (실제 구매된 패스 ID)
+	local ppFolder = LocalPlayer:FindFirstChild("PurchasedPasses")
+	if ppFolder then
+		if ppFolder:FindFirstChild("x2Distance") or ppFolder:FindFirstChild("11111111") then
+			return true
+		end
+	end
+
+	-- 3. 서버에서 DataStore("ShopData_v2")에 등록된 실제 패스 ID 매칭
+	local activePasses = nil
+	if _G.CachedShopData and _G.CachedShopData.Passes then
+		activePasses = _G.CachedShopData.Passes
+	elseif MonetizationConfig and MonetizationConfig.ShopData and MonetizationConfig.ShopData.Passes then
+		activePasses = MonetizationConfig.ShopData.Passes
+	end
+
+	if activePasses then
+		for _, pass in ipairs(activePasses) do
+			if pass.name == "x2 Distance" then
+				local pIdStr = tostring(pass.id)
+				if LocalPlayer:GetAttribute("OwnsPass_" .. pIdStr) == true or (ppFolder and ppFolder:FindFirstChild(pIdStr)) then
+					LocalPlayer:SetAttribute("OwnsPass_x2Distance", true)
+					return true
+				end
+			end
+		end
+	end
+
+	-- 4. 플레이어가 가지고 있는 모든 OwnsPass_* 속성 및 PurchasedPasses 중 x2 Distance에 해당하는 ID가 있는지 검사
+	-- (만약 2074330154 또는 2076016070 등이 x2 Distance 패스인 경우)
+	if ppFolder then
+		for _, child in ipairs(ppFolder:GetChildren()) do
+			local idStr = child.Name
+			if LocalPlayer:GetAttribute("OwnsPass_" .. idStr) == true then
+				-- 만약 상점 UI에서 이 패스가 x2 Distance로 OWNED 처리되어 있다면 활성화
+				if shopGui then
+					local passScroll = shopGui:FindFirstChild("PassScroll", true)
+					if passScroll then
+						for _, itemCard in ipairs(passScroll:GetChildren()) do
+							local nameLbl = itemCard:FindFirstChild("ItemName") :: TextLabel?
+							local btn = itemCard:FindFirstChild("PriceButton")
+							local txtLbl = btn and btn:FindFirstChild("TextLabel") :: TextLabel?
+							if nameLbl and nameLbl.Text == "x2 Distance" and txtLbl and txtLbl.Text == "OWNED" then
+								LocalPlayer:SetAttribute("OwnsPass_x2Distance", true)
+								return true
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+
+	return false
+end
 
 local accumulatedDistance = 0
 local lastSyncTime = os.clock()
@@ -33,7 +97,17 @@ local function formatDistance(meters: number): string
 	end
 end
 
-local cachedMeterLabel = nil
+local cachedIsDistanceOwned: boolean? = nil
+local lastCheckTime = 0
+
+local function isDistancePassOwnedFast(): boolean
+	local now = os.clock()
+	if cachedIsDistanceOwned == nil or (now - lastCheckTime >= 1.0) then
+		lastCheckTime = now
+		cachedIsDistanceOwned = checkOwnsDistancePass()
+	end
+	return cachedIsDistanceOwned == true
+end
 
 -- 미터기 UI 찾기 (재시도 로직)
 local function getMeterLabel(): TextLabel?
@@ -84,6 +158,7 @@ local function getResponsiveScale(): number
 end
 
 local function spawnLightningEffect(meterLabel: TextLabel?, hrp: BasePart, isX2: boolean)
+	print(string.format("⚡ [spawnLightningEffect] isX2 = %s", tostring(isX2)))
 	local playerGui = LocalPlayer:WaitForChild("PlayerGui")
 	
 	-- 월드 좌표를 스크린 좌표로 변환
@@ -100,10 +175,10 @@ local function spawnLightningEffect(meterLabel: TextLabel?, hrp: BasePart, isX2:
 	-- 📱 반응형 스케일 계산 (모바일에서는 화면 비율에 맞게 크기 대폭 축소)
 	local scale = getResponsiveScale()
 	local baseSize = math.floor(78 * scale)
-	local iconWidth = isX2 and math.floor(130 * scale) or baseSize
-	local iconHeight = baseSize
+	local iconWidth = isX2 and math.floor(180 * scale) or baseSize
+	local iconHeight = math.floor(90 * scale)
 	local textSize = baseSize
-	local subTextSize = math.floor(38 * scale)
+	local subTextSize = math.floor(48 * scale)
 	
 	-- 타겟 위치 (미터 텍스트 라벨의 중앙)
 	local targetPos
@@ -120,15 +195,15 @@ local function spawnLightningEffect(meterLabel: TextLabel?, hrp: BasePart, isX2:
 		icon.AnchorPoint = Vector2.new(0.5, 0.5)
 		icon.BackgroundTransparency = 1
 		icon.Font = Enum.Font.GothamBlack
-		icon.RichText = true
-		icon.Text = isX2 and string.format('⚡<font size="%d"> x2</font>', subTextSize) or "⚡"
-		icon.TextSize = textSize
-		icon.TextColor3 = Color3.fromRGB(255, 255, 0) -- 노란색 시도
+		icon.RichText = false
+		icon.Text = isX2 and "⚡ x2" or "⚡"
+		icon.TextSize = isX2 and subTextSize or textSize
+		icon.TextColor3 = Color3.fromRGB(255, 230, 0) -- 밝은 노란색
 		icon.ZIndex = 100
 		
 		local stroke = Instance.new("UIStroke")
 		stroke.Color = Color3.new(0, 0, 0)
-		stroke.Thickness = math.max(1, math.round(2 * scale))
+		stroke.Thickness = math.max(2, math.round(3 * scale))
 		stroke.Parent = icon
 		
 		icon.Parent = fxScreen
@@ -216,7 +291,7 @@ RunService.RenderStepped:Connect(function(dt)
 				-- 캐릭터 HRP가 있을 때만 이펙트 발생
 				local hrp = character:FindFirstChild("HumanoidRootPart") :: BasePart
 				if hrp then
-					local ownsDistancePass = LocalPlayer:GetAttribute("OwnsPass_11111111") == true or LocalPlayer:GetAttribute("OwnsPass_x2Distance") == true
+					local ownsDistancePass = isDistancePassOwnedFast()
 					spawnLightningEffect(meterLabel, hrp, ownsDistancePass)
 				end
 			end
@@ -247,7 +322,7 @@ RunService.RenderStepped:Connect(function(dt)
 	
 	local distanceMoved = speed * dt
 	
-	local ownsDistancePass = LocalPlayer:GetAttribute("OwnsPass_11111111") == true or LocalPlayer:GetAttribute("OwnsPass_x2Distance") == true
+	local ownsDistancePass = isDistancePassOwnedFast()
 	if ownsDistancePass then
 		distanceMoved *= 2
 	end

@@ -65,6 +65,16 @@ local function markPassOwnedOnServer(player: Player, passId: any, passName: stri
 		b.Value = true
 		b.Parent = ppFolder
 	end
+
+	-- passName이 넘어오지 않았더라도 현재 캐시된 상점 데이터에서 passName 자동 매칭
+	if not passName and cachedShopData and cachedShopData.Passes then
+		for _, p in ipairs(cachedShopData.Passes) do
+			if tostring(p.id) == pidStr then
+				passName = p.name
+				break
+			end
+		end
+	end
 	
 	if passName == "x2 Distance" or pidStr == "11111111" then
 		player:SetAttribute("OwnsPass_x2Distance", true)
