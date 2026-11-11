@@ -2,12 +2,31 @@
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
+local SoundService = game:GetService("SoundService")
+local TweenService = game:GetService("TweenService")
+local ContentProvider = game:GetService("ContentProvider")
 
 local localPlayer = Players.LocalPlayer
 
 -- 초경량 UI 기반 무한 스크롤 스피드 파라미터
 local SPEED_IDLE = 350.0  -- 대기 시 부드러운 스크롤 (px/sec)
 local SPEED_RIDING = 1400.0 -- 탑승 시 초고속 질주 모드 (px/sec)
+
+-- 🎵 트레드밀 주행 사운드 (호버 엔진음)
+local TREADMILL_SOUND_ID = "rbxassetid://75876120873511"
+local TARGET_VOLUME = 0.35
+
+local treadmillSound = Instance.new("Sound")
+treadmillSound.Name = "TreadmillRunningSound"
+treadmillSound.SoundId = TREADMILL_SOUND_ID
+treadmillSound.Looped = true
+treadmillSound.Volume = 0
+treadmillSound.PlaybackSpeed = 1.0
+treadmillSound.Parent = SoundService
+
+pcall(function()
+	ContentProvider:PreloadAsync({ treadmillSound })
+end)
 
 local currentSpeed = SPEED_IDLE
 local scrollOffset = 0
@@ -141,4 +160,53 @@ RunService.RenderStepped:Connect(function(dt)
 			end
 		end)
 	end
+
+	-- D. 엔진음 미세 공명 효과 (살아있는 모터 회전감 연출)
+	if isOnTreadmill and treadmillSound.IsPlaying then
+		treadmillSound.PlaybackSpeed = 1.0 + math.sin(elapsedRidingTime * 6) * 0.03
+	end
 end)
+
+-- =========================================================================
+-- 🔊 트레드밀 탑승 사운드 제어 (Fade In / Fade Out)
+-- =========================================================================
+local soundTween: Tween? = nil
+
+local function updateTreadmillSound()
+	local isOnTreadmill = localPlayer:GetAttribute("OnTreadmill") == true
+	local isRacing = localPlayer:GetAttribute("IsRacing") == true
+
+	if isOnTreadmill and not isRacing then
+		if not treadmillSound.IsPlaying then
+			treadmillSound.Volume = 0
+			treadmillSound.PlaybackSpeed = 1.0
+			treadmillSound:Play()
+		end
+
+		if soundTween then soundTween:Cancel() end
+		soundTween = TweenService:Create(treadmillSound, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Volume = TARGET_VOLUME,
+			PlaybackSpeed = 1.0,
+		})
+		soundTween:Play()
+	else
+		if treadmillSound.IsPlaying then
+			if soundTween then soundTween:Cancel() end
+			soundTween = TweenService:Create(treadmillSound, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+				Volume = 0,
+			})
+			soundTween.Completed:Connect(function()
+				if localPlayer:GetAttribute("OnTreadmill") ~= true or localPlayer:GetAttribute("IsRacing") == true then
+					treadmillSound:Stop()
+				end
+			end)
+			soundTween:Play()
+		end
+	end
+end
+
+localPlayer:GetAttributeChangedSignal("OnTreadmill"):Connect(updateTreadmillSound)
+localPlayer:GetAttributeChangedSignal("IsRacing"):Connect(updateTreadmillSound)
+
+-- 초기 상태 동기화
+task.defer(updateTreadmillSound)
