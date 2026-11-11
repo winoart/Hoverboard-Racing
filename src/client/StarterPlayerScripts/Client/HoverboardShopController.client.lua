@@ -375,12 +375,14 @@ local function openShop()
 	local catalog = getCatalogRemote:InvokeServer()
 	renderCatalog(catalog)
 	isShopOpen = true
+	bgFrame.Visible = true
 	screenGui.Enabled = true
 	playOpenSound()
 end
 
 screenGui:GetPropertyChangedSignal("Enabled"):Connect(function()
 	if screenGui.Enabled then
+		bgFrame.Visible = true
 		playOpenSound()
 	end
 end)

@@ -142,32 +142,6 @@ local function shouldPlayClickSound(btn: GuiButton): boolean
 	return false
 end
 
--- 닫기 버튼 전용 창 닫기 처리
-local function executeInstantClose(btn: GuiButton)
-	pcall(function()
-		local screen = btn:FindFirstAncestorOfClass("ScreenGui")
-		if screen then
-			local sName = screen.Name
-			if sName == "SettingsGui" or sName == "AttendanceGui" or sName == "InventoryGui"
-				or sName == "SkillStoreGui" or sName == "HoverboardShopHUD" or sName == "HoverboardRouletteGui" then
-				screen.Enabled = false
-			end
-		end
-
-		-- 프레임 단위 숨김 UI (QuestUI, RebirthWindowGui, RobuxShopUI 등)
-		local current: Instance? = btn.Parent
-		while current and not current:IsA("ScreenGui") do
-			if current:IsA("GuiObject") then
-				local cName = current.Name
-				if cName == "MainPanel" or cName == "MainFrame" or cName == "Background" or cName == "Panel" then
-					(current :: GuiObject).Visible = false
-				end
-			end
-			current = current.Parent
-		end
-	end)
-end
-
 -- 🎯 버튼 이벤트 연결 (단 1회만 깔끔하게 Activated 이벤트로 연결하여 중복 출력 원천 차단)
 local function hookButton(btn: GuiButton)
 	if not btn:IsA("GuiButton") then return end
@@ -175,13 +149,9 @@ local function hookButton(btn: GuiButton)
 	if not shouldPlayClickSound(btn) then return end
 
 	btn:SetAttribute("ClickSoundHooked", true)
-	local isClose = isCloseButton(btn)
 
 	btn.Activated:Connect(function()
 		playButtonClickSound()
-		if isClose then
-			executeInstantClose(btn)
-		end
 	end)
 end
 

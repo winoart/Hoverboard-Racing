@@ -334,6 +334,11 @@ local function initializeShop()
 	end)
 	
 	shopGui.Enabled = false
+	shopGui:GetPropertyChangedSignal("Enabled"):Connect(function()
+		if shopGui.Enabled then
+			mainFrame.Visible = true
+		end
+	end)
 	
 	-- 초기 탭 설정
 	switchTab("Event")

@@ -50,6 +50,12 @@ settingsGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 settingsGui.Enabled = false
 settingsGui.Parent = PlayerGui
 
+settingsGui:GetPropertyChangedSignal("Enabled"):Connect(function()
+	if settingsGui.Enabled then
+		mainPanel.Visible = true
+	end
+end)
+
 -- Main Panel
 local mainPanel = Instance.new("Frame")
 mainPanel.Name = "MainPanel"

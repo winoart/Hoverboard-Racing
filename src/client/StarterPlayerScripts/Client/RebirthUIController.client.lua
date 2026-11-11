@@ -711,6 +711,12 @@ task.spawn(function()
 				updateRebirthWindow()
 				win.Visible = not win.Visible
 				isWindowOpen = win.Visible
+				if win.Visible then
+					local innerPanel = win:FindFirstChild("Panel")
+					if innerPanel and innerPanel:IsA("GuiObject") then
+						innerPanel.Visible = true
+					end
+				end
 				
 				print("🪟 [RebirthUI] 창 상태 변경 - Visible:", win.Visible, "ScreenGui Enabled:", win.Parent and win.Parent.Enabled)
 			end)

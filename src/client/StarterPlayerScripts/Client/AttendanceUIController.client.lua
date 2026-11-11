@@ -359,8 +359,17 @@ task.spawn(function()
 		
 		toggleBtn.MouseButton1Click:Connect(function()
 			gui.Enabled = not gui.Enabled
+			if gui.Enabled then
+				bgFrame.Visible = true
+			end
 		end)
 	end
+
+	gui:GetPropertyChangedSignal("Enabled"):Connect(function()
+		if gui.Enabled then
+			bgFrame.Visible = true
+		end
+	end)
 
 	-- Initial connection
 	connectDailyButton()

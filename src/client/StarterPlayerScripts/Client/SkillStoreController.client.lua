@@ -475,12 +475,14 @@ end)
 -- Open Store Event: Always refresh card states on open
 openStoreRemote.OnClientEvent:Connect(function()
 	refreshAllCards()
+	bgFrame.Visible = true
 	storeGui.Enabled = true
 	playOpenSound()
 end)
 
 storeGui:GetPropertyChangedSignal("Enabled"):Connect(function()
 	if storeGui.Enabled then
+		bgFrame.Visible = true
 		playOpenSound()
 	end
 end)
