@@ -83,6 +83,47 @@ local isStunned = false
 local stunTimer = 0.0
 local stunLiftOffset = 0.0
 
+-- 🚀 Performance Optimization Caches (Eliminates GC Allocations & Network Storms)
+local lastSpectatorSyncTime = 0.0
+local lastSentIsBoosting: boolean? = nil
+local lastRenderedLap = -1
+local lastRenderedTotalLaps = -1
+
+local fallRecoveryRayParams = RaycastParams.new()
+fallRecoveryRayParams.FilterType = Enum.RaycastFilterType.Exclude
+
+local cameraRayParams = RaycastParams.new()
+cameraRayParams.FilterType = Enum.RaycastFilterType.Exclude
+cameraRayParams.IgnoreWater = true
+
+local animSilencerConn: RBXScriptConnection? = nil
+local function setupAnimationSilencer(char: Model)
+	if animSilencerConn then
+		animSilencerConn:Disconnect()
+		animSilencerConn = nil
+	end
+	local hum = char:WaitForChild("Humanoid", 5) :: Humanoid?
+	if not hum then return end
+	local animator = hum:WaitForChild("Animator", 5) :: Animator?
+	if not animator then return end
+
+	animSilencerConn = animator.AnimationPlayed:Connect(function(track)
+		if isMounted or char:FindFirstChild("EquippedHoverboard") ~= nil then
+			local p = track.Priority
+			if p == Enum.AnimationPriority.Movement or p == Enum.AnimationPriority.Core then
+				local n = track.Name:lower()
+				if n:find("run") or n:find("walk") or n:find("swim") or n:find("climb") then
+					track:Stop(0.05)
+				end
+			end
+		end
+	end)
+end
+
+if LocalPlayer.Character then
+	task.spawn(setupAnimationSilencer, LocalPlayer.Character)
+end
+
 local skillWarningRemote = ReplicatedStorage:WaitForChild("HoverboardRemotes"):WaitForChild("SkillWarning") :: RemoteEvent
 skillWarningRemote.OnClientEvent:Connect(function(casterName: string, skillId: string)
 	if skillId == "OrbitalStun" and casterName == "SYSTEM" then
@@ -955,14 +996,6 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 	if hasBoard and not isMounted and not isSpectating then
 		local humanoid = character:FindFirstChildOfClass("Humanoid")
 		if humanoid then
-			local animator = humanoid:FindFirstChildOfClass("Animator")
-			if animator then
-				for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
-					if track.Name:lower():find("run") or track.Name:lower():find("walk") then
-						track:Stop()
-					end
-				end
-			end
 			-- Only animate HipHeight if they are NOT in Freefall.
 			-- Modifying HipHeight every frame while in Freefall prevents Roblox from detecting the ground!
 			if humanoid:GetState() == Enum.HumanoidStateType.Freefall then
@@ -1025,15 +1058,13 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 				lastSafeYaw = currentHeadingYaw
 			end
 
-			-- 공통적으로 사용할 RaycastParams 생성
-			local rayParams = RaycastParams.new()
-			rayParams.FilterDescendantsInstances = {character}
-			rayParams.FilterType = Enum.RaycastFilterType.Exclude
+			-- 재사용 가능한 Fall Recovery RaycastParams 설정
+			fallRecoveryRayParams.FilterDescendantsInstances = {character}
 
 			if hrp.Position.Y < lastSafePosition.Y - 30 then
 				-- 고저차가 심한 트랙(사막 등)에서 점프 후 떨어질 때를 대비하여,
 				-- 현재 위치에서 150 스터드 아래까지 트랙(땅)이 있는지 확인합니다.
-				local groundCheckRay = Workspace:Raycast(hrp.Position, Vector3.new(0, -150, 0), rayParams)
+				local groundCheckRay = Workspace:Raycast(hrp.Position, Vector3.new(0, -150, 0), fallRecoveryRayParams)
 				
 				if not groundCheckRay then
 					print("[DEBUG-FR] 트랙 이탈 감지! 뒤로 물러난 안전지대로 복구합니다.")
@@ -1044,7 +1075,7 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 					local spawnPos = lastSafePosition - (forwardDir * 25)
 					
 					-- 2. 뒤로 물러난 위치가 허공일 수도 있으니 바닥을 한 번 더 찾습니다.
-					local spawnRay = Workspace:Raycast(spawnPos + Vector3.new(0, 10, 0), Vector3.new(0, -100, 0), rayParams)
+					local spawnRay = Workspace:Raycast(spawnPos + Vector3.new(0, 10, 0), Vector3.new(0, -100, 0), fallRecoveryRayParams)
 					if spawnRay then
 						spawnPos = spawnRay.Position
 					else
@@ -1068,29 +1099,11 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 					fallCheckTimer = 0.0
 					local rayOrigin = hrp.Position
 					local rayDirection = Vector3.new(0, -15, 0)
-					local result = Workspace:Raycast(rayOrigin, rayDirection, rayParams)
+					local result = Workspace:Raycast(rayOrigin, rayDirection, fallRecoveryRayParams)
 					if result then
 						-- hrp.Position(공중 위치)가 아닌, 실제 바닥 위치(result.Position)를 저장해야 무한 낙하를 방지합니다.
 						lastSafePosition = result.Position
 						lastSafeYaw = currentHeadingYaw
-					end
-				end
-			end
-		end
-
-		-- Stop leg flailing animations
-		local hasBoard = character:FindFirstChild("EquippedHoverboard") ~= nil
-		if hasBoard and humanoid:GetState() == Enum.HumanoidStateType.Running then
-			-- Instead of checking string names every frame, we just disable the Run/Walk states or rely on HipHeight
-			-- Actually, stopping animations by name every frame is very expensive. 
-			-- We will only stop tracks once, or just let the default animate script handle it since WalkSpeed is overwritten.
-			-- Alternatively, we only check if velocity changed, but a cheaper way:
-			local animator = humanoid:FindFirstChildOfClass("Animator")
-			if animator then
-				-- Optimization: Only check if WalkSpeed > 0 but we want them hovering
-				for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
-					if track.IsPlaying and (track.Priority == Enum.AnimationPriority.Movement or track.Priority == Enum.AnimationPriority.Core) then
-						track:Stop()
 					end
 				end
 			end
@@ -1322,17 +1335,6 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 					boostSound.Volume = 0
 				end
 			end
-			
-			-- 가속도 디버깅 (속도가 변하는 동안 0.1초마다 콘솔에 출력)
-			if not _G.debugPrintTimer then _G.debugPrintTimer = 0 end
-			_G.debugPrintTimer += deltaTime
-			if _G.debugPrintTimer >= 0.1 then
-				_G.debugPrintTimer = 0
-				local maxR = HoverboardConfig.RIDE_WALKSPEED or 110
-				if currentWalkSpeed > 0.1 and currentWalkSpeed < (maxR - 0.1) then
-					print(string.format("[DEBUG-ACCEL] 🕒 WalkSpeed(목표): %.1f | 실제물리속도: %.1f", currentWalkSpeed, currentSpeed))
-				end
-			end
 
 			-- Execute Movement
 			local boardModel = character:FindFirstChild("EquippedHoverboard") :: Model?
@@ -1528,11 +1530,17 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 			guiScreen.Enabled = true
 		end
 	else
-		-- Sync our local state to server
+		-- Sync our local state to server (Throttled: Immediate on boost change, 10Hz otherwise)
 		if isMounted and syncSpectatorRemote then
-			pcall(function()
-				syncSpectatorRemote:FireServer(isBoosting, boosterGauge, currentSpeed)
-			end)
+			local now = os.clock()
+			local boostChanged = (isBoosting ~= lastSentIsBoosting)
+			if boostChanged or (now - lastSpectatorSyncTime >= 0.1) then
+				lastSpectatorSyncTime = now
+				lastSentIsBoosting = isBoosting
+				pcall(function()
+					syncSpectatorRemote:FireServer(isBoosting, math.floor(boosterGauge), math.floor(currentSpeed))
+				end)
+			end
 		end
 	end
 
@@ -1611,37 +1619,34 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 		
 		local desiredCamPos = hrp.Position - (wDir * camDist) + Vector3.new(0, camHeight, 0)
 		
-		-- 🛡️ 벽 충돌 방지 (Raycast)
+		-- 🛡️ 벽 충돌 방지 (Optimized: Reusable cameraRayParams, max 3 pierces)
 		local headPos = hrp.Position + Vector3.new(0, 1.5, 0)
 		local rayDir = desiredCamPos - headPos
 		
 		local ignoreList = {character}
-		if targetChar then table.insert(ignoreList, targetChar) end
-		-- 다른 플레이어들과 겹칠 때 시점이 튀지 않도록 모두 예외 처리
+		if targetChar and targetChar ~= character then table.insert(ignoreList, targetChar) end
 		for _, p in ipairs(Players:GetPlayers()) do
-			if p.Character then table.insert(ignoreList, p.Character) end
+			local pc = p.Character
+			if pc and pc ~= character and pc ~= targetChar then table.insert(ignoreList, pc) end
 		end
+		cameraRayParams.FilterDescendantsInstances = ignoreList
 
-		local maxPierces = 5
+		local maxPierces = 3
 		local currentOrigin = headPos
 		local currentDir = rayDir
 		
 		for i = 1, maxPierces do
-			local rayParams = RaycastParams.new()
-			rayParams.FilterDescendantsInstances = ignoreList
-			rayParams.FilterType = Enum.RaycastFilterType.Exclude
-			rayParams.IgnoreWater = true
-			
-			local wallCheck = Workspace:Raycast(currentOrigin, currentDir, rayParams)
+			local wallCheck = Workspace:Raycast(currentOrigin, currentDir, cameraRayParams)
 			if wallCheck then
 				local hitPart = wallCheck.Instance
 				-- 투명벽(가이드라인)이거나 충돌이 없는 이펙트/장식 등은 무시합니다.
 				if hitPart.Transparency >= 0.9 or not hitPart.CanCollide then
 					table.insert(ignoreList, hitPart)
+					cameraRayParams.FilterDescendantsInstances = ignoreList
 					-- 뚫고 지나가서 남은 거리만큼 다시 레이캐스트
-					currentOrigin = wallCheck.Position + (currentDir.Unit * 0.01)
+					currentOrigin = wallCheck.Position + (currentDir.Unit * 0.05)
 					currentDir = desiredCamPos - currentOrigin
-					if currentDir.Magnitude < 0.1 then break end
+					if currentDir.Magnitude < 0.3 then break end
 				else
 					-- 시야를 가리는 진짜 벽에 부딪힘
 					desiredCamPos = wallCheck.Position - (rayDir.Unit * 0.5)
@@ -1683,7 +1688,11 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 	end
 
 	if lapNumLabel and not isFinished then
-		lapNumLabel.Text = string.format("%d / %d LAPS", currentLap, totalLaps)
+		if currentLap ~= lastRenderedLap or totalLaps ~= lastRenderedTotalLaps then
+			lastRenderedLap = currentLap
+			lastRenderedTotalLaps = totalLaps
+			lapNumLabel.Text = string.format("%d / %d LAPS", currentLap, totalLaps)
+		end
 	end
 
 	-- ----------------------------------------------------
@@ -1856,6 +1865,7 @@ LocalPlayer:GetAttributeChangedSignal("IsRacing"):Connect(function()
 end)
 
 LocalPlayer.CharacterAdded:Connect(function(newChar)
+	task.spawn(setupAnimationSilencer, newChar)
 	if not LocalPlayer:GetAttribute("IsRacing") then
 		isMounted = false
 		isBoosting = false

@@ -201,7 +201,6 @@ RunService.RenderStepped:Connect(function(dt)
 		
 		-- 초기 접속 시 가지고 있던 거리로 기준점 초기화 (불필요한 번개 생성 방지)
 		if lastLightningDistance == -1 or currentDistance < lastLightningDistance then
-			print("[DistanceController] lastLightningDistance 초기화:", lastLightningDistance, "->", currentDistance)
 			lastLightningDistance = currentDistance
 		end
 		
@@ -210,10 +209,8 @@ RunService.RenderStepped:Connect(function(dt)
 			
 			-- 갑작스러운 데이터 로딩으로 인한 거리 점프 방지용 처리
 			if currentDistance - lastLightningDistance > LIGHTNING_SPAWN_INTERVAL * 5 then
-				print("[DistanceController] 경고: 거리가 비정상적으로 크게 뛰었습니다. (데이터 로딩 추정) 번개 이펙트 스킵.")
 				lastLightningDistance = currentDistance
 			else
-				print("[DistanceController] 번개 생성 조건 충족! currentDistance:", currentDistance, "lastLightningDistance:", lastLightningDistance)
 				lastLightningDistance = currentDistance
 				
 				-- 캐릭터 HRP가 있을 때만 이펙트 발생

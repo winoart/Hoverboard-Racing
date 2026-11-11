@@ -14,11 +14,16 @@ end
 syncRemote.OnServerEvent:Connect(function(player, isBoosting, boosterGauge, currentSpeed)
 	local character = player.Character
 	if character then
-		-- Use Attributes to replicate state to all clients automatically
-		character:SetAttribute("IsBoosting", isBoosting)
-		character:SetAttribute("BoosterGauge", boosterGauge)
-		-- Speed is also synced for UI, though we can calculate it from velocity, this ensures exact matching if needed.
-		character:SetAttribute("CurrentSpeed", currentSpeed)
+		-- Only set attributes if value changed to prevent redundant network replication packets!
+		if character:GetAttribute("IsBoosting") ~= isBoosting then
+			character:SetAttribute("IsBoosting", isBoosting)
+		end
+		if character:GetAttribute("BoosterGauge") ~= boosterGauge then
+			character:SetAttribute("BoosterGauge", boosterGauge)
+		end
+		if character:GetAttribute("CurrentSpeed") ~= currentSpeed then
+			character:SetAttribute("CurrentSpeed", currentSpeed)
+		end
 	end
 end)
 
