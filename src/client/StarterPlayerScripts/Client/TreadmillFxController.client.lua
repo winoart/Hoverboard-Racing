@@ -14,7 +14,7 @@ local SPEED_RIDING = 1400.0 -- 탑승 시 초고속 질주 모드 (px/sec)
 
 -- 🎵 트레드밀 주행 사운드 (호버 엔진음)
 local TREADMILL_SOUND_ID = "rbxassetid://75876120873511"
-local TARGET_VOLUME = 0.35
+local TARGET_VOLUME = 0.55
 
 local treadmillSound = Instance.new("Sound")
 treadmillSound.Name = "TreadmillRunningSound"
