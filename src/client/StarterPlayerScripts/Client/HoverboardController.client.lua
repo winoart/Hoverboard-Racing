@@ -96,32 +96,19 @@ local cameraRayParams = RaycastParams.new()
 cameraRayParams.FilterType = Enum.RaycastFilterType.Exclude
 cameraRayParams.IgnoreWater = true
 
-local animSilencerConn: RBXScriptConnection? = nil
-local function setupAnimationSilencer(char: Model)
-	if animSilencerConn then
-		animSilencerConn:Disconnect()
-		animSilencerConn = nil
+local function setMountedAnimationState(char: Model, mounted: boolean)
+	local animScript = char:FindFirstChild("Animate")
+	if animScript and animScript:IsA("LocalScript") then
+		animScript.Disabled = mounted
 	end
-	local hum = char:WaitForChild("Humanoid", 5) :: Humanoid?
-	if not hum then return end
-	local animator = hum:WaitForChild("Animator", 5) :: Animator?
-	if not animator then return end
 
-	animSilencerConn = animator.AnimationPlayed:Connect(function(track)
-		if isMounted or char:FindFirstChild("EquippedHoverboard") ~= nil then
-			local p = track.Priority
-			if p == Enum.AnimationPriority.Movement or p == Enum.AnimationPriority.Core then
-				local n = track.Name:lower()
-				if n:find("run") or n:find("walk") or n:find("swim") or n:find("climb") then
-					track:Stop(0.05)
-				end
-			end
+	local hum = char:FindFirstChildOfClass("Humanoid")
+	local animator = hum and hum:FindFirstChildOfClass("Animator")
+	if animator and mounted then
+		for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+			track:Stop(0)
 		end
-	end)
-end
-
-if LocalPlayer.Character then
-	task.spawn(setupAnimationSilencer, LocalPlayer.Character)
+	end
 end
 
 local skillWarningRemote = ReplicatedStorage:WaitForChild("HoverboardRemotes"):WaitForChild("SkillWarning") :: RemoteEvent
@@ -775,12 +762,27 @@ local skaterJointsCache = {}
 
 -- Handle Server State Changes & Steering Initialization
 stateRemote.OnClientEvent:Connect(function(mounted: boolean, boardModel: Model?, savedPos: Vector3?, forceIsRacing: boolean?)
-	if forceIsRacing then
+	if forceIsRacing or mounted then
 		LocalPlayer:SetAttribute("OnTreadmill", false)
 		_G.wasOnTreadmill = false
+		_G.treadmillBaseCFrame = nil
 		lastSafePosition = nil -- Reset Fall Recovery to allow vertical teleport!
 		_G.introCamDist = 50.0
 		_G.introCamHeight = 30.0
+
+		-- 🧹 트레드밀 물리 제어기 잔여물 완벽 청소 (떨림 방지)
+		local char = LocalPlayer.Character
+		local hrp = char and char:FindFirstChild("HumanoidRootPart")
+		if hrp then
+			local oldSwayPos = hrp:FindFirstChild("TreadmillSwayPos")
+			if oldSwayPos then oldSwayPos:Destroy() end
+			local oldSwayOri = hrp:FindFirstChild("TreadmillSwayOri")
+			if oldSwayOri then oldSwayOri:Destroy() end
+			local oldSwayAtt = hrp:FindFirstChild("SwayAttach0")
+			if oldSwayAtt then oldSwayAtt:Destroy() end
+		end
+		local oldTarget = Workspace.Terrain:FindFirstChild("TreadmillSwayTarget")
+		if oldTarget then oldTarget:Destroy() end
 	else
 		-- 레이스가 아닐 때(대기실 등)는 점프 복구
 		local character = LocalPlayer.Character
@@ -799,6 +801,12 @@ stateRemote.OnClientEvent:Connect(function(mounted: boolean, boardModel: Model?,
 	currentSteerRate = 0.0
 	isRaceStarted = false
 	raceStartTime = 0.0 -- Timer will start when countdown reaches 1!
+
+	-- 🛹 호버보드 탑승 시 기본 Animate 스크립트를 꺼서 애니메이션 충돌/다리 떨림 완벽 차단!
+	local char = LocalPlayer.Character
+	if char then
+		setMountedAnimationState(char, mounted)
+	end
 
 	if guiScreen then
 		guiScreen.Enabled = mounted and not LocalPlayer:GetAttribute("OnTreadmill")
@@ -1829,12 +1837,15 @@ LocalPlayer:GetAttributeChangedSignal("IsRacing"):Connect(function()
 		isBoosting = false
 		isRaceStarted = false
 		currentBoardModel = nil
+		local char = LocalPlayer.Character
+		if char then
+			setMountedAnimationState(char, false)
+		end
 		if guiScreen then
 			guiScreen.Enabled = false
 		end
 		if Camera then
 			Camera.CameraType = Enum.CameraType.Custom
-			local char = LocalPlayer.Character
 			local hum = char and char:FindFirstChildOfClass("Humanoid")
 			if hum then
 				Camera.CameraSubject = hum
@@ -1865,12 +1876,12 @@ LocalPlayer:GetAttributeChangedSignal("IsRacing"):Connect(function()
 end)
 
 LocalPlayer.CharacterAdded:Connect(function(newChar)
-	task.spawn(setupAnimationSilencer, newChar)
 	if not LocalPlayer:GetAttribute("IsRacing") then
 		isMounted = false
 		isBoosting = false
 		isRaceStarted = false
 		currentBoardModel = nil
+		setMountedAnimationState(newChar, false)
 		if guiScreen then
 			guiScreen.Enabled = false
 		end
@@ -1894,6 +1905,9 @@ LocalPlayer.CharacterAdded:Connect(function(newChar)
 		if playerControls and playerControls.Enable then
 			playerControls:Enable()
 		end
+	else
+		-- 레이싱 도중 리스폰된 경우에도 마운트 애니메이션 상태 동기화
+		setMountedAnimationState(newChar, isMounted)
 	end
 end)
 
