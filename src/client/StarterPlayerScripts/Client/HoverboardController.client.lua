@@ -832,12 +832,8 @@ stateRemote.OnClientEvent:Connect(function(mounted: boolean, boardModel: Model?,
 			engineSound.Looped = true
 			engineSound.Volume = 0.2
 			engineSound.PlaybackSpeed = 0.8
-			
-			local hrp = character and character:FindFirstChild("HumanoidRootPart")
-			if hrp then
-				engineSound.Parent = hrp
-				engineSound:Play()
-			end
+			engineSound.Parent = SoundService
+			engineSound:Play()
 		end
 
 		if not boostSound then
@@ -847,11 +843,7 @@ stateRemote.OnClientEvent:Connect(function(mounted: boolean, boardModel: Model?,
 			boostSound.Looped = true
 			boostSound.Volume = 0.8
 			boostSound.PlaybackSpeed = 1.0
-			
-			local hrp = character and character:FindFirstChild("HumanoidRootPart")
-			if hrp then
-				boostSound.Parent = hrp
-			end
+			boostSound.Parent = SoundService
 		end
 
 		task.defer(function()

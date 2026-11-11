@@ -292,7 +292,7 @@ if actionBtn then
 			sound.SoundId = "rbxassetid://124307033081669" -- ?댁젣 ?뚮━
 		end
 		sound.Volume = 0.8
-		sound.Parent = workspace
+		sound.Parent = SoundService
 		sound:Play()
 		game:GetService("Debris"):AddItem(sound, 3)
 	end
