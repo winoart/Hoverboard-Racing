@@ -107,6 +107,16 @@ LocalPlayer:GetAttributeChangedSignal("IsRacing"):Connect(function()
 	updateBGM()
 end)
 
+-- 레이스 완주 시 피니시 팡파레 음악을 위해 트랙 BGM 페이드아웃
+local raceFinishedRemote = remotesFolder:WaitForChild("RaceFinished", 5) :: RemoteEvent?
+if raceFinishedRemote then
+	raceFinishedRemote.OnClientEvent:Connect(function(finishTime, finalLap, totalLaps, finalRank)
+		if finalRank ~= 999 and currentSound then
+			TweenService:Create(currentSound, TweenInfo.new(0.6), { Volume = 0 }):Play()
+		end
+	end)
+end
+
 -- BGM 활성화/비활성화 설정 리스너
 LocalPlayer:GetAttributeChangedSignal("BGMEnabled"):Connect(function()
 	local isEnabled = LocalPlayer:GetAttribute("BGMEnabled") ~= false

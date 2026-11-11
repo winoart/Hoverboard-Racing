@@ -17,17 +17,20 @@ local GuiService = game:GetService("GuiService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
 
--- 오디오 사운드 프리로드 (골드 보상 및 레이스 스타트 GO!)
+-- 오디오 사운드 프리로드 (골드 보상, 레이스 스타트 GO!, 개인 피니시 팡파레)
 task.spawn(function()
 	local sound1 = Instance.new("Sound")
 	sound1.SoundId = "rbxassetid://128773194382802"
 	local sound2 = Instance.new("Sound")
 	sound2.SoundId = "rbxassetid://124292776701163"
+	local sound3 = Instance.new("Sound")
+	sound3.SoundId = "rbxassetid://9067124098"
 	pcall(function()
-		ContentProvider:PreloadAsync({ sound1, sound2 })
+		ContentProvider:PreloadAsync({ sound1, sound2, sound3 })
 	end)
 	sound1:Destroy()
 	sound2:Destroy()
+	sound3:Destroy()
 end)
 
 -- Hide Roblox Default Backpack Tool Slot [1] UI
@@ -2110,23 +2113,24 @@ if raceFinishedRemote then
 			lapNumLabel.Text = string.format("%d / %d LAPS", totalLaps, totalLaps)
 		end
 		
-		-- [DEBUG] Track player state to find out why WASD breaks!
-		task.spawn(function()
-			for i = 1, 15 do
-				task.wait(1)
-				local char = LocalPlayer.Character
-				if char then
-					local hum = char:FindFirstChildOfClass("Humanoid")
-					local hrp = char:FindFirstChild("HumanoidRootPart")
-					if hum and hrp then
-						print(string.format("[DEBUG-WASD] Time: %d | WalkSpeed: %.1f | State: %s | HipHeight: %.1f | Anchored: %s | isMounted: %s | hasBoard: %s | IsRacing: %s",
-							i, hum.WalkSpeed, tostring(hum:GetState()), hum.HipHeight, tostring(hrp.Anchored), tostring(isMounted), 
-							tostring(char:FindFirstChild("EquippedHoverboard") ~= nil), tostring(LocalPlayer:GetAttribute("IsRacing"))
-						))
-					end
-				end
-			end
-		end)
+		-- 🏁 피니시 라인 통과 개인 전용 피니시 팡파레 사운드 (로컬 플레이어 본인에게만 재생)
+		if finalRank ~= 999 then
+			pcall(function()
+				local oldFinish = SoundService:FindFirstChild("PersonalRaceFinishSound")
+				if oldFinish then oldFinish:Destroy() end
+
+				local finishSound = Instance.new("Sound")
+				finishSound.Name = "PersonalRaceFinishSound"
+				finishSound.SoundId = "rbxassetid://9067124098"
+				finishSound.Volume = 0.85
+				finishSound.Looped = false
+				finishSound.Parent = SoundService
+				finishSound:Play()
+				finishSound.Ended:Connect(function()
+					finishSound:Destroy()
+				end)
+			end)
+		end
 		
 		if timerLabel and finalRank ~= 999 then
 			local mins = math.floor(finishTime / 60)
