@@ -825,6 +825,8 @@ stateRemote.OnClientEvent:Connect(function(mounted: boolean, boardModel: Model?,
 			hum.JumpPower = 0
 		end
 		
+		local hrp = character and character:FindFirstChild("HumanoidRootPart")
+		
 		if not engineSound then
 			engineSound = Instance.new("Sound")
 			engineSound.Name = "HoverboardEngineSound"
@@ -832,8 +834,10 @@ stateRemote.OnClientEvent:Connect(function(mounted: boolean, boardModel: Model?,
 			engineSound.Looped = true
 			engineSound.Volume = 0.2
 			engineSound.PlaybackSpeed = 0.8
-			engineSound.Parent = SoundService
-			engineSound:Play()
+			if hrp then
+				engineSound.Parent = hrp
+				engineSound:Play()
+			end
 		end
 
 		if not boostSound then
@@ -843,7 +847,9 @@ stateRemote.OnClientEvent:Connect(function(mounted: boolean, boardModel: Model?,
 			boostSound.Looped = true
 			boostSound.Volume = 0.8
 			boostSound.PlaybackSpeed = 1.0
-			boostSound.Parent = SoundService
+			if hrp then
+				boostSound.Parent = hrp
+			end
 		end
 
 		task.defer(function()
