@@ -139,13 +139,24 @@ end
 updateRebirthText()
 rebirthValue.Changed:Connect(updateRebirthText)
 
+local function updateVisibility()
+	local isSpectating = LocalPlayer:GetAttribute("IsSpectating") == true
+	screenGui.Enabled = not isSpectating
+end
+
+LocalPlayer:GetAttributeChangedSignal("IsSpectating"):Connect(updateVisibility)
+updateVisibility()
+
 PlayerGui.ChildAdded:Connect(function(child)
 	if child.Name == "RebirthDisplayHUD" then
 		print("🔄 [RebirthHUD] 새 UI 생성 감지 - 즉각 강제 갱신")
+		screenGui = child :: ScreenGui
+		screenGui.ResetOnSpawn = false
 		if textLabel and textLabel.Parent == nil then
 			textLabel = nil
 			boostLabel = nil
 		end
 		updateRebirthText()
+		updateVisibility()
 	end
 end)

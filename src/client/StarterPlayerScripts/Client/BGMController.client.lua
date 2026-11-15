@@ -60,7 +60,7 @@ end
 
 local function updateBGM()
 	local isRacing = LocalPlayer:GetAttribute("IsRacing") == true
-	local isAFK = LocalPlayer:GetAttribute("IsAFK") == true
+	local isSpectating = LocalPlayer:GetAttribute("IsSpectating") == true
 
 	if currentPhase == "INTERMISSION" or currentPhase == "MAP_VOTING" then
 		playBGM(BGM_IDS.Lobby)
@@ -68,23 +68,25 @@ local function updateBGM()
 		-- 맵 로딩 중일 때 BGM 부드럽게 정지
 		playBGM("") 
 	elseif currentPhase == "RACE_MATCH" then
-		-- 대기실에 남아있거나 AFK 상태인 유저는 대기실 BGM 유지/재생!
-		if not isRacing or isAFK then
+		-- 레이스 중이거나 관전 중인 유저는 현재 경기장의 박진감 넘치는 트랙 BGM 재생!
+		if isRacing or isSpectating then
+			local mapBGM = BGM_IDS.Lobby -- 맵에 해당하는 브금이 없으면 로비 브금 재생
+			if currentMap == "Oval Speedway" then
+				mapBGM = BGM_IDS.OvalSpeedway
+			elseif currentMap == "Desert Track" then
+				mapBGM = BGM_IDS.DesertTrack
+			elseif currentMap == "Magma Ridge" then
+				mapBGM = BGM_IDS.MagmaRidge
+			elseif currentMap == "Cyber City" then
+				mapBGM = BGM_IDS.CyberCity
+			end
+			playBGM(mapBGM)
+			return
+		else
+			-- 대기실에 머무르는 유저는 차분한 대기실 BGM 유지
 			playBGM(BGM_IDS.Lobby)
 			return
 		end
-
-		local mapBGM = BGM_IDS.Lobby -- 맵에 해당하는 브금이 없으면 로비 브금 재생
-		if currentMap == "Oval Speedway" then
-			mapBGM = BGM_IDS.OvalSpeedway
-		elseif currentMap == "Desert Track" then
-			mapBGM = BGM_IDS.DesertTrack
-		elseif currentMap == "Magma Ridge" then
-			mapBGM = BGM_IDS.MagmaRidge
-		elseif currentMap == "Cyber City" then
-			mapBGM = BGM_IDS.CyberCity
-		end
-		playBGM(mapBGM)
 	end
 end
 
@@ -102,8 +104,11 @@ LocalPlayer:GetAttributeChangedSignal("IsAFK"):Connect(function()
 	updateBGM()
 end)
 
--- 레이싱 상태 변경 리스너 (레이스 종료 후 대기실 복귀 시 로비 BGM 즉시 복구)
+-- 레이싱 및 관전 상태 변경 리스너 (대기실 <-> 경기장 BGM 부드러운 전환)
 LocalPlayer:GetAttributeChangedSignal("IsRacing"):Connect(function()
+	updateBGM()
+end)
+LocalPlayer:GetAttributeChangedSignal("IsSpectating"):Connect(function()
 	updateBGM()
 end)
 

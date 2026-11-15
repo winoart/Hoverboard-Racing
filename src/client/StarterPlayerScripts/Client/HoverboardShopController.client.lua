@@ -5,6 +5,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
 
 local LocalPlayer = Players.LocalPlayer
 local playerGui = LocalPlayer:WaitForChild("PlayerGui")
@@ -124,6 +125,13 @@ local RARITY_ORDER = {
 	{ name = "Super Rare", reqLevel = 90, color = Color3.fromRGB(45, 45, 55), bg = Color3.fromRGB(25, 25, 30) },
 }
 
+local TIER_STRIPE_COLORS: { [string]: Color3 } = {
+	["Common"] = Color3.fromRGB(255, 210, 45),     -- 부드러운 레몬 골드 옐로우
+	["Uncommon"] = Color3.fromRGB(0, 165, 255),    -- 선명하고 시원한 스카이 블루
+	["Rare"] = Color3.fromRGB(185, 80, 255),       -- 신비로운 네온 바이올렛/퍼플
+	["Super Rare"] = Color3.fromRGB(255, 155, 25), -- 화려한 럭셔리 앰버 골드
+}
+
 local function getPlayerLevel(): number
 	local leaderstats = LocalPlayer:FindFirstChild("leaderstats")
 	if leaderstats then
@@ -142,9 +150,18 @@ local function checkOwned(boardId: string): boolean
 end
 
 local currentCatalog = {}
+local shopRenderConnections = {}
+
+local function clearShopRenderConnections()
+	for _, conn in ipairs(shopRenderConnections) do
+		conn:Disconnect()
+	end
+	table.clear(shopRenderConnections)
+end
 
 -- 3열 쇼핑몰 렌더링 함수
 local function renderCatalog(catalogList)
+	clearShopRenderConnections()
 	currentCatalog = catalogList or {}
 	
 	-- 기존 렌더링된 섹션 및 카드 정리 (CardTemplate 제외)
@@ -239,21 +256,99 @@ local function renderCatalog(catalogList)
 			local card = cardTemplate:Clone()
 			card.Name = board.id
 			card.LayoutOrder = bIdx
-			card.BackgroundColor3 = StoreConfig.RarityColors[board.rarity] or Color3.fromRGB(45, 50, 60)
+			card.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+			
+			local f = card:FindFirstChild("Frame")
+			if f and f:IsA("GuiObject") then
+				f.BackgroundColor3 = TIER_STRIPE_COLORS[board.rarity] or Color3.fromRGB(255, 210, 45)
+				local uig = f:FindFirstChildOfClass("UIGradient")
+				if uig then
+					local kps = {}
+					for _, kp in ipairs(uig.Transparency.Keypoints) do
+						local v = (kp.Value < 0.95) and 0.78 or 1.0
+						table.insert(kps, NumberSequenceKeypoint.new(kp.Time, v))
+					end
+					uig.Transparency = NumberSequence.new(kps)
+				end
+			end
 			
 			local itemImg = card:FindFirstChild("ItemImage") :: ImageLabel?
 			if itemImg then
-				itemImg.Image = board.imageId or ""
-				itemImg.Size = UDim2.new(1, -20, 0, 130)
-				itemImg.Position = UDim2.new(0, 10, 0, 10)
+				local hasValidImg = board.imageId and string.match(board.imageId, "%d+") ~= nil
+				local modelsFolder = ReplicatedStorage:FindFirstChild("HoverboardModels")
+				local boardModel = modelsFolder and modelsFolder:FindFirstChild(board.id)
+				if boardModel then
+					local vpf = card:FindFirstChild("ShopViewport") :: ViewportFrame?
+					if not vpf then
+						vpf = Instance.new("ViewportFrame")
+						vpf.Name = "ShopViewport"
+						vpf.Size = UDim2.new(1, -20, 0, 134)
+						vpf.Position = UDim2.new(0, 10, 0, 8)
+						vpf.BackgroundTransparency = 1
+						vpf.ClipsDescendants = true
+						vpf.Parent = card
+					else
+						vpf.Size = UDim2.new(1, -20, 0, 134)
+						vpf.Position = UDim2.new(0, 10, 0, 8)
+						vpf.ClipsDescendants = true
+					end
+					itemImg.Visible = false
+					vpf.Visible = true
+					vpf:ClearAllChildren()
+					local clone = boardModel:Clone()
+					clone.Parent = vpf
+					for _, p in ipairs(clone:GetDescendants()) do
+						if p:IsA("BasePart") then p.CanCollide = false; p.CanQuery = false; p.Anchored = true end
+					end
+					local cf, size = clone:GetBoundingBox()
+					clone:PivotTo(CFrame.new(-cf.Position) * clone:GetPivot())
+					local maxDim = math.max(size.X, size.Y, size.Z, 1)
+					local dist = maxDim * 1.3
+					local cam = Instance.new("Camera")
+					cam.FieldOfView = 30
+					cam.Parent = vpf
+					vpf.CurrentCamera = cam
+					
+					local center = Vector3.new(0, 0, 0)
+					local startTick = tick()
+					local conn = RunService.RenderStepped:Connect(function()
+						local t = tick() - startTick + bIdx * 0.7
+						local rad = math.rad(t * 32)
+						local x = math.cos(rad) * dist * 0.95
+						local z = math.sin(rad) * dist * 0.95
+						local y = dist * 0.42 + math.sin(t * 2.2) * (dist * 0.05)
+						cam.CFrame = CFrame.lookAt(Vector3.new(x, y, z), center)
+					end)
+					table.insert(shopRenderConnections, conn)
+				else
+					local vpf = card:FindFirstChild("ShopViewport")
+					if vpf then vpf.Visible = false end
+					itemImg.Visible = true
+					itemImg.Image = hasValidImg and board.imageId or "rbxassetid://98211009044526"
+					itemImg.Size = UDim2.new(1, -20, 0, 130)
+					itemImg.Position = UDim2.new(0, 10, 0, 10)
+				end
 			end
 			
 			local itemNm = card:FindFirstChild("ItemName") :: TextLabel?
 			if itemNm then
 				itemNm.Text = board.name or "Hoverboard"
-				itemNm.Size = UDim2.new(1, 0, 0, 26)
-				itemNm.Position = UDim2.new(0, 0, 0, 146)
-				itemNm.TextSize = 18
+				itemNm.Size = UDim2.new(1, -20, 0, 26)
+				itemNm.Position = UDim2.new(0, 10, 0, 146)
+				itemNm.TextColor3 = Color3.fromRGB(30, 30, 35)
+				itemNm.TextScaled = true
+				itemNm.TextWrapped = true
+				local stroke = itemNm:FindFirstChildOfClass("UIStroke")
+				if stroke then
+					stroke.Enabled = false
+				end
+				local c = itemNm:FindFirstChildOfClass("UITextSizeConstraint")
+				if not c then
+					c = Instance.new("UITextSizeConstraint")
+					c.Parent = itemNm
+				end
+				c.MaxTextSize = 18
+				c.MinTextSize = 11
 			end
 			
 			local priceLbl = card:FindFirstChild("PriceLabel") :: TextLabel?
@@ -384,6 +479,8 @@ screenGui:GetPropertyChangedSignal("Enabled"):Connect(function()
 	if screenGui.Enabled then
 		bgFrame.Visible = true
 		playOpenSound()
+	else
+		clearShopRenderConnections()
 	end
 end)
 
@@ -398,6 +495,7 @@ end)
 closeBtn.MouseButton1Click:Connect(function()
 	isShopOpen = false
 	screenGui.Enabled = false
+	clearShopRenderConnections()
 end)
 
 -- 리더스탯(레벨) 또는 인벤토리 변경 시 실시간 반영
@@ -441,5 +539,6 @@ updateResponsiveScale()
 task.delay(0.1, updateResponsiveScale)
 
 screenGui.Destroying:Connect(function()
+	clearShopRenderConnections()
 	if resizeConn then resizeConn:Disconnect() end
 end)

@@ -13,6 +13,8 @@ local playerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 local hoverRemotes = ReplicatedStorage:WaitForChild("HoverboardRemotes")
 local equipBoardRemote = hoverRemotes:WaitForChild("EquipItem") :: RemoteFunction
+local getCatalogRemote = hoverRemotes:WaitForChild("GetHoverboardsCatalog", 5) :: RemoteFunction?
+local catalogUpdatedRemote = hoverRemotes:WaitForChild("HoverboardsCatalogUpdated", 5) :: RemoteEvent?
 
 local skillRemotes = ReplicatedStorage:WaitForChild("SkillRemotes")
 local equipSkillRemote = skillRemotes:WaitForChild("EquipSkill") :: RemoteFunction
@@ -214,6 +216,39 @@ local function clearRenderConnections()
 	table.clear(renderConnections)
 end
 
+local customBoardsCatalog = {}
+
+local function updateCatalogCache(catalogList)
+	if not catalogList then return end
+	for _, item in ipairs(catalogList) do
+		customBoardsCatalog[item.id] = item
+	end
+end
+
+local function getBoardItemById(id: string)
+	if customBoardsCatalog[id] then
+		return customBoardsCatalog[id]
+	end
+	for _, item in ipairs(StoreConfig.Items) do
+		if item.id == id then return item end
+	end
+	local model = customModelsFolder and customModelsFolder:FindFirstChild(id)
+	return {
+		id = id,
+		name = model and model.Name or id,
+		desc = "Shop Admin Custom Hoverboard",
+		rarity = "Rare",
+		imageId = "rbxassetid://98211009044526",
+	}
+end
+
+local function getSkillItemById(id: string)
+	for _, item in ipairs(SkillStoreConfig.Skills) do
+		if item.id == id then return item end
+	end
+	return nil
+end
+
 local function updateRightColumn()
 	clearRenderConnections()
 	
@@ -228,6 +263,12 @@ local function updateRightColumn()
 	end
 	
 	local info = selectedItem
+	if selectedItemType == "Board" then
+		info = getBoardItemById(selectedItem.id)
+	elseif selectedItemType == "Skill" then
+		info = getSkillItemById(selectedItem.id) or selectedItem
+	end
+
 	if rName then rName.Text = info.name end
 	if rDesc then rDesc.Text = info.desc or info.description or "No description available." end
 
@@ -256,18 +297,54 @@ local function updateRightColumn()
 		end
 	end
 	
-	if selectedItemType == "Board" then
-		if rImage then 
-			rImage.Visible = true 
-			rImage.Image = info.imageId
+	local boardModel = (selectedItemType == "Board") and customModelsFolder and customModelsFolder:FindFirstChild(info.id)
+	local hasValidImage = info.imageId and string.match(info.imageId, "%d+") ~= nil
+
+	if selectedItemType == "Board" and boardModel and rViewport then
+		if rImage then rImage.Visible = false end
+		rViewport.Visible = true
+		rViewport:ClearAllChildren()
+
+		local clone = boardModel:Clone()
+		clone.Parent = rViewport
+
+		for _, p in ipairs(clone:GetDescendants()) do
+			if p:IsA("BasePart") then
+				p.CanCollide = false
+				p.CanQuery = false
+				p.Anchored = true
+			end
 		end
-		if rViewport then rViewport.Visible = false end
+
+		local cf, size = clone:GetBoundingBox()
+		clone:PivotTo(CFrame.new(-cf.Position) * clone:GetPivot())
+
+		local maxDim = math.max(size.X, size.Y, size.Z, 1)
+		local dist = maxDim * 1.5
+
+		local cam = Instance.new("Camera")
+		cam.Name = "ViewportCamera"
+		cam.FieldOfView = 30
+		cam.Parent = rViewport
+		rViewport.CurrentCamera = cam
+
+		local center = Vector3.new(0, 0, 0)
+		local startTick = tick()
+		local conn = RunService.RenderStepped:Connect(function()
+			local t = tick() - startTick
+			local rad = math.rad(t * 35)
+			local x = math.cos(rad) * dist * 0.95
+			local z = math.sin(rad) * dist * 0.95
+			local y = dist * 0.45
+			cam.CFrame = CFrame.lookAt(center + Vector3.new(x, y, z), center)
+		end)
+		table.insert(renderConnections, conn)
 	else
+		if rViewport then rViewport.Visible = false end
 		if rImage then 
 			rImage.Visible = true 
-			rImage.Image = info.imageId 
+			rImage.Image = hasValidImage and info.imageId or "rbxassetid://98211009044526"
 		end
-		if rViewport then rViewport.Visible = false end
 	end
 	
 	-- ?熬곣뫗逾???꾩룆???????夷?? ??ル봾鍮띸춯濡ル뾼?????節뗪땁 ?怨뺣뼺?
@@ -357,10 +434,12 @@ end
 local cardTemplate = invGui:FindFirstChild("CardTemplate")
 
 local function createInvCard(item, itemType, parentScroll, layoutOrder)
-	if not cardTemplate then return end
+	if not cardTemplate or not item then return end
+	if parentScroll:FindFirstChild("Card_" .. item.id) then return end
 	local cardBtn = cardTemplate:Clone()
 	cardBtn.Name = "Card_" .. item.id
 	cardBtn.LayoutOrder = layoutOrder or 0
+	cardBtn.ClipsDescendants = true
 	cardBtn.Parent = parentScroll
 	cardBtn.Visible = true
 	
@@ -381,23 +460,63 @@ local function createInvCard(item, itemType, parentScroll, layoutOrder)
 		img.ZIndex = 10
 	end
 	
-	local vpf = cardBtn:FindFirstChild("Viewport")
-	
-	-- ?곌랜?????븐슙?? ???꾪뀬???????筌뤾퍔?붺솻洹?獄?씛??濡?뱿 ????덧 ?筌????꾩룆踰??낆쾸? ?곌랜??議얠물???????
-	if itemType == "Board" then
-		img.Visible = true
-		img.Image = item.imageId
-		if vpf then vpf.Visible = true end
+	local vpf = cardBtn:FindFirstChild("Viewport") :: ViewportFrame?
+	local hasValidImage = item.imageId and string.match(item.imageId, "%d+") ~= nil
+	local boardModel = (itemType == "Board") and customModelsFolder and customModelsFolder:FindFirstChild(item.id)
+
+	if itemType == "Board" and boardModel and vpf then
+		img.Visible = false
+		vpf.Visible = true
+		vpf.ClipsDescendants = true
+		vpf:ClearAllChildren()
+
+		local clone = boardModel:Clone()
+		clone.Parent = vpf
+
+		for _, p in ipairs(clone:GetDescendants()) do
+			if p:IsA("BasePart") then
+				p.CanCollide = false
+				p.CanQuery = false
+				p.Anchored = true
+			end
+		end
+
+		local cf, size = clone:GetBoundingBox()
+		clone:PivotTo(CFrame.new(-cf.Position) * clone:GetPivot())
+
+		local maxDim = math.max(size.X, size.Y, size.Z, 1)
+		local camDist = maxDim * 1.85
+
+		local cam = Instance.new("Camera")
+		cam.Name = "CardCamera"
+		cam.FieldOfView = 32
+		cam.Parent = vpf
+		vpf.CurrentCamera = cam
+
+		local offset = Vector3.new(camDist * 0.65, camDist * 0.5, camDist * 0.65)
+		cam.CFrame = CFrame.lookAt(offset, Vector3.new(0, -maxDim * 0.05, 0))
 	else
+		if vpf then vpf.Visible = false end
 		img.Visible = true
-		img.Image = item.imageId
-		if vpf then vpf.Visible = true end
+		img.Image = hasValidImage and item.imageId or "rbxassetid://98211009044526"
 	end
 	
 	local nameLabel = cardBtn:FindFirstChild("ItemName", true)
 	if nameLabel then 
-		nameLabel.Text = string.gsub(item.name, "%s*%([a-zA-Z?띠럾?-??s]+%)", "")
+		nameLabel.Text = string.gsub(item.name, "%s*%([^%)]*%)", "")
 		nameLabel.Font = Enum.Font.FredokaOne
+		nameLabel.TextScaled = true
+		nameLabel.TextWrapped = true
+		nameLabel.ClipsDescendants = true
+		nameLabel.Size = UDim2.new(1, -10, 0, 32)
+		nameLabel.Position = UDim2.new(0, 5, 1, -36)
+		local constraint = nameLabel:FindFirstChildOfClass("UITextSizeConstraint")
+		if not constraint then
+			constraint = Instance.new("UITextSizeConstraint")
+			constraint.Parent = nameLabel
+		end
+		constraint.MaxTextSize = 14
+		constraint.MinTextSize = 9
 	end
 	
 	local statusLabel = cardBtn:FindFirstChild("Status")
@@ -416,12 +535,23 @@ local function createInvCard(item, itemType, parentScroll, layoutOrder)
 	checkIcon.ZIndex = 10 -- ?곸궠?獄??嶺뚮ㅄ維獄???븐슜爰?ZIndex 8,9)?곌랜????熬곣뫖?????녹┣?????깆젧
 	checkIcon.Parent = cardBtn
 	
+	if vpf then vpf.Active = false end
+	if img then img.Active = false end
+	if nameLabel then nameLabel.Active = false end
+	checkIcon.Active = false
+	
 	table.insert(allCards, {card = cardBtn, stroke = cardStroke, item = item, itemType = itemType, checkIcon = checkIcon, img = img})
 	
 	cardBtn:SetAttribute("IgnoreClickSound", true)
-	cardBtn.MouseButton1Click:Connect(function()
+	local lastCardClick = 0
+	local function onCardClicked()
+		local now = os.clock()
+		if now - lastCardClick < 0.05 then return end
+		lastCardClick = now
 		selectItem(item, itemType)
-	end)
+	end
+	cardBtn.Activated:Connect(onCardClicked)
+	cardBtn.MouseButton1Click:Connect(onCardClicked)
 end
 
 local function refreshCardsVisibility()
@@ -435,18 +565,87 @@ local function refreshCardsVisibility()
 	if selectedItem then updateRightColumn() end
 end
 
-local function getItemById(config, id)
-	for _, item in ipairs(config) do
-		if item.id == id then return item end
+local function syncCatalogToCards()
+	for _, data in ipairs(allCards) do
+		if data.itemType == "Board" and customBoardsCatalog[data.item.id] then
+			local cItem = customBoardsCatalog[data.item.id]
+			data.item = cItem
+			if data.img and cItem.imageId and cItem.imageId ~= "" then
+				data.img.Image = cItem.imageId
+			end
+			local nameLabel = data.card:FindFirstChild("ItemName", true)
+			if nameLabel then
+				nameLabel.Text = string.gsub(cItem.name, "%s*%([^%)]*%)", "")
+				nameLabel.TextScaled = true
+				nameLabel.TextWrapped = true
+				nameLabel.ClipsDescendants = true
+			end
+			if selectedItem and selectedItem.id == data.item.id then
+				selectedItem = cItem
+			end
+		end
 	end
-	return nil
+	local ownBoard = LocalPlayer:FindFirstChild("OwnedHoverboards")
+	if ownBoard and boardsScroll then
+		for _, child in ipairs(ownBoard:GetChildren()) do
+			if not boardsScroll:FindFirstChild("Card_" .. child.Name) then
+				local item = getBoardItemById(child.Name)
+				createInvCard(item, "Board", boardsScroll, #allCards + 1)
+			end
+		end
+		refreshCardsVisibility()
+	end
+	if selectedItem then
+		updateRightColumn()
+	end
+end
+
+-- 서버 상점 카탈로그(관리자 등록 보드 포함) 로드 및 실시간 연동
+if getCatalogRemote then
+	task.spawn(function()
+		local success, catalog = pcall(function()
+			return getCatalogRemote:InvokeServer()
+		end)
+		if success and catalog then
+			updateCatalogCache(catalog)
+			syncCatalogToCards()
+		end
+	end)
+end
+
+if catalogUpdatedRemote then
+	catalogUpdatedRemote.OnClientEvent:Connect(function(newCatalog)
+		updateCatalogCache(newCatalog)
+		syncCatalogToCards()
+	end)
+end
+
+local function autoSelectEquipped()
+	if currentTab == "Board" then
+		local eq = LocalPlayer:FindFirstChild("EquippedHoverboardId") :: StringValue?
+		local boardId = (eq and eq.Value ~= "") and eq.Value or "DefaultHoverboard"
+		local item = getBoardItemById(boardId)
+		if item then selectItem(item, "Board") end
+	elseif currentTab == "Skill" then
+		local eqFolder = LocalPlayer:FindFirstChild("EquippedSkills")
+		local firstSkill = eqFolder and eqFolder:GetChildren()[1]
+		if firstSkill then
+			local item = getSkillItemById(firstSkill.Name)
+			if item then selectItem(item, "Skill") end
+		else
+			selectedItem = nil
+			updateRightColumn()
+			for _, data in ipairs(allCards) do
+				if data.stroke then data.stroke.Thickness = 5 end
+			end
+		end
+	end
 end
 
 local function initializeInventoryCards()
 	local ownBoard = LocalPlayer:WaitForChild("OwnedHoverboards")
 	local ownSkill = LocalPlayer:WaitForChild("OwnedSkills")
 
-	-- UIGridLayout SortOrder??LayoutOrder???띠룆踰?????깆젧
 	if boardsScroll then
 		local grid = boardsScroll:FindFirstChildOfClass("UIGridLayout")
 		if grid then grid.SortOrder = Enum.SortOrder.LayoutOrder end
@@ -457,27 +656,27 @@ local function initializeInventoryCards()
 	end
 
 	if boardsScroll then
-		-- 1. ??곕?塋??ル봾鍮?DefaultHoverboard) ??쒕샍??롮퀪?嶺???(LayoutOrder = 0)
-		local defaultBoard = getItemById(StoreConfig.Items, "DefaultHoverboard")
+		-- 1. 기본 보드 (DefaultHoverboard) 맨 앞에 배치 (LayoutOrder = 0)
+		local defaultBoard = getBoardItemById("DefaultHoverboard")
 		if defaultBoard then
 			createInvCard(defaultBoard, "Board", boardsScroll, 0)
 		end
-		-- 2. ???쒓덫???筌뤾퍔?붺솻洹?獄?쓣紐?OwnedHoverboards ???????戮?맋(???쒓덫 ??????
+		-- 2. 보유 중인 보드들을 순서대로 생성
 		local boardOrder = 1
 		for _, child in ipairs(ownBoard:GetChildren()) do
 			if child.Name ~= "DefaultHoverboard" then
-				local item = getItemById(StoreConfig.Items, child.Name)
+				local item = getBoardItemById(child.Name)
 				if item then
 					createInvCard(item, "Board", boardsScroll, boardOrder)
 					boardOrder += 1
 				end
 			end
 		end
-		-- ???됱Ŧ ???쒓덫 ???곸궠?獄????됱쓤 ?怨뺣뼺?
+		-- 새로 구매 시 카드 실시간 생성
 		local nextBoardOrder = boardOrder
 		ownBoard.ChildAdded:Connect(function(child)
 			if child.Name ~= "DefaultHoverboard" then
-				local item = getItemById(StoreConfig.Items, child.Name)
+				local item = getBoardItemById(child.Name)
 				if item then
 					createInvCard(item, "Board", boardsScroll, nextBoardOrder)
 					nextBoardOrder += 1
@@ -488,19 +687,17 @@ local function initializeInventoryCards()
 	end
 
 	if skillsScroll then
-		-- ???꾪뀬?? OwnedSkills ???????戮?맋(???쒓덫 ??????
 		local skillOrder = 0
 		for _, child in ipairs(ownSkill:GetChildren()) do
-			local item = getItemById(SkillStoreConfig.Skills, child.Name)
+			local item = getSkillItemById(child.Name)
 			if item then
 				createInvCard(item, "Skill", skillsScroll, skillOrder)
 				skillOrder += 1
 			end
 		end
-		-- ???됱Ŧ ???쒓덫 ???곸궠?獄????됱쓤 ?怨뺣뼺?
 		local nextSkillOrder = skillOrder
 		ownSkill.ChildAdded:Connect(function(child)
-			local item = getItemById(SkillStoreConfig.Skills, child.Name)
+			local item = getSkillItemById(child.Name)
 			if item then
 				createInvCard(item, "Skill", skillsScroll, nextSkillOrder)
 				nextSkillOrder += 1
@@ -510,6 +707,7 @@ local function initializeInventoryCards()
 	end
 
 	refreshCardsVisibility()
+	autoSelectEquipped()
 end
 
 task.spawn(initializeInventoryCards)
@@ -526,6 +724,7 @@ task.spawn(function()
 	ownSkill.ChildRemoved:Connect(refreshCardsVisibility)
 
 	refreshCardsVisibility()
+	autoSelectEquipped()
 end)
 
 -- Game Phase Integration
@@ -596,22 +795,6 @@ if bgFrame then
 end
 
 -- ?諭?癰귣똻???遺욧퍕: ?紐껉뭣?醫듼봺????곷??????怨쀫? ?怨멸쉭 ??ㅺ섯????쑴堉??? ??꾪? ?酉琉?紐껋쨮 ?袁⑹삺 ?關媛???袁⑹뵠??뽰뵠 ??ㅻ즲嚥??癒?짗 ?醫뤾문 疫꿸퀡???곕떽?
-local function autoSelectEquipped()
-	if currentTab == "Board" then
-		local eq = LocalPlayer:FindFirstChild("EquippedHoverboardId")
-		if eq and eq.Value ~= "" then
-			local item = getItemById(StoreConfig.Items, eq.Value)
-			if item then selectItem(item, "Board") end
-		end
-	elseif currentTab == "Skill" then
-		selectedItem = nil
-		updateRightColumn()
-		for _, data in ipairs(allCards) do
-			if data.stroke then data.stroke.Thickness = 5 end
-		end
-	end
-end
-
 invGui:GetPropertyChangedSignal("Enabled"):Connect(function()
 	if invGui.Enabled then autoSelectEquipped() end
 end)

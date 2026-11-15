@@ -315,13 +315,20 @@ local function createHUDUI()
 	-- =========================================================================
 	local leaderboardContainer = Instance.new("Frame")
 	leaderboardContainer.Name = "LeaderboardContainer"
-	-- Responsive size for horizontal layout
-	leaderboardContainer.Size = UDim2.new(0.4, 0, 0.06, 0)
+	leaderboardContainer.Size = UDim2.new(0.6, 0, 0, 42)
 	leaderboardContainer.Position = UDim2.new(0.5, 0, 0, 10)
 	leaderboardContainer.AnchorPoint = Vector2.new(0.5, 0)
 	leaderboardContainer.BackgroundTransparency = 1
 	leaderboardContainer.ZIndex = 11
 	leaderboardContainer.Parent = guiScreen
+
+	local listLayout = Instance.new("UIListLayout")
+	listLayout.FillDirection = Enum.FillDirection.Horizontal
+	listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	listLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+	listLayout.Padding = UDim.new(0, 8)
+	listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	listLayout.Parent = leaderboardContainer
 
 	-- Dictionary to hold player cards
 	local playerCardFrames = {}
@@ -333,71 +340,74 @@ local function createHUDUI()
 		return rank .. "th"
 	end
 
-	local function createPlayerCard(playerName, isLocal)
+	local function createPlayerCard(userId: number, pName: string, isLocal: boolean)
 		local pCard = Instance.new("ImageLabel")
-		pCard.Name = "Card_" .. playerName
-		-- Use Scale for size so it adjusts on mobile
-		pCard.Size = UDim2.new(0.12, 0, 1, 0)
+		pCard.Name = "Card_" .. tostring(userId > 0 and userId or pName)
+		pCard.Size = UDim2.new(0, 38, 0, 38)
 		pCard.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 		pCard.BorderSizePixel = 0
 		pCard.ZIndex = 11
-		pCard.Position = UDim2.new(0, 0, 0, 0)
 		pCard.Parent = leaderboardContainer
 		pCard.ScaleType = Enum.ScaleType.Crop
-		
-		-- Fetch avatar thumbnail
-		task.spawn(function()
-			local p = Players:FindFirstChild(playerName)
+
+		-- Instant reliable avatar loading via rbxthumb
+		if userId and userId > 0 then
+			pCard.Image = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(userId) .. "&w=150&h=150"
+		else
+			local p = Players:FindFirstChild(pName)
 			if p then
-				local content, isReady = Players:GetUserThumbnailAsync(p.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
-				if isReady then pCard.Image = content end
+				pCard.Image = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(p.UserId) .. "&w=150&h=150"
 			else
-				pCard.Image = "rbxassetid://10492211918" -- Generic bot placeholder
+				pCard.Image = "rbxassetid://10492211918"
 			end
-		end)
+		end
 
 		local aspect = Instance.new("UIAspectRatioConstraint")
 		aspect.AspectRatio = 1
 		aspect.Parent = pCard
 
 		local corner = Instance.new("UICorner")
-		corner.CornerRadius = UDim.new(0.5, 0)
+		corner.CornerRadius = UDim.new(1, 0)
 		corner.Parent = pCard
 
 		local stroke = Instance.new("UIStroke")
-		stroke.Color = isLocal and Color3.fromRGB(255, 200, 30) or Color3.fromRGB(0, 0, 0)
+		stroke.Color = isLocal and Color3.fromRGB(255, 205, 40) or Color3.fromRGB(200, 200, 200)
 		stroke.Thickness = isLocal and 3.5 or 2
 		stroke.Parent = pCard
 
-		return { frame = pCard }
+		return { frame = pCard, stroke = stroke }
 	end
 
-	local function updateRankings(sortedPlayerNames, isStartingLine)
-		-- [임시] UI 테스트를 위해 8명까지 가짜 플레이어 채우기
-		local fakeSorted = {}
-		for _, name in ipairs(sortedPlayerNames) do
-			table.insert(fakeSorted, name)
-		end
-		for i = #fakeSorted + 1, 8 do
-			table.insert(fakeSorted, "Bot_Test_" .. i)
+	local function updateRankings(sortedList, isStartingLine)
+		if not sortedList or #sortedList == 0 then return end
+
+		local activeKeys = {}
+
+		for rank, entry in ipairs(sortedList) do
+			local userId = (type(entry) == "table" and entry.userId) or tonumber(entry) or 0
+			local pName = (type(entry) == "table" and (entry.name or entry.displayName)) or tostring(entry)
+			local key = (userId > 0) and tostring(userId) or pName
+
+			activeKeys[key] = true
+
+			local isLocal = (userId > 0 and userId == LocalPlayer.UserId) or (pName == LocalPlayer.Name or pName == LocalPlayer.DisplayName)
+
+			if not playerCardFrames[key] then
+				playerCardFrames[key] = createPlayerCard(userId, pName, isLocal)
+			end
+
+			local cardData = playerCardFrames[key]
+			if cardData and cardData.frame then
+				cardData.frame.Visible = true
+				cardData.frame.LayoutOrder = rank
+				cardData.stroke.Color = isLocal and Color3.fromRGB(255, 205, 40) or Color3.fromRGB(200, 200, 200)
+				cardData.stroke.Thickness = isLocal and 3.5 or 2
+			end
 		end
 
-		for rank, pName in ipairs(fakeSorted) do
-			if not playerCardFrames[pName] then
-				playerCardFrames[pName] = createPlayerCard(pName, pName == LocalPlayer.DisplayName)
-			end
-			local cardData = playerCardFrames[pName]
-			
-			if rank <= 8 then
-				cardData.frame.Visible = true
-				
-				-- Horizontal spacing (each takes ~12.5% of container width)
-				local targetX = (rank - 1) * 0.125
-				local targetPos = UDim2.new(targetX, 0, 0, 0)
-				
-				-- Smooth animation for horizontal swapping
-				TweenService:Create(cardData.frame, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Position = targetPos }):Play()
-			else
+		-- Hide any old cards that are not in the current active race
+		for key, cardData in pairs(playerCardFrames) do
+			if not activeKeys[key] and cardData.frame then
 				cardData.frame.Visible = false
 			end
 		end
@@ -1146,7 +1156,7 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 		
 		if rebirthEffectLabel then
 			rebirthEffectLabel.Text = string.format("Level +%.1f Km/s", rebirthData.BoostSpeedBonus)
-			rebirthEffectLabel.Visible = (rebirthData.BoostSpeedBonus > 0)
+			rebirthEffectLabel.Visible = not isSpectating and (rebirthData.BoostSpeedBonus > 0)
 		end
 		
 		-- 테스트용 게임패스 버프 시뮬레이션 (상점에서 가상 구매 시 Attribute로 설정됨)

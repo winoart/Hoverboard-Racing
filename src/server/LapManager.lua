@@ -57,6 +57,7 @@ function LapManager.startTracking(mapName: string, startTime: number)
 	totalLapsForMap = MapManager.getTotalLaps(mapName)
 	raceStartTime = startTime
 	finishedCount = 0
+	lastRankingsStr = ""
 	table.clear(playerLaps)
 
 	for _, player in ipairs(Players:GetPlayers()) do
@@ -68,8 +69,10 @@ function LapManager.startTracking(mapName: string, startTime: number)
 				finishTime = 0,
 			}
 			
-			if player.Character and player.Character.PrimaryPart then
-				playerStartPositions[player.UserId] = player.Character.PrimaryPart.Position
+			local char = player.Character
+			local root = char and (char.PrimaryPart or char:FindFirstChild("HumanoidRootPart") :: BasePart?)
+			if root then
+				playerStartPositions[player.UserId] = root.Position
 			end
 			
 			-- Initialize UI
@@ -213,19 +216,38 @@ function LapManager.startTracking(mapName: string, startTime: number)
 	
 	-- Start real-time ranking loop
 	heartbeatConnection = RunService.Heartbeat:Connect(function()
+		-- 혹시 레이스 시작 이후 지연 로딩 등으로 playerLaps에 누락된 활성 레이서가 있다면 자동 등록
+		for _, p in ipairs(Players:GetPlayers()) do
+			if p:GetAttribute("IsRacing") and not playerLaps[p.UserId] then
+				playerLaps[p.UserId] = {
+					currentLap = 0,
+					nextCheckpoint = 1,
+					finished = false,
+					finishTime = 0,
+				}
+				local char = p.Character
+				local root = char and (char.PrimaryPart or char:FindFirstChild("HumanoidRootPart") :: BasePart?)
+				if root then
+					playerStartPositions[p.UserId] = root.Position
+				end
+			end
+		end
+
 		local sortedPlayers = {}
 		local maxDistTraveled = 0
 		
 		for userId, data in pairs(playerLaps) do
 			local p = Players:GetPlayerByUserId(userId)
-			if p and p.Character and p.Character.PrimaryPart then
+			local char = p and p.Character
+			local root = char and (char.PrimaryPart or char:FindFirstChild("HumanoidRootPart") :: BasePart?)
+			if p and char and root then
 				local distPenalty = 0
 				
 				if data.currentLap == 0 and data.nextCheckpoint == 1 then
 					-- 첫 번째 체크포인트를 향해 갈 때는 시작 위치로부터 '이동한 거리'를 사용하여 출발선 불균형 해결
 					local startPos = playerStartPositions[userId]
 					if startPos then
-						local distTraveled = (p.Character.PrimaryPart.Position - startPos).Magnitude
+						local distTraveled = (root.Position - startPos).Magnitude
 						-- 미세한 대기 모션(Idle) 등으로 인한 거리 떨림을 무시하기 위해 1.0 미만은 0으로 고정
 						if distTraveled < 1.0 then
 							distTraveled = 0
@@ -238,22 +260,28 @@ function LapManager.startTracking(mapName: string, startTime: number)
 				else
 					local targetCpPos = checkpointPositions[data.nextCheckpoint]
 					if targetCpPos then
-						distPenalty = (p.Character.PrimaryPart.Position - targetCpPos).Magnitude
+						distPenalty = (root.Position - targetCpPos).Magnitude
 					end
 					maxDistTraveled = 9999 -- 이미 출발선을 꽤 벗어남
 				end
 				
 				local score = 0
 				if data.finished then
-					score = 10000000000 + (10000 - data.finishTime) -- faster finish time = higher score
+					if data.finalRank == 999 then
+						score = -999999999 -- DNF 유저는 랭킹 하단으로
+					else
+						score = 10000000000 + (10000 - data.finishTime) -- faster finish time = higher score
+					end
 				else
 					score = (data.currentLap * 100000000) + (data.nextCheckpoint * 1000000) - distPenalty
 				end
 				
 				table.insert(sortedPlayers, {
 					userId = userId,
-					name = p.DisplayName,
-					score = score
+					name = p.Name,
+					displayName = p.DisplayName,
+					score = score,
+					isDNF = (data.finalRank == 999),
 				})
 			end
 		end
@@ -268,21 +296,27 @@ function LapManager.startTracking(mapName: string, startTime: number)
 		
 		currentRankings = sortedPlayers
 		
-		local sortedNames = {}
+		local sortedRacers = {}
 		local namesStr = ""
 		for _, pData in ipairs(sortedPlayers) do
-			table.insert(sortedNames, pData.name)
-			namesStr ..= pData.name .. ","
+			if not pData.isDNF then
+				table.insert(sortedRacers, {
+					userId = pData.userId,
+					name = pData.name,
+					displayName = pData.displayName,
+				})
+				namesStr ..= tostring(pData.userId) .. ","
+			end
 		end
 		
 		local isStartingLine = maxDistTraveled < 1.0
 		namesStr ..= tostring(isStartingLine)
 		
-		if namesStr ~= lastRankingsStr and #sortedNames > 0 then
+		if namesStr ~= lastRankingsStr and #sortedRacers > 0 then
 			lastRankingsStr = namesStr
 			local updateRankingsRemote = remotesFolder:FindFirstChild("UpdateRankings")
 			if updateRankingsRemote and updateRankingsRemote:IsA("RemoteEvent") then
-				updateRankingsRemote:FireAllClients(sortedNames, isStartingLine)
+				updateRankingsRemote:FireAllClients(sortedRacers, isStartingLine)
 			end
 		end
 	end)

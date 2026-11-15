@@ -538,37 +538,47 @@ end)
 -- 3. Handle Equip Logic
 equipBoardRemote.OnServerInvoke = function(player: Player, itemId: string)
 	local ownedFolder = player:FindFirstChild("OwnedHoverboards")
-	if ownedFolder and ownedFolder:FindFirstChild(itemId) then
-		local equippedId = player:FindFirstChild("EquippedHoverboardId") :: StringValue?
-		if equippedId then
-			equippedId.Value = itemId
-			
-			-- 스타터팩 보드 장착 시 골든 프리즈(Skill_Premium) 자동 획득 및 장착
-			if itemId == "StarterPac_Board" then
-				local ownedSkills = player:FindFirstChild("OwnedSkills")
-				local equippedSkills = player:FindFirstChild("EquippedSkills")
-				if ownedSkills and equippedSkills then
-					if not ownedSkills:FindFirstChild("Skill_Premium") then
-						local s = Instance.new("StringValue")
-						s.Name = "Skill_Premium"
-						s.Parent = ownedSkills
+	local equippedId = player:FindFirstChild("EquippedHoverboardId") :: StringValue?
+	if not equippedId then return false, "데이터 오류" end
+
+	-- 이미 장착된 보드를 다시 클릭한 경우 (UNEQUIP 동작)
+	if itemId == equippedId.Value then
+		if itemId ~= "DefaultHoverboard" then
+			equippedId.Value = "DefaultHoverboard"
+			return true, "장착 해제 (기본 보드로 변경)"
+		else
+			return false, "기본 보드는 해제할 수 없습니다."
+		end
+	end
+
+	if ownedFolder and (ownedFolder:FindFirstChild(itemId) or itemId == "DefaultHoverboard") then
+		equippedId.Value = itemId
+		
+		-- 스타터팩 보드 장착 시 골든 프리즈(Skill_Premium) 자동 획득 및 장착
+		if itemId == "StarterPac_Board" then
+			local ownedSkills = player:FindFirstChild("OwnedSkills")
+			local equippedSkills = player:FindFirstChild("EquippedSkills")
+			if ownedSkills and equippedSkills then
+				if not ownedSkills:FindFirstChild("Skill_Premium") then
+					local s = Instance.new("StringValue")
+					s.Name = "Skill_Premium"
+					s.Parent = ownedSkills
+				end
+				if not equippedSkills:FindFirstChild("Skill_Premium") then
+					local maxSlots = player:FindFirstChild("MaxSkillSlots")
+					local limit = maxSlots and maxSlots.Value or 1
+					if #equippedSkills:GetChildren() >= limit then
+						local first = equippedSkills:GetChildren()[1]
+						if first then first:Destroy() end
 					end
-					if not equippedSkills:FindFirstChild("Skill_Premium") then
-						local maxSlots = player:FindFirstChild("MaxSkillSlots")
-						local limit = maxSlots and maxSlots.Value or 1
-						if #equippedSkills:GetChildren() >= limit then
-							local first = equippedSkills:GetChildren()[1]
-							if first then first:Destroy() end
-						end
-						local s = Instance.new("StringValue")
-						s.Name = "Skill_Premium"
-						s.Parent = equippedSkills
-					end
+					local s = Instance.new("StringValue")
+					s.Name = "Skill_Premium"
+					s.Parent = equippedSkills
 				end
 			end
-			
-			return true, "장착 완료"
 		end
+		
+		return true, "장착 완료"
 	end
 	return false, "보유하고 있지 않습니다."
 end

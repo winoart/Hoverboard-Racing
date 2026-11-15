@@ -95,8 +95,15 @@ local function attachHoverboardToCharacter(player: Player, boardName: string?): 
 	end
 
 	local template = nil
-	if boardName then
+	if boardName and boardName ~= "" then
 		template = hoverboardModels:FindFirstChild(boardName)
+	end
+
+	if not template then
+		local eqVal = player:FindFirstChild("EquippedHoverboardId")
+		if eqVal and eqVal.Value ~= "" then
+			template = hoverboardModels:FindFirstChild(eqVal.Value)
+		end
 	end
 	
 	if not template then
@@ -126,8 +133,9 @@ local function attachHoverboardToCharacter(player: Player, boardName: string?): 
 		end
 	end
 
-	local rootPart = boardModel.PrimaryPart
+	local rootPart = boardModel.PrimaryPart or boardModel:FindFirstChild("DeckCore", true) or boardModel:FindFirstChildWhichIsA("BasePart", true)
 	if not rootPart then return nil end
+	boardModel.PrimaryPart = rootPart
 
 	-- Ensure all parts stay together (Auto-Weld)
 	for _, part in ipairs(boardModel:GetDescendants()) do

@@ -11,6 +11,7 @@ local LapManager = require(script.Parent:WaitForChild("LapManager") :: ModuleScr
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local SkillStoreConfig = require(Shared:WaitForChild("SkillStoreConfig") :: ModuleScript)
+local SkillSoundConfig = require(Shared:WaitForChild("SkillSoundConfig") :: any)
 
 -- Initialize Remotes
 local remotesFolder = ReplicatedStorage:FindFirstChild("HoverboardRemotes")
@@ -102,8 +103,8 @@ local function cleanupReflect(player: Player, playBreakSound: boolean?)
 		if reflectPart then
 			if playBreakSound and char.PrimaryPart then
 				local breakSound = Instance.new("Sound")
-				breakSound.SoundId = "rbxassetid://131018142172471"
-				breakSound.Volume = 1
+				breakSound.SoundId = SkillSoundConfig.Reflect.Break
+				breakSound.Volume = SkillSoundConfig.Reflect.VolumeBreak
 				breakSound.Parent = char.PrimaryPart
 				breakSound:Play()
 				game:GetService("Debris"):AddItem(breakSound, 2)
@@ -422,8 +423,8 @@ local function fireIceBomb(caster: Player, target: Player?)
 					
 					if iceCube and iceCube.Parent then
 						local shatterSound = Instance.new("Sound")
-						shatterSound.SoundId = "rbxassetid://131148590" -- 유효한 유리 깨지는 소리
-						shatterSound.Volume = 1
+						shatterSound.SoundId = SkillSoundConfig.IceBomb.Shatter -- 얼음 깨지는 소리
+						shatterSound.Volume = SkillSoundConfig.IceBomb.VolumeShatter
 						shatterSound.Parent = targetRoot
 						shatterSound:Play()
 						game:GetService("Debris"):AddItem(shatterSound, 2)
@@ -495,8 +496,8 @@ local function fireShield(player: Player)
 	
 	-- 발동 사운드
 	local startSound = Instance.new("Sound")
-	startSound.SoundId = "rbxassetid://86925927032494" -- SF 에너지 쉴드 발동음
-	startSound.Volume = 1.0
+	startSound.SoundId = SkillSoundConfig.Shield.Activate -- SF 에너지 쉴드 발동음
+	startSound.Volume = SkillSoundConfig.Shield.VolumeActivate
 	startSound.Parent = root
 	startSound:Play()
 	game:GetService("Debris"):AddItem(startSound, 3)
@@ -544,8 +545,8 @@ local function fireShield(player: Player)
 				end
 				-- 방어 성공(무력화/파괴) 사운드
 				local breakSound = Instance.new("Sound")
-				breakSound.SoundId = "rbxassetid://131018142172471" -- 쉴드 깨지는 소리
-				breakSound.Volume = 1
+				breakSound.SoundId = SkillSoundConfig.Shield.Break -- 쉴드 깨지는 소리
+				breakSound.Volume = SkillSoundConfig.Shield.VolumeBreak
 				breakSound.Parent = root
 				breakSound:Play()
 				game:GetService("Debris"):AddItem(breakSound, 2)
@@ -615,8 +616,8 @@ local function fireOrbitalLaser(player: Player)
 		warningPillar.Parent = char
 		
 		local warningSound = Instance.new("Sound")
-		warningSound.SoundId = "rbxassetid://258057783" -- lock on / warning sound
-		warningSound.Volume = 1
+		warningSound.SoundId = SkillSoundConfig.OrbitalLaser.Warning -- lock on / warning sound
+		warningSound.Volume = SkillSoundConfig.OrbitalLaser.VolumeWarning
 		warningSound.Parent = root
 		warningSound:Play()
 		game:GetService("Debris"):AddItem(warningSound, 3)
@@ -662,8 +663,8 @@ local function fireOrbitalLaser(player: Player)
 			game.Debris:AddItem(laserPillar, 1.5) -- 1.5초 후 이펙트 삭제 (기존에 삭제가 누락되어 무한정 남아있던 버그 수정)
 			
 			local boomSound = Instance.new("Sound")
-			boomSound.SoundId = "rbxassetid://12222200" -- explosion
-			boomSound.Volume = 2
+			boomSound.SoundId = SkillSoundConfig.OrbitalLaser.Explosion -- explosion
+			boomSound.Volume = SkillSoundConfig.OrbitalLaser.VolumeExplosion
 			boomSound.Parent = root
 			boomSound:Play()
 			game.Debris:AddItem(boomSound, 3)
@@ -902,8 +903,8 @@ local function fireEMP(player: Player)
 						activeShields[target.UserId] = false
 						
 						local shieldBreakSound = Instance.new("Sound")
-						shieldBreakSound.SoundId = "rbxassetid://131018142172471" 
-						shieldBreakSound.Volume = 1
+						shieldBreakSound.SoundId = SkillSoundConfig.EMP.ShieldBlock
+						shieldBreakSound.Volume = SkillSoundConfig.EMP.VolumeShieldBlock
 						shieldBreakSound.Parent = tRoot
 						shieldBreakSound:Play()
 						game.Debris:AddItem(shieldBreakSound, 2)
@@ -1042,8 +1043,8 @@ local function activateReflect(player: Player)
 	
 	-- 발동 사운드
 	local startSound = Instance.new("Sound")
-	startSound.SoundId = "rbxassetid://86925927032494" -- SF 에너지 쉴드 발동음
-	startSound.Volume = 1.0
+	startSound.SoundId = SkillSoundConfig.Shield.Activate -- SF 에너지 쉴드 발동음
+	startSound.Volume = SkillSoundConfig.Shield.VolumeActivate
 	startSound.Parent = root
 	startSound:Play()
 	game:GetService("Debris"):AddItem(startSound, 3)
@@ -1195,8 +1196,8 @@ local function fireGoldenFreeze(caster: Player, target: Player?)
 				end
 				
 				local shatterSound = Instance.new("Sound")
-				shatterSound.SoundId = "rbxassetid://131148590"
-				shatterSound.Volume = 0.8
+				shatterSound.SoundId = SkillSoundConfig.GoldenFreeze.Shatter
+				shatterSound.Volume = SkillSoundConfig.GoldenFreeze.VolumeShatter
 				shatterSound.Parent = targetRoot
 				shatterSound:Play()
 				game:GetService("Debris"):AddItem(shatterSound, 2)

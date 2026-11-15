@@ -86,8 +86,9 @@ local function attachBoardToPlayer(player: Player)
 			end
 		end
 		
-		local rootPart = boardClone.PrimaryPart or boardClone:FindFirstChild("RootPart") or boardClone:FindFirstChild("Base")
+		local rootPart = boardClone.PrimaryPart or boardClone:FindFirstChild("DeckCore", true) or boardClone:FindFirstChild("RootPart") or boardClone:FindFirstChild("Base") or boardClone:FindFirstChildWhichIsA("BasePart", true)
 		if rootPart then
+			boardClone.PrimaryPart = rootPart
 			for _, part in ipairs(boardClone:GetDescendants()) do
 				if part:IsA("BasePart") and part ~= rootPart then
 					local wc = Instance.new("WeldConstraint")

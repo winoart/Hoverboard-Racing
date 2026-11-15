@@ -224,8 +224,9 @@ local function teleportAllToTrackAndMount()
 					end
 				end
 
-				local rootPart = boardClone.PrimaryPart
+				local rootPart = boardClone.PrimaryPart or boardClone:FindFirstChild("DeckCore", true) or boardClone:FindFirstChildWhichIsA("BasePart", true)
 				if rootPart then
+					boardClone.PrimaryPart = rootPart
 					local rotYaw = boardTemplate:GetAttribute("RotationYaw")
 					if rotYaw == nil then
 						local success, _, bboxSize = pcall(function() return boardTemplate:GetBoundingBox() end)

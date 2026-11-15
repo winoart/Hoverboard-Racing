@@ -19,6 +19,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local SkillStoreConfig = require(Shared:WaitForChild("SkillStoreConfig") :: ModuleScript)
 local MonetizationConfig = require(Shared:WaitForChild("MonetizationConfig") :: ModuleScript)
 local SkillMessages = require(Shared:WaitForChild("SkillMessages") :: ModuleScript)
+local SkillSoundConfig = require(Shared:WaitForChild("SkillSoundConfig") :: any)
 
 local hoverRemotes = ReplicatedStorage:WaitForChild("HoverboardRemotes")
 local phaseRemote = hoverRemotes:WaitForChild("GamePhaseChanged") :: RemoteEvent
@@ -139,8 +140,8 @@ local function spawnLocalProjectileVisual(skillId: string, overrideChar: Model?)
 	explosionPart.Parent = workspace
 	
 	local launchSound = Instance.new("Sound")
-	launchSound.SoundId = "rbxassetid://138081509" -- 발사/폭발음
-	launchSound.Volume = 0.8
+	launchSound.SoundId = SkillSoundConfig.IceBomb.Launch
+	launchSound.Volume = SkillSoundConfig.IceBomb.VolumeLaunch
 	launchSound.Parent = explosionPart
 	launchSound:Play()
 	
@@ -569,9 +570,9 @@ local function playGlitchEffect()
 	
 	-- Play a short loud zap sound
 	local zapSound = Instance.new("Sound")
-	zapSound.SoundId = "rbxassetid://138084050" -- Glitch/zap
-	zapSound.Volume = 0
-	zapSound.Parent = workspace
+	zapSound.SoundId = SkillSoundConfig.EMP.Zap
+	zapSound.Volume = SkillSoundConfig.EMP.VolumeZap
+	zapSound.Parent = game:GetService("SoundService")
 	zapSound:Play()
 	game.Debris:AddItem(zapSound, 3)
 	
@@ -1129,9 +1130,9 @@ empEffectRemote.OnClientEvent:Connect(function(casterName: string)
 		print("[DEBUG-EMP] Condition met! Showing EMPReady toast to screen.")
 		showWarningToast(SkillMessages.Messages.EMPReady)
 		local zapSound = Instance.new("Sound")
-		zapSound.SoundId = "rbxassetid://138084050" -- Glitch/zap
-		zapSound.Volume = 0
-		zapSound.Parent = workspace
+		zapSound.SoundId = SkillSoundConfig.EMP.Zap
+		zapSound.Volume = SkillSoundConfig.EMP.VolumeZap
+		zapSound.Parent = game:GetService("SoundService")
 		zapSound:Play()
 		game.Debris:AddItem(zapSound, 3)
 	else
