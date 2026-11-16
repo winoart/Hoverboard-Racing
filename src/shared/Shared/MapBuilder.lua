@@ -4,6 +4,23 @@
 
 local MapBuilder = {}
 
+-- Disable unnecessary Touched and spatial query overhead on static/decorative map parts
+local function optimizeMapCollisionFlags(mapModel: Model)
+	for _, d in ipairs(mapModel:GetDescendants()) do
+		if d:IsA("BasePart") then
+			if d.Parent and d.Parent.Name == "Checkpoints" then
+				d.CanTouch = true
+				d.CanQuery = false
+			else
+				d.CanTouch = false
+				if not d.CanCollide then
+					d.CanQuery = false
+				end
+			end
+		end
+	end
+end
+
 function MapBuilder.buildOvalSpeedwayModel(): Model
 	local mapModel = Instance.new("Model")
 	mapModel.Name = "Oval Speedway"
@@ -525,6 +542,7 @@ function MapBuilder.buildOvalSpeedwayModel(): Model
 	gridMarker.Parent = mapModel
 
 	mapModel.PrimaryPart = gridMarker
+	optimizeMapCollisionFlags(mapModel)
 	return mapModel
 end
 
@@ -730,7 +748,7 @@ function MapBuilder.buildFrostGlacierModel(): Model
 		road.Parent = trackFolder
 		
 		local isBridge = (p1.Y > BASE_Y + 4)
-		local barrierHeight = isBridge and 4.5 or 2.5
+		local barrierHeight = isBridge and 6.0 or 2.5
 		
 		for _, side in ipairs({ -1, 1 }) do
 			local curb = Instance.new("Part")
@@ -753,6 +771,16 @@ function MapBuilder.buildFrostGlacierModel(): Model
 			neonLine.Size = Vector3.new(0.6, 0.4, segLen)
 			neonLine.CFrame = cf * CFrame.new(side * (halfW - 1), barrierHeight + 0.2, 0)
 			neonLine.Parent = trackFolder
+
+			-- Invisible full-height guard wall to prevent jumping off bridges/curbs onto lower track
+			local guardWall = Instance.new("Part")
+			guardWall.Name = "TrackGuardWall"
+			guardWall.Anchored = true
+			guardWall.CanCollide = true
+			guardWall.Transparency = 1
+			guardWall.Size = Vector3.new(2, 28, segLen)
+			guardWall.CFrame = cf * CFrame.new(side * (halfW - 1), 14, 0)
+			guardWall.Parent = trackFolder
 		end
 		
 		if math.floor(i / 3) % 2 == 0 then
@@ -933,24 +961,26 @@ function MapBuilder.buildFrostGlacierModel(): Model
 	end
 
 	-- Helper: Create Glowing Ice Crystal
-	local function createIceCrystal(parent: Instance, pos: Vector3, scale: number?)
-		scale = scale or 1.0
+	local function createIceCrystal(parent: Instance, pos: Vector3, scale: number?, addLight: boolean?)
+		local s = scale or 1.0
 		local crystal = Instance.new("Part")
 		crystal.Name = "IceCrystal"
 		crystal.Anchored = true
 		crystal.CanCollide = false
 		crystal.Material = Enum.Material.Neon
 		crystal.Color = Color3.fromRGB(80, 230, 255)
-		crystal.Size = Vector3.new(3.5 * scale, 14 * scale, 3.5 * scale)
-		crystal.CFrame = CFrame.new(pos.X, 7 + (14 * scale) / 2, pos.Z) * CFrame.Angles(math.rad(-8), math.rad(45), math.rad(6))
+		crystal.Size = Vector3.new(3.5 * s, 14 * s, 3.5 * s)
+		crystal.CFrame = CFrame.new(pos.X, 7 + (14 * s) / 2, pos.Z) * CFrame.Angles(math.rad(-8), math.rad(45), math.rad(6))
 		crystal.TopSurface = Enum.SurfaceType.Smooth
 		crystal.BottomSurface = Enum.SurfaceType.Smooth
 
-		local pLight = Instance.new("PointLight")
-		pLight.Color = Color3.fromRGB(80, 230, 255)
-		pLight.Brightness = 2.5
-		pLight.Range = 28 * scale
-		pLight.Parent = crystal
+		if addLight ~= false then
+			local pLight = Instance.new("PointLight")
+			pLight.Color = Color3.fromRGB(80, 230, 255)
+			pLight.Brightness = 2.5
+			pLight.Range = 28 * s
+			pLight.Parent = crystal
+		end
 
 		crystal.Parent = parent
 	end
@@ -1008,7 +1038,7 @@ function MapBuilder.buildFrostGlacierModel(): Model
 		local cx = p.X + side * normal.X * 46
 		local cz = p.Z + side * normal.Z * 46
 		if distToTrack(cx, cz) >= 42 and math.abs(cx) <= 260 and math.abs(cz) <= 360 then
-			createIceCrystal(sceneryFolder, Vector3.new(cx, 7, cz), 1.0 + (step % 3) * 0.25)
+			createIceCrystal(sceneryFolder, Vector3.new(cx, 7, cz), 1.0 + (step % 3) * 0.25, (step % 2 == 0))
 			crystalPlaced += 1
 		end
 	end
@@ -1056,17 +1086,21 @@ function MapBuilder.buildFrostGlacierModel(): Model
 
 	local startT = 1.85 * math.pi
 	local startPos, startTan = getPoint(startT)
-	local startCFrame = CFrame.lookAt(startPos, startPos + startTan)
+	local flatForward = Vector3.new(startTan.X, 0, startTan.Z).Unit
+	-- +Z (-LookVector) of startCFrame points along +flatForward (towards Start Arch, Bridge, and Checkpoint 1)
+	local startCFrame = CFrame.lookAt(startPos, startPos - flatForward)
 
 	local cpFolder = Instance.new("Folder")
 	cpFolder.Name = "Checkpoints"
 	cpFolder.Parent = mapModel
 
 	local cpIndices = {
-		{ name = "1", t = 0.35 * math.pi }, -- Bridge descent into North loop
-		{ name = "2", t = 0.75 * math.pi }, -- North loop apex heading to Tunnel
-		{ name = "3", t = 1.25 * math.pi }, -- Tunnel exit into South loop
-		{ name = "4", t = 1.85 * math.pi }, -- EXACTLY AT START/FINISH LINE ARCH!
+		{ name = "1", t = 0.20 * math.pi }, -- Bridge descent into North loop
+		{ name = "2", t = 0.50 * math.pi }, -- North loop far apex (Z = +280)
+		{ name = "3", t = 0.80 * math.pi }, -- North loop exit heading into Tunnel
+		{ name = "4", t = 1.20 * math.pi }, -- Tunnel exit into South loop
+		{ name = "5", t = 1.50 * math.pi }, -- South loop far apex (Z = -280)
+		{ name = "6", t = 1.85 * math.pi }, -- EXACTLY AT START/FINISH LINE ARCH!
 	}
 
 	for _, cpData in ipairs(cpIndices) do
@@ -1078,23 +1112,24 @@ function MapBuilder.buildFrostGlacierModel(): Model
 		cpPart.Anchored = true
 		cpPart.CanCollide = false
 		cpPart.Transparency = 1
-		cpPart.Size = Vector3.new(TRACK_WIDTH + 14, 38, 20)
-		cpPart.CFrame = cf * CFrame.new(0, 16, 0)
+		cpPart.Size = Vector3.new(TRACK_WIDTH + 10, 20, 20)
+		cpPart.CFrame = cf * CFrame.new(0, 10, 0)
 		cpPart.Parent = cpFolder
 	end
 
-	-- TrackStartGridPart: CFrame.Angles(0, math.rad(90), 0) accounts for GameLoopManager's sideProfileRotation (-90 deg)
+	-- +Z of startCFrame points along the track forward direction (aligned with Start Arch and GameLoopManager's -90° yaw offset)
 	local startGrid = Instance.new("Part")
 	startGrid.Name = "TrackStartGridPart"
 	startGrid.Anchored = true
 	startGrid.CanCollide = false
 	startGrid.Transparency = 1
 	startGrid.Size = Vector3.new(TRACK_WIDTH, 2, 10)
-	startGrid.CFrame = startCFrame * CFrame.Angles(0, math.rad(90), 0) * CFrame.new(0, 1.5, 0)
+	startGrid.CFrame = startCFrame * CFrame.new(0, 1.5, -3)
 	startGrid.Parent = mapModel
 
 	MapBuilder.addStartingPointToMap(mapModel, startCFrame, TRACK_WIDTH)
 
+	optimizeMapCollisionFlags(mapModel)
 	return mapModel
 end
 

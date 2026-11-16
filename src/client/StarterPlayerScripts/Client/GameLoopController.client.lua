@@ -258,18 +258,25 @@ local function renderMapCards(candidates: { any })
 				if mapTemplate and mapTemplate:IsA("Model") then
 					local mapClone = mapTemplate:Clone()
 					
-					-- Strip non-visual or stray instances for speed
+					-- Strip non-visual, lighting, particle, or invisible helper instances for speed
 					for _, d in ipairs(mapClone:GetDescendants()) do
-						if d:IsA("Sound") or d:IsA("Script") or d:IsA("LocalScript") or d:IsA("TouchTransmitter") then
+						if d:IsA("Sound") or d:IsA("Script") or d:IsA("LocalScript") or d:IsA("TouchTransmitter") or d:IsA("Light") or d:IsA("ParticleEmitter") or d.Name == "TrackGuardWall" or d.Name == "TrackStartGridPart" or (d.Parent and d.Parent.Name == "Checkpoints") then
 							d:Destroy()
 						elseif d:IsA("BasePart") then
 							d.CanCollide = false
+							d.CanTouch = false
+							d.CanQuery = false
 							d.Anchored = true
 							d.CastShadow = false
 							if d.Position.Y < -500 then
 								d:Destroy()
 							end
 						end
+					end
+
+					if not vpf.Parent then
+						mapClone:Destroy()
+						return
 					end
 					
 					mapClone.Parent = vpf
@@ -798,7 +805,7 @@ phaseRemote.OnClientEvent:Connect(function(phase: string, timeLeft: number, mapV
 		selectedMapName = ""
 	end
 
-	if candidateMaps and #candidateMaps > 0 then
+	if phase == "MAP_VOTING" and candidateMaps and #candidateMaps > 0 then
 		local changed = (#candidateMaps ~= #currentCandidateMaps)
 		if not changed then
 			for idx, c in ipairs(candidateMaps) do
@@ -808,9 +815,23 @@ phaseRemote.OnClientEvent:Connect(function(phase: string, timeLeft: number, mapV
 				end
 			end
 		end
-		if changed or (phase == "MAP_VOTING" and currentPhase ~= "MAP_VOTING") then
+		if changed or currentPhase ~= "MAP_VOTING" then
 			currentCandidateMaps = candidateMaps
 			renderMapCards(currentCandidateMaps)
+		end
+	elseif phase == "RACE_MATCH" and #currentCandidateMaps > 0 then
+		-- 레이스 중에는 투표창 3D ViewportFrame 복제 모델(~18,500 파트)을 즉시 해제해 메모리/렌더 부하를 제거
+		currentCandidateMaps = {}
+		cardFrames = {}
+		cardVoteLabels = {}
+		cardAvatarContainers = {}
+		cardStrokes = {}
+		if cardContainer then
+			for _, child in ipairs(cardContainer:GetChildren()) do
+				if child:IsA("GuiObject") then
+					child:Destroy()
+				end
+			end
 		end
 	end
 	

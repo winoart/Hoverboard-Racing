@@ -109,6 +109,7 @@ local elapsedRidingTime = 0
 local TRACK_HEIGHT = 1600
 
 RunService.RenderStepped:Connect(function(dt)
+	if localPlayer:GetAttribute("IsRacing") == true then return end
 	if #chevronFrames == 0 then return end
 
 	local isOnTreadmill = localPlayer:GetAttribute("OnTreadmill") == true

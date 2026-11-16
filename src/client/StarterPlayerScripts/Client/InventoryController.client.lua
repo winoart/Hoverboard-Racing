@@ -1,4 +1,4 @@
-기--!strict
+--!strict
 -- InventoryController.client.luau
 -- Displays the Unified Inventory UI for equipping Hoverboards and Skills
 
@@ -331,6 +331,7 @@ local function updateRightColumn()
 		local center = Vector3.new(0, 0, 0)
 		local startTick = tick()
 		local conn = RunService.RenderStepped:Connect(function()
+			if not invGui or not invGui.Enabled or not bgFrame or not bgFrame.Visible then return end
 			local t = tick() - startTick
 			local rad = math.rad(t * 35)
 			local x = math.cos(rad) * dist * 0.95
@@ -352,6 +353,7 @@ local function updateRightColumn()
 		local startTick = tick()
 		local basePos = UDim2.new(0.05, 0, 0.05, 0)
 		local conn = RunService.RenderStepped:Connect(function()
+			if not invGui or not invGui.Enabled or not bgFrame or not bgFrame.Visible then return end
 			local t = tick() - startTick
 			local bounce = math.sin(t * 2.5) * 0.04 -- ???쒖┣ 2.5, 嶺뚯쉳?든뙴?4% (嶺뚳퐣裕뉓뜎???遊붋??類ㅼ벀??
 			rImage.Position = UDim2.new(basePos.X.Scale, basePos.X.Offset, basePos.Y.Scale + bounce, basePos.Y.Offset)

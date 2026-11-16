@@ -20,6 +20,8 @@ export type PlayerLapData = {
 	nextCheckpoint: number,
 	finished: boolean,
 	finishTime: number,
+	player: Player?,
+	lastScore: number?,
 }
 
 local playerLaps: { [number]: PlayerLapData } = {}
@@ -60,6 +62,7 @@ function LapManager.startTracking(mapName: string, startTime: number)
 	lastRankingsStr = ""
 	table.clear(playerLaps)
 
+	local initialRacers = {}
 	for _, player in ipairs(Players:GetPlayers()) do
 		if player:GetAttribute("IsRacing") then
 			playerLaps[player.UserId] = {
@@ -67,6 +70,8 @@ function LapManager.startTracking(mapName: string, startTime: number)
 				nextCheckpoint = 1,
 				finished = false,
 				finishTime = 0,
+				player = player,
+				lastScore = 1000000,
 			}
 			
 			local char = player.Character
@@ -75,8 +80,29 @@ function LapManager.startTracking(mapName: string, startTime: number)
 				playerStartPositions[player.UserId] = root.Position
 			end
 			
+			table.insert(initialRacers, {
+				userId = player.UserId,
+				name = player.Name,
+				displayName = player.DisplayName,
+			})
+
 			-- Initialize UI
 			lapUpdatedRemote:FireClient(player, 0, totalLapsForMap)
+		end
+	end
+
+	if #initialRacers > 0 then
+		table.sort(initialRacers, function(a, b)
+			return a.userId < b.userId
+		end)
+		local namesStr = ""
+		for _, r in ipairs(initialRacers) do
+			namesStr ..= tostring(r.userId) .. ","
+		end
+		lastRankingsStr = namesStr .. "true"
+		local updateRankingsRemote = remotesFolder:FindFirstChild("UpdateRankings")
+		if updateRankingsRemote and updateRankingsRemote:IsA("RemoteEvent") then
+			updateRankingsRemote:FireAllClients(initialRacers, true)
 		end
 	end
 
@@ -215,8 +241,9 @@ function LapManager.startTracking(mapName: string, startTime: number)
 		end
 	end
 	
-	-- Start real-time ranking loop
-	heartbeatConnection = RunService.Heartbeat:Connect(function()
+	-- Start real-time ranking loop (checkpoint checks every frame, ranking sort/broadcast throttled to 0.15s)
+	local rankingTimer = 0.0
+	heartbeatConnection = RunService.Heartbeat:Connect(function(dt: number)
 		-- 혹시 레이스 시작 이후 지연 로딩 등으로 playerLaps에 누락된 활성 레이서가 있다면 자동 등록
 		for _, p in ipairs(Players:GetPlayers()) do
 			if p:GetAttribute("IsRacing") and not playerLaps[p.UserId] then
@@ -225,6 +252,8 @@ function LapManager.startTracking(mapName: string, startTime: number)
 					nextCheckpoint = 1,
 					finished = false,
 					finishTime = 0,
+					player = p,
+					lastScore = 1000000,
 				}
 				local char = p.Character
 				local root = char and (char.PrimaryPart or char:FindFirstChild("HumanoidRootPart") :: BasePart?)
@@ -237,7 +266,7 @@ function LapManager.startTracking(mapName: string, startTime: number)
 		-- 실시간 체크포인트 근접/통과 판정 (고속 주행 및 Touched 물리 누락 방지용)
 		for userId, data in pairs(playerLaps) do
 			if not data.finished then
-				local p = Players:GetPlayerByUserId(userId)
+				local p = data.player or Players:GetPlayerByUserId(userId)
 				local char = p and p.Character
 				local root = char and (char.PrimaryPart or char:FindFirstChild("HumanoidRootPart") :: BasePart?)
 				if p and char and root then
@@ -246,7 +275,7 @@ function LapManager.startTracking(mapName: string, startTime: number)
 					if cpParts and #cpParts > 0 then
 						for _, cpPart in ipairs(cpParts) do
 							local relPos = cpPart.CFrame:PointToObjectSpace(root.Position)
-							local halfSize = cpPart.Size / 2 + Vector3.new(16, 25, 20)
+							local halfSize = cpPart.Size / 2 + Vector3.new(16, 8, 20)
 							if math.abs(relPos.X) <= halfSize.X and math.abs(relPos.Y) <= halfSize.Y and math.abs(relPos.Z) <= halfSize.Z then
 								handleCheckpointReached(p, targetIdx)
 								break
@@ -257,65 +286,69 @@ function LapManager.startTracking(mapName: string, startTime: number)
 			end
 		end
 
+		rankingTimer += dt
+		if rankingTimer < 0.15 then
+			return
+		end
+		rankingTimer = 0.0
+
 		local sortedPlayers = {}
 		local maxDistTraveled = 0
 		
 		for userId, data in pairs(playerLaps) do
-			local p = Players:GetPlayerByUserId(userId)
-			local char = p and p.Character
+			local p = data.player or Players:GetPlayerByUserId(userId)
+			if not p or p.Parent ~= Players then
+				playerLaps[userId] = nil
+				continue
+			end
+
+			local char = p.Character
 			local root = char and (char.PrimaryPart or char:FindFirstChild("HumanoidRootPart") :: BasePart?)
-			if p and char and root then
-				local distPenalty = 0
-				
+			local score = 0
+
+			if data.finished then
+				if data.finalRank == 999 then
+					score = -999999999 + (data.lastScore or 0) -- DNF 유저는 랭킹 하단으로 유지
+				else
+					score = 10000000000 + math.round((10000 - data.finishTime) * 100) -- faster finish time = higher score
+				end
+				maxDistTraveled = 9999
+			elseif char and root then
 				if data.currentLap == 0 and data.nextCheckpoint == 1 then
-					-- 첫 번째 체크포인트를 향해 갈 때는 시작 위치로부터 '이동한 거리'를 사용하여 출발선 불균형 해결
 					local startPos = playerStartPositions[userId]
 					if startPos then
 						local distTraveled = (root.Position - startPos).Magnitude
-						-- 미세한 대기 모션(Idle) 등으로 인한 거리 떨림을 무시하기 위해 1.0 미만은 0으로 고정
-						if distTraveled < 1.0 then
-							distTraveled = 0
-						end
-						distPenalty = -distTraveled -- 빼주었을 때 점수가 더해지도록 음수로 설정
-						if distTraveled > maxDistTraveled then
+						if distTraveled >= 1.0 and distTraveled > maxDistTraveled then
 							maxDistTraveled = distTraveled
 						end
 					end
 				else
-					local targetCpPos = checkpointPositions[data.nextCheckpoint]
-					if targetCpPos then
-						distPenalty = (root.Position - targetCpPos).Magnitude
-					end
-					maxDistTraveled = 9999 -- 이미 출발선을 꽤 벗어남
+					maxDistTraveled = 9999
 				end
-				
-				local score = 0
-				if data.finished then
-					if data.finalRank == 999 then
-						score = -999999999 -- DNF 유저는 랭킹 하단으로
-					else
-						score = 10000000000 + (10000 - data.finishTime) -- faster finish time = higher score
-					end
-				else
-					score = (data.currentLap * 100000000) + (data.nextCheckpoint * 1000000) - distPenalty
-				end
-				
-				table.insert(sortedPlayers, {
-					userId = userId,
-					name = p.Name,
-					displayName = p.DisplayName,
-					score = score,
-					isDNF = (data.finalRank == 999),
-				})
+
+				local targetCpPos = checkpointPositions[data.nextCheckpoint]
+				local distPenalty = targetCpPos and math.round((root.Position - targetCpPos).Magnitude * 0.5) or 0
+				score = (data.currentLap * 100000000) + (data.nextCheckpoint * 1000000) - distPenalty
+				data.lastScore = score
+			else
+				-- 캐릭터/루트 일시 누락 시 직전 점수를 유지해 순위표에서 깜빡이며 사라지지 않게 보호
+				score = data.lastScore or 0
 			end
+
+			table.insert(sortedPlayers, {
+				userId = userId,
+				name = p.Name,
+				displayName = p.DisplayName,
+				score = score,
+				isDNF = (data.finalRank == 999),
+			})
 		end
 		
 		table.sort(sortedPlayers, function(a, b)
-			-- 점수(거리) 차이가 거의 없을 때는 이름순으로 정렬하여 UI가 미친듯이 떨리는 현상(Flickering) 방지
-			if math.abs(a.score - b.score) < 0.01 then
-				return a.name < b.name
+			if a.score ~= b.score then
+				return a.score > b.score
 			end
-			return a.score > b.score
+			return a.userId < b.userId
 		end)
 		
 		currentRankings = sortedPlayers
@@ -323,14 +356,12 @@ function LapManager.startTracking(mapName: string, startTime: number)
 		local sortedRacers = {}
 		local namesStr = ""
 		for _, pData in ipairs(sortedPlayers) do
-			if not pData.isDNF then
-				table.insert(sortedRacers, {
-					userId = pData.userId,
-					name = pData.name,
-					displayName = pData.displayName,
-				})
-				namesStr ..= tostring(pData.userId) .. ","
-			end
+			table.insert(sortedRacers, {
+				userId = pData.userId,
+				name = pData.name,
+				displayName = pData.displayName,
+			})
+			namesStr ..= tostring(pData.userId) .. ","
 		end
 		
 		local isStartingLine = maxDistTraveled < 1.0

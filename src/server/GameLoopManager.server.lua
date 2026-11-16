@@ -75,6 +75,26 @@ end)
 
 local LapManager = require(script.Parent:WaitForChild("LapManager") :: ModuleScript)
 
+-- Broadcast active racers lineup to reset the top ranking bar before GO!
+local function broadcastInitialRaceLineup()
+	local initialRacers = {}
+	for _, p in ipairs(Players:GetPlayers()) do
+		if p:GetAttribute("IsRacing") then
+			table.insert(initialRacers, {
+				userId = p.UserId,
+				name = p.Name,
+				displayName = p.DisplayName,
+			})
+		end
+	end
+	if #initialRacers > 0 then
+		table.sort(initialRacers, function(a, b)
+			return a.userId < b.userId
+		end)
+		updateRankingsRemote:FireAllClients(initialRacers, true)
+	end
+end
+
 -- Server Configuration
 local MAX_PLAYERS = 16
 
@@ -567,6 +587,7 @@ task.spawn(function()
 		print("[DEBUG-SYNC-SERVER] teleportAllToTrackAndMount started at", os.clock())
 		teleportAllToTrackAndMount()
 		lockAllPlayersMovement()
+		broadcastInitialRaceLineup()
 		print("[DEBUG-SYNC-SERVER] teleportAllToTrackAndMount finished at", os.clock())
 		
 		local expectedPlayers = {}
@@ -643,6 +664,7 @@ task.spawn(function()
 		print("[DEBUG-SYNC-SERVER] RACE_MATCH Phase Started at", os.clock())
 
 		broadcastPhaseUpdate()
+		broadcastInitialRaceLineup()
 		
 		-- Setup Laps Display for Countdown
 		local totalLaps = MapManager.getTotalLaps(chosenMapName)

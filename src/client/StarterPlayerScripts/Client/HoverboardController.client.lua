@@ -96,6 +96,17 @@ local lastRenderedTotalLaps = -1
 local fallRecoveryRayParams = RaycastParams.new()
 fallRecoveryRayParams.FilterType = Enum.RaycastFilterType.Exclude
 
+local offTrackRayParams = RaycastParams.new()
+offTrackRayParams.FilterType = Enum.RaycastFilterType.Exclude
+
+local cachedFallMap: Instance? = nil
+local cachedFallChar: Instance? = nil
+local cachedGroundFloor: Instance? = nil
+local cachedInfieldGrass: Instance? = nil
+local buffCheckTimer = 999.0
+local cachedRebirthBoostBonus = 0.0
+local cachedOwnsAccePass = false
+
 local cameraRayParams = RaycastParams.new()
 cameraRayParams.FilterType = Enum.RaycastFilterType.Exclude
 cameraRayParams.IgnoreWater = true
@@ -315,8 +326,8 @@ local function createHUDUI()
 	-- =========================================================================
 	local leaderboardContainer = Instance.new("Frame")
 	leaderboardContainer.Name = "LeaderboardContainer"
-	leaderboardContainer.Size = UDim2.new(0.6, 0, 0, 42)
-	leaderboardContainer.Position = UDim2.new(0.5, 0, 0, 10)
+	leaderboardContainer.Size = UDim2.new(0.6, 0, 0, 44)
+	leaderboardContainer.Position = UDim2.new(0.5, 0, 0, 8)
 	leaderboardContainer.AnchorPoint = Vector2.new(0.5, 0)
 	leaderboardContainer.BackgroundTransparency = 1
 	leaderboardContainer.ZIndex = 11
@@ -342,7 +353,7 @@ local function createHUDUI()
 
 	local function createPlayerCard(userId: number, pName: string, isLocal: boolean)
 		local pCard = Instance.new("ImageLabel")
-		pCard.Name = "Card_" .. tostring(userId > 0 and userId or pName)
+		pCard.Name = "Card_" .. tostring(userId ~= 0 and userId or pName)
 		pCard.Size = UDim2.new(0, 38, 0, 38)
 		pCard.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 		pCard.BorderSizePixel = 0
@@ -350,16 +361,13 @@ local function createHUDUI()
 		pCard.Parent = leaderboardContainer
 		pCard.ScaleType = Enum.ScaleType.Crop
 
-		-- Instant reliable avatar loading via rbxthumb
-		if userId and userId > 0 then
-			pCard.Image = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(userId) .. "&w=150&h=150"
+		-- Resolve player safely (handles negative Studio local test UserIds <= 0)
+		local p = (userId ~= 0 and Players:GetPlayerByUserId(userId)) or Players:FindFirstChild(pName)
+		local resolvedId = (userId and userId > 0) and userId or (p and p.UserId or 0)
+		if resolvedId > 0 then
+			pCard.Image = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(resolvedId) .. "&w=150&h=150"
 		else
-			local p = Players:FindFirstChild(pName)
-			if p then
-				pCard.Image = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(p.UserId) .. "&w=150&h=150"
-			else
-				pCard.Image = "rbxassetid://10492211918"
-			end
+			pCard.Image = "rbxassetid://10492211918"
 		end
 
 		local aspect = Instance.new("UIAspectRatioConstraint")
@@ -375,7 +383,30 @@ local function createHUDUI()
 		stroke.Thickness = isLocal and 3.5 or 2
 		stroke.Parent = pCard
 
-		return { frame = pCard, stroke = stroke }
+		local rankBadge = Instance.new("TextLabel")
+		rankBadge.Name = "RankBadge"
+		rankBadge.Size = UDim2.new(0, 34, 0, 15)
+		rankBadge.AnchorPoint = Vector2.new(0.5, 0.5)
+		rankBadge.Position = UDim2.new(0.5, 0, 1, -2)
+		rankBadge.BackgroundColor3 = Color3.fromRGB(20, 24, 32)
+		rankBadge.BackgroundTransparency = 0.15
+		rankBadge.Font = Enum.Font.GothamBlack
+		rankBadge.TextSize = 11
+		rankBadge.TextColor3 = Color3.fromRGB(255, 215, 0)
+		rankBadge.Text = "-"
+		rankBadge.ZIndex = 13
+		rankBadge.Parent = pCard
+
+		local badgeCorner = Instance.new("UICorner")
+		badgeCorner.CornerRadius = UDim.new(0, 6)
+		badgeCorner.Parent = rankBadge
+
+		local badgeStroke = Instance.new("UIStroke")
+		badgeStroke.Thickness = 1.5
+		badgeStroke.Color = Color3.fromRGB(0, 0, 0)
+		badgeStroke.Parent = rankBadge
+
+		return { frame = pCard, stroke = stroke, rankBadge = rankBadge }
 	end
 
 	local function updateRankings(sortedList, isStartingLine)
@@ -386,11 +417,11 @@ local function createHUDUI()
 		for rank, entry in ipairs(sortedList) do
 			local userId = (type(entry) == "table" and entry.userId) or tonumber(entry) or 0
 			local pName = (type(entry) == "table" and (entry.name or entry.displayName)) or tostring(entry)
-			local key = (userId > 0) and tostring(userId) or pName
+			local key = (userId ~= 0) and tostring(userId) or pName
 
 			activeKeys[key] = true
 
-			local isLocal = (userId > 0 and userId == LocalPlayer.UserId) or (pName == LocalPlayer.Name or pName == LocalPlayer.DisplayName)
+			local isLocal = (userId ~= 0 and userId == LocalPlayer.UserId) or (pName == LocalPlayer.Name or pName == LocalPlayer.DisplayName)
 
 			if not playerCardFrames[key] then
 				playerCardFrames[key] = createPlayerCard(userId, pName, isLocal)
@@ -402,6 +433,19 @@ local function createHUDUI()
 				cardData.frame.LayoutOrder = rank
 				cardData.stroke.Color = isLocal and Color3.fromRGB(255, 205, 40) or Color3.fromRGB(200, 200, 200)
 				cardData.stroke.Thickness = isLocal and 3.5 or 2
+
+				if cardData.rankBadge then
+					cardData.rankBadge.Text = isStartingLine and "-" or getRankSuffix(rank)
+					if isStartingLine or rank == 1 then
+						cardData.rankBadge.TextColor3 = Color3.fromRGB(255, 215, 0)
+					elseif rank == 2 then
+						cardData.rankBadge.TextColor3 = Color3.fromRGB(220, 230, 240)
+					elseif rank == 3 then
+						cardData.rankBadge.TextColor3 = Color3.fromRGB(235, 155, 95)
+					else
+						cardData.rankBadge.TextColor3 = Color3.fromRGB(255, 255, 255)
+					end
+				end
 			end
 		end
 
@@ -890,7 +934,13 @@ stateRemote.OnClientEvent:Connect(function(mounted: boolean, boardModel: Model?,
 				lastSafePosition = currentPos
 				lastSafeYaw = ry
 				
-				local trackForwardDir = Vector3.new(0, 0, 1)
+				local trackForwardDir = Vector3.new(hrp.CFrame.RightVector.X, 0, hrp.CFrame.RightVector.Z)
+				if trackForwardDir.Magnitude > 0.01 then
+					trackForwardDir = trackForwardDir.Unit
+				else
+					trackForwardDir = Vector3.new(0, 0, 1)
+				end
+				_G.smoothCamDir = trackForwardDir
 
 				if Camera and not LocalPlayer:GetAttribute("OnTreadmill") then
 					Camera.CameraType = Enum.CameraType.Scriptable
@@ -1083,60 +1133,84 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 	if not isSpectating then
 		humanoid.AutoRotate = false
 
-		-- 🛡️ Fall Recovery Logic (레이스 중 트랙 이탈 즉시 복구)
+		-- 🛡️ Fall Recovery Logic (레이스 중 트랙 이탈 및 교차로 하단 낙하 숏컷 즉시 복구)
 		if isRaceStarted then
 			if not lastSafePosition then
 				-- Initialize if not set
 				lastSafePosition = hrp.Position
 				lastSafeYaw = currentHeadingYaw
 			end
+			local safePos = lastSafePosition :: Vector3
 
-			-- 재사용 가능한 Fall Recovery RaycastParams 설정
-			fallRecoveryRayParams.FilterDescendantsInstances = {character}
+			-- 맵/캐릭터가 바뀔 때만 Fall Recovery RaycastParams 필터를 1회 캐싱합니다 (매 프레임 테이블 할당/트리 재구축 방지)
+			local activeMap = Workspace:FindFirstChild("ActiveMap")
+			if activeMap ~= cachedFallMap or character ~= cachedFallChar then
+				cachedFallMap = activeMap
+				cachedFallChar = character
+				cachedGroundFloor = activeMap and activeMap:FindFirstChild("GroundFloor")
+				cachedInfieldGrass = activeMap and activeMap:FindFirstChild("InfieldGrass")
+				local sceneryFolder = activeMap and activeMap:FindFirstChild("Scenery")
 
-			if hrp.Position.Y < lastSafePosition.Y - 30 then
-				-- 고저차가 심한 트랙(사막 등)에서 점프 후 떨어질 때를 대비하여,
-				-- 현재 위치에서 150 스터드 아래까지 트랙(땅)이 있는지 확인합니다.
-				local groundCheckRay = Workspace:Raycast(hrp.Position, Vector3.new(0, -150, 0), fallRecoveryRayParams)
-				
-				if not groundCheckRay then
-					print("[DEBUG-FR] 트랙 이탈 감지! 뒤로 물러난 안전지대로 복구합니다.")
-					
-					-- 1. 방향(lastSafeYaw)을 기준으로 뒤로 25스터드 물러난 벡터 계산
-					-- 호버보드의 전진 방향은 RightVector(우측 벡터) 입니다.
-					local forwardDir = CFrame.Angles(0, lastSafeYaw, 0).RightVector
-					local spawnPos = lastSafePosition - (forwardDir * 25)
-					
-					-- 2. 뒤로 물러난 위치가 허공일 수도 있으니 바닥을 한 번 더 찾습니다.
-					local spawnRay = Workspace:Raycast(spawnPos + Vector3.new(0, 10, 0), Vector3.new(0, -100, 0), fallRecoveryRayParams)
-					if spawnRay then
-						spawnPos = spawnRay.Position
-					else
-						-- 뒤로 물러난 곳도 허공이라면 원래 안전지대를 씁니다.
-						spawnPos = lastSafePosition
-					end
-					
-					hrp.CFrame = CFrame.new(spawnPos + Vector3.new(0, 8, 0))
-					hrp.AssemblyLinearVelocity = Vector3.zero
-					hrp.AssemblyAngularVelocity = Vector3.zero
-					currentHeadingYaw = lastSafeYaw
-					currentWalkSpeed = 0.0
-					isBoosting = false
+				local fallFilter: { Instance } = { character }
+				if cachedGroundFloor then table.insert(fallFilter, cachedGroundFloor) end
+				if sceneryFolder then table.insert(fallFilter, sceneryFolder) end
+				if cachedInfieldGrass then table.insert(fallFilter, cachedInfieldGrass) end
+				fallRecoveryRayParams.FilterDescendantsInstances = fallFilter
+				offTrackRayParams.FilterDescendantsInstances = { character }
+			end
+
+			local function recoverToSafeTrack()
+				print("[DEBUG-FR] 트랙 이탈 또는 교차로 낙하 감지! 뒤로 물러난 안전지대로 복구합니다.")
+
+				-- 1. 방향(lastSafeYaw)을 기준으로 뒤로 25스터드 물러난 벡터 계산
+				-- 호버보드의 전진 방향은 RightVector(우측 벡터) 입니다.
+				local forwardDir = CFrame.Angles(0, lastSafeYaw, 0).RightVector
+				local spawnPos = safePos - (forwardDir * 25)
+
+				-- 2. 뒤로 물러난 위치가 허공일 수도 있으니 도로 바닥을 한 번 더 찾습니다.
+				local spawnRay = Workspace:Raycast(spawnPos + Vector3.new(0, 10, 0), Vector3.new(0, -100, 0), fallRecoveryRayParams)
+				if spawnRay and (safePos.Y - spawnRay.Position.Y) <= 22 then
+					spawnPos = spawnRay.Position
 				else
-					-- 아래에 트랙이 있다면, 단순히 경사를 따라 내려가는 중이므로 기준점을 갱신합니다.
+					-- 뒤로 물러난 곳도 허공이거나 하단 트랙이라면 원래 안전지대를 씁니다.
+					spawnPos = safePos
+				end
+
+				hrp.CFrame = CFrame.new(spawnPos + Vector3.new(0, 8, 0))
+				hrp.AssemblyLinearVelocity = Vector3.zero
+				hrp.AssemblyAngularVelocity = Vector3.zero
+				currentHeadingYaw = lastSafeYaw
+				currentWalkSpeed = 0.0
+				isBoosting = false
+			end
+
+			if hrp.Position.Y < safePos.Y - 22 then
+				-- 고저차가 심한 트랙(사막 등)에서 경사를 내려가는 중인지, 교차로 다리에서 아래 트랙/허공으로 떨어졌는지 즉시 확인
+				local groundCheckRay = Workspace:Raycast(hrp.Position, Vector3.new(0, -150, 0), fallRecoveryRayParams)
+				if not groundCheckRay or (safePos.Y - groundCheckRay.Position.Y) > 22 then
+					recoverToSafeTrack()
+				else
+					-- 완만한 경사를 따라 내려가는 중이므로 기준점을 갱신합니다.
 					lastSafePosition = groundCheckRay.Position
 				end
 			else
 				fallCheckTimer += deltaTime
-				if fallCheckTimer >= 0.5 then
+				if fallCheckTimer >= 0.2 then
 					fallCheckTimer = 0.0
-					local rayOrigin = hrp.Position
-					local rayDirection = Vector3.new(0, -15, 0)
-					local result = Workspace:Raycast(rayOrigin, rayDirection, fallRecoveryRayParams)
-					if result then
-						-- hrp.Position(공중 위치)가 아닌, 실제 바닥 위치(result.Position)를 저장해야 무한 낙하를 방지합니다.
-						lastSafePosition = result.Position
-						lastSafeYaw = currentHeadingYaw
+					local immediateRay = Workspace:Raycast(hrp.Position, Vector3.new(0, -15, 0), offTrackRayParams)
+					local isOnOffTrackGround = immediateRay ~= nil and (
+						(cachedGroundFloor ~= nil and immediateRay.Instance:IsDescendantOf(cachedGroundFloor))
+						or (cachedInfieldGrass ~= nil and immediateRay.Instance:IsDescendantOf(cachedInfieldGrass))
+					)
+					if isOnOffTrackGround then
+						recoverToSafeTrack()
+					else
+						local result = Workspace:Raycast(hrp.Position, Vector3.new(0, -15, 0), fallRecoveryRayParams)
+						if result then
+							-- hrp.Position(공중 위치)가 아닌, 실제 도로 위치(result.Position)를 저장해야 무한 낙하를 방지합니다.
+							lastSafePosition = result.Position
+							lastSafeYaw = currentHeadingYaw
+						end
 					end
 				end
 			end
@@ -1144,61 +1218,69 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 
 		-- velocity and currentSpeed are now calculated above the if block
 
-		local currentRebirths = 0
-		local leaderstats = LocalPlayer:FindFirstChild("leaderstats")
-		if leaderstats then
-			local rebirthsVal = (leaderstats:FindFirstChild("Level") or leaderstats:FindFirstChild("Rebirths")) :: IntValue
-			if rebirthsVal then
-				currentRebirths = rebirthsVal.Value
+		buffCheckTimer += deltaTime
+		if buffCheckTimer >= 0.5 then
+			buffCheckTimer = 0.0
+
+			local currentRebirths = 0
+			local leaderstats = LocalPlayer:FindFirstChild("leaderstats")
+			if leaderstats then
+				local rebirthsVal = (leaderstats:FindFirstChild("Level") or leaderstats:FindFirstChild("Rebirths")) :: IntValue
+				if rebirthsVal then
+					currentRebirths = rebirthsVal.Value
+				end
 			end
-		end
-		local rebirthData = RebirthConfig.GetRebirthData(currentRebirths)
-		
-		if rebirthEffectLabel then
-			rebirthEffectLabel.Text = string.format("Level +%.1f Km/s", rebirthData.BoostSpeedBonus)
-			rebirthEffectLabel.Visible = not isSpectating and (rebirthData.BoostSpeedBonus > 0)
-		end
-		
-		-- 테스트용 게임패스 버프 시뮬레이션 (상점에서 가상 구매 시 Attribute로 설정됨)
-		-- TODO: 나중에 실제 MarketPlaceService 및 서버 데이터 연동으로 교체
-		local ppFolder = LocalPlayer:FindFirstChild("PurchasedPasses")
-		local ownsDistancePass = LocalPlayer:GetAttribute("OwnsPass_11111111") == true 
-			or LocalPlayer:GetAttribute("OwnsPass_x2Distance") == true
-			or (ppFolder and (ppFolder:FindFirstChild("11111111") or ppFolder:FindFirstChild("x2Distance")) ~= nil)
+			local rebirthData = RebirthConfig.GetRebirthData(currentRebirths)
+			cachedRebirthBoostBonus = rebirthData.BoostSpeedBonus
 
-		local ownsAccePass = LocalPlayer:GetAttribute("OwnsPass_22222222") == true 
-			or LocalPlayer:GetAttribute("OwnsPass_x2Acceleration") == true
-			or (ppFolder and (ppFolder:FindFirstChild("22222222") or ppFolder:FindFirstChild("x2Acceleration")) ~= nil)
+			if rebirthEffectLabel then
+				rebirthEffectLabel.Text = string.format("Level +%.1f Km/s", cachedRebirthBoostBonus)
+				rebirthEffectLabel.Visible = not isSpectating and (cachedRebirthBoostBonus > 0)
+			end
 
-		local ownsGoldPass = LocalPlayer:GetAttribute("OwnsPass_33333333") == true 
-			or LocalPlayer:GetAttribute("OwnsPass_x2RacePrize") == true
-			or (ppFolder and (ppFolder:FindFirstChild("33333333") or ppFolder:FindFirstChild("x2RacePrize")) ~= nil)
+			-- 테스트용 게임패스 버프 시뮬레이션 (상점에서 가상 구매 시 Attribute로 설정됨)
+			-- TODO: 나중에 실제 MarketPlaceService 및 서버 데이터 연동으로 교체
+			local ppFolder = LocalPlayer:FindFirstChild("PurchasedPasses")
+			local ownsDistancePass = LocalPlayer:GetAttribute("OwnsPass_11111111") == true
+				or LocalPlayer:GetAttribute("OwnsPass_x2Distance") == true
+				or (ppFolder and (ppFolder:FindFirstChild("11111111") or ppFolder:FindFirstChild("x2Distance")) ~= nil)
 
-		if MonetizationConfig and MonetizationConfig.ShopData and MonetizationConfig.ShopData.Passes then
-			for _, pass in ipairs(MonetizationConfig.ShopData.Passes) do
-				local pIdStr = tostring(pass.id)
-				local hasThisPass = (LocalPlayer:GetAttribute("OwnsPass_" .. pIdStr) == true) or (ppFolder and ppFolder:FindFirstChild(pIdStr) ~= nil)
-				if hasThisPass then
-					if pass.name == "x2 Distance" then ownsDistancePass = true end
-					if pass.name == "x2 Acceleration" then ownsAccePass = true end
-					if pass.name == "x2 Race Prize" then ownsGoldPass = true end
+			local ownsAccePass = LocalPlayer:GetAttribute("OwnsPass_22222222") == true
+				or LocalPlayer:GetAttribute("OwnsPass_x2Acceleration") == true
+				or (ppFolder and (ppFolder:FindFirstChild("22222222") or ppFolder:FindFirstChild("x2Acceleration")) ~= nil)
+
+			local ownsGoldPass = LocalPlayer:GetAttribute("OwnsPass_33333333") == true
+				or LocalPlayer:GetAttribute("OwnsPass_x2RacePrize") == true
+				or (ppFolder and (ppFolder:FindFirstChild("33333333") or ppFolder:FindFirstChild("x2RacePrize")) ~= nil)
+
+			if MonetizationConfig and MonetizationConfig.ShopData and MonetizationConfig.ShopData.Passes then
+				for _, pass in ipairs(MonetizationConfig.ShopData.Passes) do
+					local pIdStr = tostring(pass.id)
+					local hasThisPass = (LocalPlayer:GetAttribute("OwnsPass_" .. pIdStr) == true) or (ppFolder and ppFolder:FindFirstChild(pIdStr) ~= nil)
+					if hasThisPass then
+						if pass.name == "x2 Distance" then ownsDistancePass = true end
+						if pass.name == "x2 Acceleration" then ownsAccePass = true end
+						if pass.name == "x2 Race Prize" then ownsGoldPass = true end
+					end
+				end
+			end
+
+			cachedOwnsAccePass = ownsAccePass == true
+
+			if updateBuffIcon then
+				if cachedOwnsAccePass then
+					updateBuffIcon("AcceBuff", "rbxassetid://93211987843177", "", Color3.fromRGB(255, 150, 0), 2)
+				end
+				if ownsGoldPass then
+					updateBuffIcon("GoldBuff", "rbxassetid://137384526153093", "", Color3.fromRGB(255, 215, 0), 3)
+				end
+				if ownsDistancePass then
+					updateBuffIcon("DistanceBuff", "rbxassetid://125863660385587", "", Color3.fromRGB(0, 200, 255), 4)
 				end
 			end
 		end
-		
-		if updateBuffIcon then
-			if ownsAccePass then
-				updateBuffIcon("AcceBuff", "rbxassetid://93211987843177", "", Color3.fromRGB(255, 150, 0), 2)
-			end
-			if ownsGoldPass then
-				updateBuffIcon("GoldBuff", "rbxassetid://137384526153093", "", Color3.fromRGB(255, 215, 0), 3)
-			end
-			if ownsDistancePass then
-				updateBuffIcon("DistanceBuff", "rbxassetid://125863660385587", "", Color3.fromRGB(0, 200, 255), 4)
-			end
-		end
-		
-		local currentMaxBoosterSpeed = HoverboardConfig.BOOSTER_WALKSPEED + rebirthData.BoostSpeedBonus
+
+		local currentMaxBoosterSpeed = HoverboardConfig.BOOSTER_WALKSPEED + cachedRebirthBoostBonus
 
 		-- Prevent Movement & Steering during Start Countdown (레이스 시작 전 대기 상태)
 		if not isRaceStarted and not isFinished then
@@ -1353,7 +1435,7 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 
 				if currentWalkSpeed < targetSpeed then
 					local accelRate = 25
-					if ownsAccePass then
+					if cachedOwnsAccePass then
 						accelRate = accelRate * 2 -- 가속력 2배 게임패스 적용 (50이 됨)
 					end
 					currentWalkSpeed = math.min(targetSpeed, currentWalkSpeed + (accelRate * deltaTime))

@@ -312,6 +312,7 @@ local function renderCatalog(catalogList)
 					local center = Vector3.new(0, 0, 0)
 					local startTick = tick()
 					local conn = RunService.RenderStepped:Connect(function()
+						if not screenGui or not screenGui.Enabled or not bgFrame or not bgFrame.Visible then return end
 						local t = tick() - startTick + bIdx * 0.7
 						local rad = math.rad(t * 32)
 						local x = math.cos(rad) * dist * 0.95
