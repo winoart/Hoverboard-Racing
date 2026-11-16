@@ -4,6 +4,7 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
 local TweenService = game:GetService("TweenService")
 local SoundService = game:GetService("SoundService")
 local ContentProvider = game:GetService("ContentProvider")
@@ -55,29 +56,30 @@ local currentMapVotes: MapVoteData = {
 }
 local selectedMapName = ""
 local isVotingModalDismissed = false
+local cardContainer: Frame? = nil
 
 -- Map Card Configurations
-local MAP_CONFIGS = {
+local PRESET_CARD_COLORS = {
+	Color3.fromRGB(0, 220, 255),   -- Cyan
+	Color3.fromRGB(255, 200, 50),  -- Gold/Yellow
+	Color3.fromRGB(255, 120, 30),  -- Orange
+	Color3.fromRGB(180, 90, 255),  -- Purple
+	Color3.fromRGB(60, 220, 120),  -- Green
+	Color3.fromRGB(255, 90, 150),  -- Pink
+}
+
+local currentCandidateMaps: { any } = {
 	{
 		id = "Oval Speedway",
-		title = "🏎️ Oval Speedway",
-		sub = "4-Lane Circuit Track",
+		name = "🏎️ Oval Speedway",
+		desc = "4-Lane Circuit Track",
 		color = Color3.fromRGB(0, 220, 255),
-		bgGrad = Color3.fromRGB(15, 45, 75),
 	},
 	{
 		id = "Desert Track",
-		title = "🏜️ Desert Track",
-		sub = "Sandy Dunes",
+		name = "🏜️ Desert Track",
+		desc = "Sandy Dunes",
 		color = Color3.fromRGB(255, 200, 50),
-		bgGrad = Color3.fromRGB(80, 60, 20),
-	},
-	{
-		id = "Magma Ridge",
-		title = "🌋 Magma Ridge",
-		sub = "Volcanic Canyon",
-		color = Color3.fromRGB(255, 120, 30),
-		bgGrad = Color3.fromRGB(75, 30, 15),
 	},
 }
 
@@ -89,8 +91,8 @@ local cardStrokes: { [string]: UIStroke } = {}
 -- Update Avatar Thumbnails & Vote Count Labels
 local function updateMapCardAvatars(mapVotes: MapVoteData)
 	pcall(function()
-		for _, config in ipairs(MAP_CONFIGS) do
-			local mId = config.id
+		for _, config in ipairs(currentCandidateMaps) do
+			local mId = tostring(config.id)
 			local voterList = mapVotes[mId] or {}
 			local container = cardAvatarContainers[mId]
 			local voteLabel = cardVoteLabels[mId]
@@ -106,7 +108,6 @@ local function updateMapCardAvatars(mapVotes: MapVoteData)
 					end
 				end
 
-				local iconSize = 36
 				local maxIcons = 5
 
 				for idx, voter in ipairs(voterList) do
@@ -133,6 +134,285 @@ local function updateMapCardAvatars(mapVotes: MapVoteData)
 			end
 		end
 	end)
+end
+
+-- Dynamically Render Map Voting Cards
+local function renderMapCards(candidates: { any })
+	if not cardContainer then return end
+
+	cardFrames = {}
+	cardVoteLabels = {}
+	cardAvatarContainers = {}
+	cardStrokes = {}
+
+	for _, child in ipairs(cardContainer:GetChildren()) do
+		if child:IsA("GuiObject") then
+			child:Destroy()
+		end
+	end
+
+	local cardLayout = Instance.new("UIListLayout")
+	cardLayout.FillDirection = Enum.FillDirection.Horizontal
+	cardLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	cardLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+	cardLayout.Padding = UDim.new(0, 15)
+	cardLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	cardLayout.Parent = cardContainer
+
+	local count = #candidates
+	if count == 0 then return end
+
+	local totalAvailableWidth = 750
+	local cardWidth = math.min(250, math.floor((totalAvailableWidth - (count - 1) * 15) / count))
+	if cardWidth < 180 then cardWidth = 180 end
+
+	for idx, config in ipairs(candidates) do
+		local mId = tostring(config.id)
+		local themeColor = config.color or PRESET_CARD_COLORS[((idx - 1) % #PRESET_CARD_COLORS) + 1]
+
+		local card = Instance.new("Frame")
+		card.Name = "MapCard_" .. mId
+		card.Size = UDim2.new(0, cardWidth, 1, 0)
+		card.BackgroundColor3 = themeColor
+		card.BorderSizePixel = 0
+		card.ZIndex = 37
+		card.LayoutOrder = idx
+		card.Parent = cardContainer
+
+		local cCorner = Instance.new("UICorner")
+		cCorner.CornerRadius = UDim.new(0, 16)
+		cCorner.Parent = card
+
+		local isSelected = (selectedMapName == mId)
+		local cStroke = Instance.new("UIStroke")
+		cStroke.Color = isSelected and Color3.fromRGB(255, 200, 50) or Color3.fromRGB(0, 0, 0)
+		cStroke.Thickness = isSelected and 8 or 4
+		cStroke.Transparency = 0
+		cStroke.Parent = card
+		cardStrokes[mId] = cStroke
+
+		-- UIGradient stripes for card background
+		local patternBg = Instance.new("Frame", card)
+		patternBg.Size = UDim2.new(1, 0, 1, 0)
+		patternBg.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+		patternBg.BorderSizePixel = 0
+		patternBg.ZIndex = 37
+		Instance.new("UICorner", patternBg).CornerRadius = UDim.new(0, 16)
+		local grad = Instance.new("UIGradient", patternBg)
+		grad.Rotation = 45
+		local keypoints = {}
+		table.insert(keypoints, NumberSequenceKeypoint.new(0, 0.85))
+		for i = 1, 9 do
+			local pos = i / 10
+			if i % 2 == 1 then
+				table.insert(keypoints, NumberSequenceKeypoint.new(pos, 0.85))
+				table.insert(keypoints, NumberSequenceKeypoint.new(pos + 0.001, 1))
+			else
+				table.insert(keypoints, NumberSequenceKeypoint.new(pos, 1))
+				table.insert(keypoints, NumberSequenceKeypoint.new(pos + 0.001, 0.85))
+			end
+		end
+		table.insert(keypoints, NumberSequenceKeypoint.new(1, 1))
+		grad.Transparency = NumberSequence.new(keypoints)
+
+		local previewFrame: GuiObject
+		local hasCustomImage = config.imageId and config.imageId ~= "" and config.imageId ~= "rbxassetid://" and config.imageId:sub(1, 10) == "rbxassetid"
+		
+		if hasCustomImage then
+			local mapImage = Instance.new("ImageLabel")
+			mapImage.Name = "MapImage"
+			mapImage.Size = UDim2.new(1, -20, 0, 120)
+			mapImage.Position = UDim2.new(0, 10, 0, 15)
+			mapImage.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+			mapImage.Image = config.imageId
+			mapImage.ScaleType = Enum.ScaleType.Crop
+			mapImage.BorderSizePixel = 0
+			mapImage.ZIndex = 38
+			mapImage.Parent = card
+			previewFrame = mapImage
+		else
+			local vpf = Instance.new("ViewportFrame")
+			vpf.Name = "MapViewport"
+			vpf.Size = UDim2.new(1, -20, 0, 120)
+			vpf.Position = UDim2.new(0, 10, 0, 15)
+			vpf.BackgroundColor3 = Color3.fromRGB(22, 26, 35)
+			vpf.BorderSizePixel = 0
+			vpf.ZIndex = 38
+			vpf.Ambient = Color3.fromRGB(180, 180, 195)
+			vpf.LightColor = Color3.fromRGB(255, 255, 255)
+			vpf.LightDirection = Vector3.new(-1, -2, -1).Unit
+			vpf.Parent = card
+			previewFrame = vpf
+
+			-- Load map model from ReplicatedStorage.Maps or Workspace
+			task.spawn(function()
+				local mapsFolder = ReplicatedStorage:FindFirstChild("Maps")
+				local mapTemplate = mapsFolder and mapsFolder:FindFirstChild(mId)
+				if not mapTemplate then
+					mapTemplate = mapsFolder and mapsFolder:FindFirstChild(config.name or "")
+				end
+				if not mapTemplate then
+					mapTemplate = Workspace:FindFirstChild(mId)
+				end
+
+				if mapTemplate and mapTemplate:IsA("Model") then
+					local mapClone = mapTemplate:Clone()
+					
+					-- Strip non-visual or stray instances for speed
+					for _, d in ipairs(mapClone:GetDescendants()) do
+						if d:IsA("Sound") or d:IsA("Script") or d:IsA("LocalScript") or d:IsA("TouchTransmitter") then
+							d:Destroy()
+						elseif d:IsA("BasePart") then
+							d.CanCollide = false
+							d.Anchored = true
+							d.CastShadow = false
+							if d.Position.Y < -500 then
+								d:Destroy()
+							end
+						end
+					end
+					
+					mapClone.Parent = vpf
+
+					local cam = Instance.new("Camera")
+					cam.FieldOfView = 45
+					local bbCf, bbSize = mapClone:GetBoundingBox()
+					local maxDim = math.max(bbSize.X, bbSize.Z)
+					if maxDim < 10 then maxDim = 100 end
+					local dist = maxDim / (2 * math.tan(math.rad(cam.FieldOfView / 2))) * 0.95
+					local camOffset = Vector3.new(0, dist * 0.85, dist * 0.65)
+					cam.CFrame = CFrame.lookAt(bbCf.Position + camOffset, bbCf.Position)
+					cam.Parent = vpf
+					vpf.CurrentCamera = cam
+				end
+			end)
+		end
+
+		local imgCorner = Instance.new("UICorner")
+		imgCorner.CornerRadius = UDim.new(0, 12)
+		imgCorner.Parent = previewFrame
+		
+		local imgStroke = Instance.new("UIStroke")
+		imgStroke.Color = Color3.fromRGB(0, 0, 0)
+		imgStroke.Thickness = 3
+		imgStroke.Parent = previewFrame
+
+		local avatarFrame = Instance.new("Frame")
+		avatarFrame.Name = "AvatarContainer"
+		avatarFrame.Size = UDim2.new(1, -10, 1, -10)
+		avatarFrame.Position = UDim2.new(0, 5, 0, 5)
+		avatarFrame.BackgroundTransparency = 1
+		avatarFrame.ZIndex = 42
+		avatarFrame.Parent = previewFrame
+		cardAvatarContainers[mId] = avatarFrame
+		
+		local avatarLayout = Instance.new("UIGridLayout")
+		avatarLayout.CellSize = UDim2.new(0, 32, 0, 32)
+		avatarLayout.CellPadding = UDim2.new(0, 5, 0, 5)
+		avatarLayout.SortOrder = Enum.SortOrder.LayoutOrder
+		avatarLayout.Parent = avatarFrame
+
+		local mapTitleLabel = Instance.new("TextLabel")
+		mapTitleLabel.Size = UDim2.new(1, -20, 0, 30)
+		mapTitleLabel.Position = UDim2.new(0, 10, 0, 145)
+		mapTitleLabel.BackgroundTransparency = 1
+		mapTitleLabel.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
+		mapTitleLabel.Text = config.name or config.title or mId
+		mapTitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+		mapTitleLabel.TextSize = (cardWidth < 200) and 16 or 20
+		mapTitleLabel.TextTruncate = Enum.TextTruncate.AtEnd
+		mapTitleLabel.ZIndex = 39
+		mapTitleLabel.Parent = card
+		
+		local mapTitleStroke = Instance.new("UIStroke")
+		mapTitleStroke.Color = Color3.fromRGB(0, 0, 0)
+		mapTitleStroke.Thickness = 3
+		mapTitleStroke.Parent = mapTitleLabel
+
+		local mapSubLabel = Instance.new("TextLabel")
+		mapSubLabel.Size = UDim2.new(1, -20, 0, 20)
+		mapSubLabel.Position = UDim2.new(0, 10, 0, 180)
+		mapSubLabel.BackgroundTransparency = 1
+		mapSubLabel.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
+		local subText = config.desc or config.sub or ""
+		if subText == "" and config.laps then
+			subText = tostring(config.laps) .. " Laps"
+		end
+		mapSubLabel.Text = subText
+		mapSubLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+		mapSubLabel.TextSize = (cardWidth < 200) and 12 or 14
+		mapSubLabel.TextTruncate = Enum.TextTruncate.AtEnd
+		mapSubLabel.ZIndex = 39
+		mapSubLabel.Parent = card
+		
+		local mapSubStroke = Instance.new("UIStroke")
+		mapSubStroke.Color = Color3.fromRGB(0, 0, 0)
+		mapSubStroke.Thickness = 2
+		mapSubStroke.Parent = mapSubLabel
+
+		local vLabel = Instance.new("TextLabel")
+		vLabel.Size = UDim2.new(1, -20, 0, 30)
+		vLabel.Position = UDim2.new(0, 10, 0, 215)
+		vLabel.BackgroundTransparency = 1
+		vLabel.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
+		vLabel.Text = "🗳️ 0 Votes"
+		vLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
+		vLabel.TextSize = 18
+		vLabel.ZIndex = 38
+		vLabel.Parent = card
+		
+		local vStroke = Instance.new("UIStroke")
+		vStroke.Color = Color3.fromRGB(0, 0, 0)
+		vStroke.Thickness = 3
+		vStroke.Parent = vLabel
+		cardVoteLabels[mId] = vLabel
+
+		local clickBtn = Instance.new("TextButton")
+		clickBtn.Size = UDim2.new(1, 0, 1, 0)
+		clickBtn.BackgroundTransparency = 1
+		clickBtn.Text = ""
+		clickBtn.ZIndex = 45
+		clickBtn.Parent = card
+
+		clickBtn.MouseButton1Click:Connect(function()
+			playMapSelectSound()
+			selectedMapName = mId
+
+			-- Local Optimistic Vote Update
+			for curId, voterList in pairs(currentMapVotes) do
+				for i = #voterList, 1, -1 do
+					if voterList[i].userId == LocalPlayer.UserId then
+						table.remove(voterList, i)
+					end
+				end
+			end
+
+			if not currentMapVotes[mId] then
+				currentMapVotes[mId] = {}
+			end
+			table.insert(currentMapVotes[mId], {
+				userId = LocalPlayer.UserId,
+				name = LocalPlayer.DisplayName or LocalPlayer.Name,
+			})
+
+			for curId, stroke in pairs(cardStrokes) do
+				if curId == mId then
+					stroke.Color = Color3.fromRGB(255, 200, 50) -- Gold for selected
+					stroke.Thickness = 8
+				else
+					stroke.Color = Color3.fromRGB(0, 0, 0)
+					stroke.Thickness = 4
+				end
+			end
+
+			updateMapCardAvatars(currentMapVotes)
+			voteRemote:FireServer(mId)
+		end)
+
+		cardFrames[mId] = card
+	end
+
+	updateMapCardAvatars(currentMapVotes)
 end
 
 -- Refresh Displays & Modals on Screen
@@ -375,7 +655,7 @@ local function createGameLoopUI()
 		refreshDisplays()
 	end)
 
-	local cardContainer = Instance.new("Frame")
+	cardContainer = Instance.new("Frame")
 	cardContainer.Name = "CardContainer"
 	cardContainer.Size = UDim2.new(1, -30, 0, 260)
 	cardContainer.Position = UDim2.new(0, 15, 0, 100)
@@ -383,181 +663,7 @@ local function createGameLoopUI()
 	cardContainer.ZIndex = 36
 	cardContainer.Parent = votingModalFrame
 
-	for idx, config in ipairs(MAP_CONFIGS) do
-		local card = Instance.new("Frame")
-		card.Name = "MapCard_" .. config.id
-		card.Size = UDim2.new(0, 235, 1, 0)
-		card.Position = UDim2.new(0, (idx - 1) * 255, 0, 0)
-		card.BackgroundColor3 = config.color -- Using brighter theme color
-		card.BorderSizePixel = 0
-		card.ZIndex = 37
-		card.Parent = cardContainer
-
-		local cCorner = Instance.new("UICorner")
-		cCorner.CornerRadius = UDim.new(0, 16)
-		cCorner.Parent = card
-
-		local cStroke = Instance.new("UIStroke")
-		cStroke.Color = Color3.fromRGB(0, 0, 0)
-		cStroke.Thickness = 4
-		cStroke.Transparency = 0
-		cStroke.Parent = card
-		cardStrokes[config.id] = cStroke
-
-		-- UIGradient stripes for card background
-		local patternBg = Instance.new("Frame", card)
-		patternBg.Size = UDim2.new(1, 0, 1, 0)
-		patternBg.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-		patternBg.BorderSizePixel = 0
-		patternBg.ZIndex = 37
-		Instance.new("UICorner", patternBg).CornerRadius = UDim.new(0, 16)
-		local grad = Instance.new("UIGradient", patternBg)
-		grad.Rotation = 45
-		local keypoints = {}
-		table.insert(keypoints, NumberSequenceKeypoint.new(0, 0.85))
-		for i = 1, 9 do
-			local pos = i / 10
-			if i % 2 == 1 then
-				table.insert(keypoints, NumberSequenceKeypoint.new(pos, 0.85))
-				table.insert(keypoints, NumberSequenceKeypoint.new(pos + 0.001, 1))
-			else
-				table.insert(keypoints, NumberSequenceKeypoint.new(pos, 1))
-				table.insert(keypoints, NumberSequenceKeypoint.new(pos + 0.001, 0.85))
-			end
-		end
-		table.insert(keypoints, NumberSequenceKeypoint.new(1, 1))
-		grad.Transparency = NumberSequence.new(keypoints)
-
-		local mapImage = Instance.new("ImageLabel")
-		mapImage.Name = "MapImage"
-		mapImage.Size = UDim2.new(1, -20, 0, 120)
-		mapImage.Position = UDim2.new(0, 10, 0, 15)
-		mapImage.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-		mapImage.Image = config.imageId or ""
-		mapImage.ScaleType = Enum.ScaleType.Crop
-		mapImage.BorderSizePixel = 0
-		mapImage.ZIndex = 38
-		mapImage.Parent = card
-		
-		local imgCorner = Instance.new("UICorner")
-		imgCorner.CornerRadius = UDim.new(0, 12)
-		imgCorner.Parent = mapImage
-		
-		local imgStroke = Instance.new("UIStroke")
-		imgStroke.Color = Color3.fromRGB(0, 0, 0)
-		imgStroke.Thickness = 3
-		imgStroke.Parent = mapImage
-
-		local avatarFrame = Instance.new("Frame")
-		avatarFrame.Name = "AvatarContainer"
-		avatarFrame.Size = UDim2.new(1, -10, 1, -10)
-		avatarFrame.Position = UDim2.new(0, 5, 0, 5)
-		avatarFrame.BackgroundTransparency = 1
-		avatarFrame.ZIndex = 39
-		avatarFrame.Parent = mapImage
-		cardAvatarContainers[config.id] = avatarFrame
-		
-		local avatarLayout = Instance.new("UIGridLayout")
-		avatarLayout.CellSize = UDim2.new(0, 32, 0, 32)
-		avatarLayout.CellPadding = UDim2.new(0, 5, 0, 5)
-		avatarLayout.SortOrder = Enum.SortOrder.LayoutOrder
-		avatarLayout.Parent = avatarFrame
-
-		local mapTitleLabel = Instance.new("TextLabel")
-		mapTitleLabel.Size = UDim2.new(1, -20, 0, 30)
-		mapTitleLabel.Position = UDim2.new(0, 10, 0, 145)
-		mapTitleLabel.BackgroundTransparency = 1
-		mapTitleLabel.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
-		mapTitleLabel.Text = config.title
-		mapTitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-		mapTitleLabel.TextSize = 20
-		mapTitleLabel.ZIndex = 39
-		mapTitleLabel.Parent = card
-		
-		local mapTitleStroke = Instance.new("UIStroke")
-		mapTitleStroke.Color = Color3.fromRGB(0, 0, 0)
-		mapTitleStroke.Thickness = 3
-		mapTitleStroke.Parent = mapTitleLabel
-
-		local mapSubLabel = Instance.new("TextLabel")
-		mapSubLabel.Size = UDim2.new(1, -20, 0, 20)
-		mapSubLabel.Position = UDim2.new(0, 10, 0, 180)
-		mapSubLabel.BackgroundTransparency = 1
-		mapSubLabel.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
-		mapSubLabel.Text = config.sub
-		mapSubLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-		mapSubLabel.TextSize = 14
-		mapSubLabel.ZIndex = 39
-		mapSubLabel.Parent = card
-		
-		local mapSubStroke = Instance.new("UIStroke")
-		mapSubStroke.Color = Color3.fromRGB(0, 0, 0)
-		mapSubStroke.Thickness = 2
-		mapSubStroke.Parent = mapSubLabel
-
-		local vLabel = Instance.new("TextLabel")
-		vLabel.Size = UDim2.new(1, -20, 0, 30)
-		vLabel.Position = UDim2.new(0, 10, 0, 215)
-		vLabel.BackgroundTransparency = 1
-		vLabel.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
-		vLabel.Text = "🗳️ 0 Votes"
-		vLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
-		vLabel.TextSize = 18
-		vLabel.ZIndex = 38
-		vLabel.Parent = card
-		
-		local vStroke = Instance.new("UIStroke")
-		vStroke.Color = Color3.fromRGB(0, 0, 0)
-		vStroke.Thickness = 3
-		vStroke.Parent = vLabel
-		cardVoteLabels[config.id] = vLabel
-
-		local clickBtn = Instance.new("TextButton")
-		clickBtn.Size = UDim2.new(1, 0, 1, 0)
-		clickBtn.BackgroundTransparency = 1
-		clickBtn.Text = ""
-		clickBtn.ZIndex = 45
-		clickBtn.Parent = card
-
-		clickBtn.MouseButton1Click:Connect(function()
-			playMapSelectSound()
-			selectedMapName = config.id
-
-			-- Local Optimistic Vote Update
-			for mId, voterList in pairs(currentMapVotes) do
-				for i = #voterList, 1, -1 do
-					if voterList[i].userId == LocalPlayer.UserId then
-						table.remove(voterList, i)
-					end
-				end
-			end
-
-			if not currentMapVotes[config.id] then
-				currentMapVotes[config.id] = {}
-			end
-			table.insert(currentMapVotes[config.id], {
-				userId = LocalPlayer.UserId,
-				name = LocalPlayer.DisplayName or LocalPlayer.Name,
-			})
-
-			for mId, stroke in pairs(cardStrokes) do
-				if mId == config.id then
-					stroke.Color = Color3.fromRGB(255, 200, 50) -- Gold for selected
-					stroke.Thickness = 8
-					stroke.Transparency = 0.0
-				else
-					stroke.Color = Color3.fromRGB(0, 0, 0)
-					stroke.Thickness = 4
-					stroke.Transparency = 0.0
-				end
-			end
-
-			updateMapCardAvatars(currentMapVotes)
-			voteRemote:FireServer(config.id)
-		end)
-
-		cardFrames[config.id] = card
-	end
+	renderMapCards(currentCandidateMaps)
 
 
 	-- =========================================================================
@@ -645,7 +751,6 @@ local function createGameLoopUI()
 	-- =========================================================================
 	local headerScale = Instance.new("UIScale", headerBannerFrame)
 	local voteScale = Instance.new("UIScale", votingModalFrame)
-	local loadScale = Instance.new("UIScale", loadingModalFrame)
 	local errorScale = Instance.new("UIScale", errorModalFrame)
 
 	local function updateResponsiveScale()
@@ -658,7 +763,6 @@ local function createGameLoopUI()
 		
 		headerScale.Scale = finalScale
 		voteScale.Scale = finalScale
-		loadScale.Scale = finalScale
 		errorScale.Scale = finalScale
 	end
 
@@ -688,9 +792,26 @@ task.spawn(function()
 end)
 
 -- Server Remote Phase Listener
-phaseRemote.OnClientEvent:Connect(function(phase: string, timeLeft: number, mapVotes: MapVoteData, chosenMap: string?)
+phaseRemote.OnClientEvent:Connect(function(phase: string, timeLeft: number, mapVotes: MapVoteData, chosenMap: string?, candidateMaps: { any }?)
 	if phase == "MAP_VOTING" and currentPhase ~= "MAP_VOTING" then
 		isVotingModalDismissed = false
+		selectedMapName = ""
+	end
+
+	if candidateMaps and #candidateMaps > 0 then
+		local changed = (#candidateMaps ~= #currentCandidateMaps)
+		if not changed then
+			for idx, c in ipairs(candidateMaps) do
+				if not currentCandidateMaps[idx] or currentCandidateMaps[idx].id ~= c.id or currentCandidateMaps[idx].name ~= c.name then
+					changed = true
+					break
+				end
+			end
+		end
+		if changed or (phase == "MAP_VOTING" and currentPhase ~= "MAP_VOTING") then
+			currentCandidateMaps = candidateMaps
+			renderMapCards(currentCandidateMaps)
+		end
 	end
 	
 	if phase ~= currentPhase and (phase == "MAP_VOTING" or phase == "MAP_BUILDING" or phase == "PLAYER_SYNC") then

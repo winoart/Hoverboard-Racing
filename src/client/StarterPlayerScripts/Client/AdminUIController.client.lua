@@ -15,8 +15,8 @@ local getPromoFunc = remotes:WaitForChild("GetPromotionData") :: RemoteFunction
 local isAdmin = false
 local adminGui = nil
 
-local currentShopData = { Events = {}, Passes = {}, Golds = {}, Boards = {} }
-local currentTab = "Events" -- "Events", "Passes", "Golds", "Boards"
+local currentShopData = { Events = {}, Passes = {}, Golds = {}, Boards = {}, Maps = {} }
+local currentTab = "Events" -- "Events", "Passes", "Golds", "Boards", "Maps"
 local currentSelectedIndex = nil -- nil이면 새 항목 추가
 
 local function buildAdminUI()
@@ -386,6 +386,13 @@ local function buildAdminUI()
 	local function openListView()
 		listView.Visible = true
 		formView.Visible = false
+		if currentTab == "Maps" then
+			btnAddNew.Text = "+ 새 맵 추가"
+		elseif currentTab == "Boards" then
+			btnAddNew.Text = "+ 새 보드 추가"
+		else
+			btnAddNew.Text = "+ 새 상품 추가"
+		end
 		refreshList()
 	end
 	
@@ -422,7 +429,8 @@ local function buildAdminUI()
 	local tabPass = createTabBtn("Passes", "PASS", 2)
 	local tabGold = createTabBtn("Golds", "GOLD", 3)
 	local tabBoard = createTabBtn("Boards", "BOARDS", 4)
-	tabsFrame.Size = UDim2.new(0, 420, 1, 0)
+	local tabMap = createTabBtn("Maps", "MAPS", 5)
+	tabsFrame.Size = UDim2.new(0, 520, 1, 0)
 	
 	tabEvent.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
 	tabEvent.TextColor3 = Color3.fromRGB(0, 0, 0)
@@ -451,6 +459,7 @@ local function buildAdminUI()
 		end
 		
 		local list = currentShopData[currentTab] or {}
+		local isMap = (currentTab == "Maps")
 		
 		for i, item in ipairs(list) do
 			local itemFrame = Instance.new("Frame")
@@ -463,7 +472,7 @@ local function buildAdminUI()
 			local thumb = Instance.new("ImageLabel")
 			thumb.Size = UDim2.new(0, 50, 0, 50)
 			thumb.Position = UDim2.new(0, 5, 0, 5)
-			thumb.Image = item.bannerImage or item.icon or ""
+			thumb.Image = item.bannerImage or item.icon or item.imageId or ""
 			thumb.ScaleType = Enum.ScaleType.Crop
 			thumb.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 			thumb.Parent = itemFrame
@@ -473,7 +482,7 @@ local function buildAdminUI()
 			lblTitle.Size = UDim2.new(1, -170, 0, 30)
 			lblTitle.Position = UDim2.new(0, 65, 0, 5)
 			lblTitle.BackgroundTransparency = 1
-			local titleText = item.promotionName or item.name or "이름 없음"
+			local titleText = item.promotionName or item.name or item.id or "이름 없음"
 			if item.isVisible == false then
 				titleText = "[숨김] " .. titleText
 			end
@@ -488,9 +497,13 @@ local function buildAdminUI()
 			lblSub.Size = UDim2.new(1, -170, 0, 20)
 			lblSub.Position = UDim2.new(0, 65, 0, 35)
 			lblSub.BackgroundTransparency = 1
-			local pricePrefix = (currentTab == "Boards") and "Gold " or "R$ "
-			local rarityStr = item.rarity and (" [" .. item.rarity .. "]") or ""
-			lblSub.Text = pricePrefix .. tostring(item.price or 0) .. rarityStr .. " | ID: " .. tostring(item.id)
+			if isMap then
+				lblSub.Text = "Laps: " .. tostring(item.laps or 3) .. " | Model: " .. tostring(item.id)
+			else
+				local pricePrefix = (currentTab == "Boards") and "Gold " or "R$ "
+				local rarityStr = item.rarity and (" [" .. item.rarity .. "]") or ""
+				lblSub.Text = pricePrefix .. tostring(item.price or 0) .. rarityStr .. " | ID: " .. tostring(item.id)
+			end
 			lblSub.TextColor3 = Color3.fromRGB(150, 255, 150)
 			lblSub.Font = Enum.Font.Gotham
 			lblSub.TextSize = 14
@@ -531,13 +544,52 @@ local function buildAdminUI()
 		
 		local isEvent = (currentTab == "Events")
 		local isBoard = (currentTab == "Boards")
-		local hasRewards = (currentTab ~= "Passes" and not isBoard)
+		local isMap = (currentTab == "Maps")
+		local hasRewards = (currentTab ~= "Passes" and not isBoard and not isMap)
+		
+		if isMap then
+			lblId.Text = "맵 모델 ID (필수)"
+			boxId.PlaceholderText = "ReplicatedStorage.Maps 안의 Model 이름"
+			lblName.Text = "맵 노출 이름"
+			boxName.PlaceholderText = "예) 🏎️ Oval Speedway"
+			lblDesc.Text = "맵 부제/설명"
+			boxDesc.PlaceholderText = "예) 4-Lane Circuit Track"
+			lblImage.Text = "맵 썸네일"
+			boxImage.PlaceholderText = "rbxassetid:// (투표 카드 이미지, 없으면 빈칸)"
+			lblPrice.Text = "레이싱 랩 수 (Laps)"
+			boxPrice.PlaceholderText = "기본값: 3 (완주에 필요한 바퀴 수)"
+			lblVisible.Text = "투표 노출 상태"
+		elseif isBoard then
+			lblId.Text = "보드 모델 ID (필수)"
+			boxId.PlaceholderText = "ReplicatedStorage.HoverboardModels 안의 Model 이름"
+			lblName.Text = "보드 노출 이름"
+			boxName.PlaceholderText = "예) 🔥 Volcano Blaster"
+			lblDesc.Text = "보드 설명/스펙"
+			boxDesc.PlaceholderText = "설명 문구 입력"
+			lblImage.Text = "보드 썸네일"
+			boxImage.PlaceholderText = "rbxassetid://"
+			lblPrice.Text = "구매 가격 (Gold)"
+			boxPrice.PlaceholderText = "골드 가격 입력"
+			lblVisible.Text = "노출 상태 (상점 표시)"
+		else
+			lblId.Text = "상품 ID (필수)"
+			boxId.PlaceholderText = (currentTab == "Passes") and "GamePass ID" or "Developer Product ID"
+			lblName.Text = "상품/이벤트 명"
+			boxName.PlaceholderText = "노출될 텍스트"
+			lblDesc.Text = "관리자 메모/설명"
+			boxDesc.PlaceholderText = "단 한 번의 기회! 등"
+			lblImage.Text = "메인 썸네일"
+			boxImage.PlaceholderText = "rbxassetid:// (배너 또는 아이콘)"
+			lblPrice.Text = "가격 (R$)"
+			boxPrice.PlaceholderText = "UI 표기용"
+			lblVisible.Text = "노출 상태 (상점 표시)"
+		end
 		
 		boxStart.Visible = isEvent; lblStart.Visible = isEvent
 		boxEnd.Visible = isEvent; lblEnd.Visible = isEvent
-		boxDesc.Visible = (isEvent or isBoard); lblDesc.Visible = (isEvent or isBoard)
+		boxDesc.Visible = (isEvent or isBoard or isMap); lblDesc.Visible = (isEvent or isBoard or isMap)
 		raritySelector.Visible = isBoard; lblRarity.Visible = isBoard
-		boxBgImage.Visible = not isBoard; lblBgImage.Visible = not isBoard
+		boxBgImage.Visible = (not isBoard and not isMap); lblBgImage.Visible = (not isBoard and not isMap)
 		
 		boxGoldReward.Visible = hasRewards; lblGoldReward.Visible = hasRewards
 		boxGoldDesc.Visible = hasRewards; lblGoldDesc.Visible = hasRewards
@@ -554,7 +606,7 @@ local function buildAdminUI()
 			boxEnd.Text = tostring(item.endDate or "4102412400")
 			boxImage.Text = item.bannerImage or item.icon or item.imageId or ""
 			boxBgImage.Text = item.bgImage or ""
-			boxPrice.Text = tostring(item.price or "")
+			boxPrice.Text = tostring(isMap and (item.laps or 3) or (item.price or ""))
 			setRarity(item.rarity or "Common")
 			setVisible(item.isVisible ~= false)
 			
@@ -585,9 +637,9 @@ local function buildAdminUI()
 			boxDesc.Text = ""
 			boxStart.Text = "0"
 			boxEnd.Text = "4102412400"
-			boxImage.Text = "rbxassetid://"
+			boxImage.Text = isMap and "" or "rbxassetid://"
 			boxBgImage.Text = ""
-			boxPrice.Text = ""
+			boxPrice.Text = isMap and "3" or ""
 			setRarity("Common")
 			setVisible(true)
 			boxGoldReward.Text = ""
@@ -601,16 +653,23 @@ local function buildAdminUI()
 	
 	btnSave.MouseButton1Click:Connect(function()
 		local newObj: any = {}
-		newObj.price = tonumber(boxPrice.Text) or 0
 		newObj.isVisible = getVisible()
 		
-		if currentTab == "Boards" then
+		if currentTab == "Maps" then
+			newObj.id = tostring(boxId.Text)
+			newObj.name = boxName.Text
+			newObj.desc = boxDesc.Text
+			newObj.imageId = boxImage.Text
+			newObj.laps = tonumber(boxPrice.Text) or 3
+		elseif currentTab == "Boards" then
+			newObj.price = tonumber(boxPrice.Text) or 0
 			newObj.id = tostring(boxId.Text)
 			newObj.name = boxName.Text
 			newObj.desc = boxDesc.Text
 			newObj.imageId = boxImage.Text
 			newObj.rarity = getRarity()
 		elseif currentTab == "Events" then
+			newObj.price = tonumber(boxPrice.Text) or 0
 			newObj.id = tonumber(boxId.Text) or 0
 			newObj.promotionName = boxName.Text
 			newObj.hookText = boxDesc.Text
@@ -623,6 +682,7 @@ local function buildAdminUI()
 				newObj.isGamePass = prevItem.isGamePass
 			end
 		elseif currentTab == "Passes" then
+			newObj.price = tonumber(boxPrice.Text) or 0
 			newObj.id = tonumber(boxId.Text) or 0
 			newObj.name = boxName.Text
 			newObj.icon = boxImage.Text
@@ -631,6 +691,7 @@ local function buildAdminUI()
 			end
 			newObj.isGamePass = true
 		else
+			newObj.price = tonumber(boxPrice.Text) or 0
 			newObj.id = tonumber(boxId.Text) or 0
 			newObj.name = boxName.Text
 			newObj.icon = boxImage.Text
@@ -639,7 +700,7 @@ local function buildAdminUI()
 			end
 		end
 		
-		if currentTab ~= "Boards" then
+		if currentTab ~= "Boards" and currentTab ~= "Maps" then
 			local rArray = {}
 			if boxGoldReward.Text ~= "" then 
 				local r: any = {type="Gold", value=tonumber(boxGoldReward.Text)}

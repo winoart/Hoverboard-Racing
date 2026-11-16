@@ -131,6 +131,32 @@ MonetizationConfig.ShopData = {
 			desc = "A legendary broomstick-style hoverboard once favored by wizards.",
 			isVisible = true
 		}
+	},
+	Maps = {
+		{
+			id = "Oval Speedway",
+			name = "🏎️ Oval Speedway",
+			desc = "4-Lane Circuit Track",
+			imageId = "",
+			laps = 5,
+			isVisible = true,
+		},
+		{
+			id = "Desert Track",
+			name = "🏜️ Desert Track",
+			desc = "Sandy Dunes",
+			imageId = "",
+			laps = 4,
+			isVisible = true,
+		},
+		{
+			id = "Frost Glacier",
+			name = "❄️ Frost Glacier",
+			desc = "Figure-8 Ice Overpass",
+			imageId = "",
+			laps = 3,
+			isVisible = true,
+		},
 	}
 }
 

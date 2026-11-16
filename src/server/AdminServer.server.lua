@@ -73,6 +73,9 @@ getPromoFunc.OnServerInvoke = function(player)
 		if not result.Boards then
 			result.Boards = MonetizationConfig.ShopData.Boards or {}
 		end
+		if not result.Maps then
+			result.Maps = MonetizationConfig.ShopData.Maps or {}
+		end
 		return result
 	else
 		if not success then

@@ -6,10 +6,37 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
+local DataStoreService = game:GetService("DataStoreService")
+local MessagingService = game:GetService("MessagingService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local HoverboardConfig = require(Shared:WaitForChild("HoverboardConfig") :: ModuleScript)
 local MapManager = require(Shared:WaitForChild("MapManager") :: ModuleScript)
+local MonetizationConfig = require(Shared:WaitForChild("MonetizationConfig") :: ModuleScript)
+
+local AdminConfigStore = DataStoreService:GetDataStore("AdminConfig_v1")
+
+local cachedMaps = MonetizationConfig.ShopData.Maps or {}
+local function reloadMapsFromDataStore()
+	local success, result = pcall(function()
+		return AdminConfigStore:GetAsync("ShopData_v2")
+	end)
+	if success and result and type(result) == "table" and result.Maps then
+		cachedMaps = result.Maps
+		print("🗺️ [GameLoopManager] 맵 목록이 DataStore에서 로드되었습니다! (총 " .. #cachedMaps .. "종)")
+	else
+		cachedMaps = MonetizationConfig.ShopData.Maps or {}
+	end
+	MapManager.setCustomMaps(cachedMaps)
+end
+reloadMapsFromDataStore()
+
+pcall(function()
+	MessagingService:SubscribeAsync("ShopDataUpdated", function()
+		print("🔄 [GameLoopManager] ShopDataUpdated 메시지 수신 - 맵 목록 갱신")
+		reloadMapsFromDataStore()
+	end)
+end)
 
 local remotesFolder = ReplicatedStorage:FindFirstChild("HoverboardRemotes")
 if not remotesFolder then
@@ -64,15 +91,12 @@ local phaseTimeLeft = DURATION_VOTING
 local chosenMapName = "Oval Speedway"
 
 type VoterInfo = { userId: number, name: string }
-local mapVoteData: { [string]: { VoterInfo } } = {
-	["Oval Speedway"] = {},
-	["Desert Track"] = {},
-	["Magma Ridge"] = {},
-}
+local mapVoteData: { [string]: { VoterInfo } } = {}
+local activeCandidates: { any } = {}
 
 -- Broadcast Phase Updates to All Connected Clients
 local function broadcastPhaseUpdate()
-	phaseRemote:FireAllClients(currentPhase, math.max(0, phaseTimeLeft), mapVoteData, chosenMapName)
+	phaseRemote:FireAllClients(currentPhase, math.max(0, phaseTimeLeft), mapVoteData, chosenMapName, activeCandidates)
 end
 
 -- Find User's Custom WaitingRoom / Floating Platform CFrame Position
@@ -138,12 +162,12 @@ end
 local function getTrackStartGridCFrame(): CFrame
 	local activeMap = Workspace:FindFirstChild("ActiveMap") :: Model?
 	if activeMap then
-		local gridPart = activeMap:FindFirstChild("TrackStartGridPart") :: BasePart?
+		local gridPart = activeMap:FindFirstChild("TrackStartGridPart", true) :: BasePart?
 		if gridPart then
 			return gridPart.CFrame * CFrame.new(0, 10.0, 0)
 		end
 
-		local startModel = activeMap:FindFirstChild("StartingPoint") :: Model?
+		local startModel = activeMap:FindFirstChild("StartingPoint", true) :: Model?
 		if startModel then
 			return startModel:GetPivot() * CFrame.new(0, 15.0, -3)
 		end
@@ -282,7 +306,11 @@ end
 voteRemote.OnServerEvent:Connect(function(player: Player, mapName: string)
 	if currentPhase ~= "MAP_VOTING" then return end
 	if not mapVoteData[mapName] then
-		mapName = "Oval Speedway"
+		if #activeCandidates > 0 then
+			mapName = activeCandidates[1].id
+		else
+			mapName = "Oval Speedway"
+		end
 	end
 
 	for mName, voterList in pairs(mapVoteData) do
@@ -293,10 +321,12 @@ voteRemote.OnServerEvent:Connect(function(player: Player, mapName: string)
 		end
 	end
 
-	table.insert(mapVoteData[mapName], {
-		userId = player.UserId,
-		name = player.DisplayName or player.Name,
-	})
+	if mapVoteData[mapName] then
+		table.insert(mapVoteData[mapName], {
+			userId = player.UserId,
+			name = player.DisplayName or player.Name,
+		})
+	end
 
 	broadcastPhaseUpdate()
 end)
@@ -340,7 +370,7 @@ local function setupPlayer(player: Player)
 			local randomOffset = CFrame.new(math.random(-4, 4), 0, math.random(-4, 4))
 			teleportPlayer(player, loungeCFrame * randomOffset)
 			task.wait(0.1)
-			phaseRemote:FireClient(player, currentPhase, phaseTimeLeft, mapVoteData, chosenMapName)
+			phaseRemote:FireClient(player, currentPhase, phaseTimeLeft, mapVoteData, chosenMapName, activeCandidates)
 			return
 		end
 
@@ -349,7 +379,7 @@ local function setupPlayer(player: Player)
 		local randomOffset = CFrame.new(math.random(-4, 4), 0, math.random(-4, 4))
 		teleportPlayer(player, loungeCFrame * randomOffset)
 		task.wait(0.1)
-		phaseRemote:FireClient(player, currentPhase, phaseTimeLeft, mapVoteData, chosenMapName)
+		phaseRemote:FireClient(player, currentPhase, phaseTimeLeft, mapVoteData, chosenMapName, activeCandidates)
 	end)
 
 	if player.Character then
@@ -463,14 +493,27 @@ task.spawn(function()
 		-- ---------------------------------------------------------------------
 		currentPhase = "MAP_VOTING"
 		phaseTimeLeft = DURATION_VOTING
-		chosenMapName = "Oval Speedway"
-		mapVoteData = {
-			["Oval Speedway"] = {},
-			["Desert Track"] = {},
-			["Magma Ridge"] = {},
-		}
 
-		print("🗳️ [GameLoop] 15 seconds Map Voting starting...")
+		activeCandidates = {}
+		for _, mapInfo in ipairs(cachedMaps) do
+			if mapInfo.isVisible ~= false then
+				table.insert(activeCandidates, mapInfo)
+			end
+		end
+		if #activeCandidates == 0 then
+			activeCandidates = {
+				{ id = "Oval Speedway", name = "🏎️ Oval Speedway", desc = "4-Lane Circuit Track", laps = 5, isVisible = true },
+				{ id = "Desert Track", name = "🏜️ Desert Track", desc = "Sandy Dunes", laps = 4, isVisible = true },
+			}
+		end
+
+		mapVoteData = {}
+		for _, c in ipairs(activeCandidates) do
+			mapVoteData[c.id] = {}
+		end
+		chosenMapName = activeCandidates[1].id
+
+		print(string.format("🗳️ [GameLoop] 15 seconds Map Voting starting with %d candidate maps...", #activeCandidates))
 		while phaseTimeLeft > 0 do
 			broadcastPhaseUpdate()
 			task.wait(1)
@@ -478,15 +521,16 @@ task.spawn(function()
 		end
 
 		-- ---------------------------------------------------------------------
-		-- STEP 2: CALCULATE MAJORITY VOTE WINNING MAP
+		-- STEP 2.5: CALCULATE MAJORITY VOTE WINNING MAP
 		-- ---------------------------------------------------------------------
-		local winningMap = "Oval Speedway"
+		local winningMap = activeCandidates[1].id
 		local highestVotes = -1
 
-		for mName, voterList in pairs(mapVoteData) do
+		for _, c in ipairs(activeCandidates) do
+			local voterList = mapVoteData[c.id] or {}
 			if #voterList > highestVotes then
 				highestVotes = #voterList
-				winningMap = mName
+				winningMap = c.id
 			end
 		end
 		chosenMapName = winningMap

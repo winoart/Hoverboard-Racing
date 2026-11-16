@@ -135,79 +135,80 @@ function LapManager.startTracking(mapName: string, startTime: number)
 
 	print("🏁 [LapManager] Tracking " .. maxCheckpoints .. " checkpoints for " .. totalLapsForMap .. " laps.")
 
+	local function handleCheckpointReached(player: Player, index: number)
+		local data = playerLaps[player.UserId]
+		if not data or data.finished then return end
+
+		if index == data.nextCheckpoint then
+			if index == maxCheckpoints then
+				-- Finished a lap!
+				if data.currentLap + 1 >= totalLapsForMap then
+					-- Finished the race!
+					data.currentLap += 1
+					data.finished = true
+					data.finishTime = os.clock() - raceStartTime
+					
+					finishedCount += 1
+					data.finalRank = finishedCount
+					
+					raceFinishedRemote:FireClient(player, data.finishTime, data.currentLap, totalLapsForMap, data.finalRank)
+					print("🏆 [LapManager] " .. player.Name .. " finished the race in " .. string.format("%.2f", data.finishTime) .. "s! Rank: " .. data.finalRank)
+					
+					local leaderstats = player:FindFirstChild("leaderstats")
+					if leaderstats then
+						local gold = leaderstats:FindFirstChild("Gold")
+						if gold then
+							local reward = 100
+							if data.finalRank == 1 then 
+								reward = 1000
+							elseif data.finalRank == 2 then 
+								reward = 600
+							elseif data.finalRank == 3 then 
+								reward = 300
+							end
+							local hasX2 = player:GetAttribute("OwnsPass_33333333") == true or player:GetAttribute("OwnsPass_x2RacePrize") == true
+							if hasX2 then
+								reward *= 2
+								print("✨ [DEBUG] " .. player.Name .. " has X2 Race Prize GamePass! Reward doubled to " .. reward)
+							end
+							
+							data.earnedGold = reward
+							print("💰 " .. player.Name .. " earned " .. reward .. " Gold")
+						end
+					end
+				else
+					-- Next Lap
+					data.currentLap += 1
+					data.nextCheckpoint = 1
+					lapUpdatedRemote:FireClient(player, data.currentLap, totalLapsForMap)
+					print(string.format("🏁 [LapManager] %s completed Lap %d/%d!", player.Name, data.currentLap, totalLapsForMap))
+				end
+			else
+				-- Next checkpoint in the same lap
+				data.nextCheckpoint = index + 1
+				print(string.format("📍 [LapManager] %s hit Checkpoint %d! Next: %d", player.Name, index, data.nextCheckpoint))
+			end
+		end
+	end
+
+	local function getPlayerFromHit(hit: Instance?): Player?
+		local current: Instance? = hit
+		while current and current ~= Workspace and current ~= game do
+			if current:IsA("Model") then
+				local p = Players:GetPlayerFromCharacter(current)
+				if p then return p end
+			end
+			current = current.Parent
+		end
+		return nil
+	end
+
 	for index, cpPartsList in pairs(checkpoints) do
 		for _, cpPart in ipairs(cpPartsList) do
 			local conn = cpPart.Touched:Connect(function(hit)
-				-- Debug logging removed
-				local player = Players:GetPlayerFromCharacter(hit.Parent)
-				if not player and hit.Parent then
-					player = Players:GetPlayerFromCharacter(hit.Parent.Parent)
-				end
-				if not player then 
-					-- Debug logging removed
-					return 
-				end
-	
-				local data = playerLaps[player.UserId]
-				if not data or data.finished then 
-					-- Debug logging removed
-					return 
-				end
-	
-				-- Debug logging removed
-				
-				-- Check if they hit the correct next checkpoint
-				if index == data.nextCheckpoint then
-					if index == maxCheckpoints then
-						-- Finished a lap!
-						if data.currentLap + 1 >= totalLapsForMap then
-							-- Finished the race!
-							data.currentLap += 1
-							data.finished = true
-							data.finishTime = os.clock() - raceStartTime
-							
-							finishedCount += 1
-							data.finalRank = finishedCount
-							
-							raceFinishedRemote:FireClient(player, data.finishTime, data.currentLap, totalLapsForMap, data.finalRank)
-							print("🏆 " .. player.Name .. " finished the race in " .. string.format("%.2f", data.finishTime) .. "s! Rank: " .. data.finalRank)
-							
-							-- Award Gold and Wins
-							local leaderstats = player:FindFirstChild("leaderstats")
-							if leaderstats then
-								local gold = leaderstats:FindFirstChild("Gold")
-								if gold then
-									local reward = 100
-									if data.finalRank == 1 then 
-										reward = 1000
-									elseif data.finalRank == 2 then 
-										reward = 600
-									elseif data.finalRank == 3 then 
-										reward = 300
-									end
-									local hasX2 = player:GetAttribute("OwnsPass_33333333") == true or player:GetAttribute("OwnsPass_x2RacePrize") == true
-									if hasX2 then
-										reward *= 2
-										print("✨ [DEBUG] " .. player.Name .. " has X2 Race Prize GamePass! Reward doubled to " .. reward)
-									else
-										print("⚠️ [DEBUG] " .. player.Name .. " DOES NOT have X2 Race Prize GamePass on server!")
-									end
-									
-									-- 골드 지급을 결과창 타이밍으로 미루기 위해 저장만 해둠
-									data.earnedGold = reward
-									print("💰 " .. player.Name .. " earned " .. reward .. " Gold (will be paid at scoreboard)")
-								end
-							end
-						else
-							-- Next Lap
-							data.currentLap += 1
-							data.nextCheckpoint = 1
-							lapUpdatedRemote:FireClient(player, data.currentLap, totalLapsForMap)
-						end
-					else
-						-- Next checkpoint in the same lap
-						data.nextCheckpoint = index + 1
-					end
+				local player = getPlayerFromHit(hit)
+				if player then
+					handleCheckpointReached(player, index)
 				end
 			end)
 			table.insert(checkpointConnections, conn)
@@ -229,6 +230,29 @@ function LapManager.startTracking(mapName: string, startTime: number)
 				local root = char and (char.PrimaryPart or char:FindFirstChild("HumanoidRootPart") :: BasePart?)
 				if root then
 					playerStartPositions[p.UserId] = root.Position
+				end
+			end
+		end
+
+		-- 실시간 체크포인트 근접/통과 판정 (고속 주행 및 Touched 물리 누락 방지용)
+		for userId, data in pairs(playerLaps) do
+			if not data.finished then
+				local p = Players:GetPlayerByUserId(userId)
+				local char = p and p.Character
+				local root = char and (char.PrimaryPart or char:FindFirstChild("HumanoidRootPart") :: BasePart?)
+				if p and char and root then
+					local targetIdx = data.nextCheckpoint
+					local cpParts = checkpoints[targetIdx]
+					if cpParts and #cpParts > 0 then
+						for _, cpPart in ipairs(cpParts) do
+							local relPos = cpPart.CFrame:PointToObjectSpace(root.Position)
+							local halfSize = cpPart.Size / 2 + Vector3.new(16, 25, 20)
+							if math.abs(relPos.X) <= halfSize.X and math.abs(relPos.Y) <= halfSize.Y and math.abs(relPos.Z) <= halfSize.Z then
+								handleCheckpointReached(p, targetIdx)
+								break
+							end
+						end
+					end
 				end
 			end
 		end

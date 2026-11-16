@@ -11,12 +11,28 @@ local MapManager = {}
 
 MapManager.MapLaps = {
 	["Oval Speedway"] = 5,
+	["Desert Track"] = 4,
+	["Frost Glacier"] = 3,
 	["Cyber City"] = 3,
 	["Magma Ridge"] = 3,
-	["Desert Track"] = 4,
 }
 
+MapManager.CustomMaps = {}
+
+function MapManager.setCustomMaps(mapsList: { any }?)
+	MapManager.CustomMaps = mapsList or {}
+end
+
 function MapManager.getTotalLaps(mapName: string): number
+	if MapManager.CustomMaps then
+		for _, m in ipairs(MapManager.CustomMaps) do
+			if m.id == mapName or m.name == mapName then
+				if m.laps and tonumber(m.laps) then
+					return tonumber(m.laps) :: number
+				end
+			end
+		end
+	end
 	return MapManager.MapLaps[mapName] or 3
 end
 
@@ -72,6 +88,12 @@ function MapManager.ensureMapTemplate(mapName: string): Model
 		return workspaceTemplate
 	end
 
+	if mapName == "Frost Glacier" then
+		local newModel = MapBuilder.buildFrostGlacierModel()
+		newModel.Parent = mapsFolder
+		return newModel
+	end
+
 	warn("🚨 [MapManager] Could not find a VALID map template '" .. mapName .. "' with physical parts in ReplicatedStorage.Maps or Workspace! Generating fallback map...")
 	return MapBuilder.buildOvalSpeedwayModel()
 end
@@ -107,7 +129,7 @@ function MapManager.LoadMap(mapName: string): (Model, CFrame)
 	local targetMapPos = Vector3.new(loungeCFrame.Position.X, loungeCFrame.Position.Y - 80, loungeCFrame.Position.Z)
 
 	-- Find StartGrid to use as the center of our pivot
-	local startGridPart = activeMap:FindFirstChild("TrackStartGridPart") :: BasePart?
+	local startGridPart = activeMap:FindFirstChild("TrackStartGridPart", true) :: BasePart?
 	
 	if startGridPart then
 		-- Pivot map so that the startGrid is exactly at targetMapPos
@@ -132,7 +154,7 @@ function MapManager.LoadMap(mapName: string): (Model, CFrame)
 	if startGridPart then
 		startGridCFrame = startGridPart.CFrame
 		
-		local startModel = activeMap:FindFirstChild("StartingPoint") :: Model?
+		local startModel = activeMap:FindFirstChild("StartingPoint", true) :: Model?
 		if startModel then
 			-- Generate missing CheckerTiles if user forgot to copy them
 			local startLineBase = startModel:FindFirstChild("StartLineBase") :: BasePart?

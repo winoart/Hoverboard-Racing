@@ -1,4 +1,4 @@
---!strict
+기--!strict
 -- InventoryController.client.luau
 -- Displays the Unified Inventory UI for equipping Hoverboards and Skills
 
