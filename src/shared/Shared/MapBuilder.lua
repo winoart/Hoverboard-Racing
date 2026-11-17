@@ -3880,46 +3880,91 @@ function MapBuilder.buildPirateTreasureIslandModel(): Model
 	topBeam.CFrame = archCenterCFrame * CFrame.new(0, archHeight + 2, 0)
 	topBeam.Parent = startModel
 
+	-- Sleek Signboard mounted flush on top beam front (does not block sword above!)
 	local signBoard = Instance.new("Part")
 	signBoard.Name = "StartSignBoard"
 	signBoard.Anchored = true
 	signBoard.CanCollide = false
 	signBoard.Material = Enum.Material.WoodPlanks
 	signBoard.Color = Color3.fromRGB(45, 25, 15)
-	signBoard.Size = Vector3.new(38, 8, 2)
-	signBoard.CFrame = archCenterCFrame * CFrame.new(0, archHeight + 7, 0)
+	signBoard.Size = Vector3.new(44, 4.2, 1.2)
+	signBoard.CFrame = topBeam.CFrame * CFrame.new(0, 0, -3.2)
 	signBoard.Parent = startModel
 
-	local signGui = Instance.new("SurfaceGui")
-	signGui.Name = "StartSignGui"
-	signGui.Face = Enum.NormalId.Back
-	signGui.CanvasSize = Vector2.new(760, 160)
-	signGui.SizingMode = Enum.SurfaceGuiSizingMode.FixedSize
-	signGui.Parent = signBoard
+	for _, face in ipairs({ Enum.NormalId.Front, Enum.NormalId.Back }) do
+		local signGui = Instance.new("SurfaceGui")
+		signGui.Name = "StartSignGui_" .. tostring(face)
+		signGui.Face = face
+		signGui.CanvasSize = Vector2.new(900, 110)
+		signGui.SizingMode = Enum.SurfaceGuiSizingMode.FixedSize
+		signGui.LightInfluence = 0
+		signGui.Parent = signBoard
 
-	local signText = Instance.new("TextLabel")
-	signText.Size = UDim2.new(1, 0, 1, 0)
-	signText.BackgroundTransparency = 1
-	signText.Font = Enum.Font.FredokaOne
-	signText.Text = "🏴‍☠️ PIRATE TREASURE ISLAND 🏴‍☠️"
-	signText.TextColor3 = Color3.fromRGB(255, 215, 60)
-	signText.TextScaled = true
-	signText.Parent = signGui
+		local signText = Instance.new("TextLabel")
+		signText.Size = UDim2.new(1, 0, 1, 0)
+		signText.BackgroundTransparency = 1
+		signText.Font = Enum.Font.FredokaOne
+		signText.Text = "☠️ PIRATE TREASURE ISLAND ☠️"
+		signText.TextColor3 = Color3.fromRGB(255, 215, 60)
+		signText.TextStrokeColor3 = Color3.fromRGB(35, 18, 5)
+		signText.TextStrokeTransparency = 0
+		signText.TextScaled = true
+		signText.Parent = signGui
+	end
 
-	-- Mount Crossed Pirate Cutlasses (13265924820) over the arch
+	-- Countdown Signal Lights Pod (Traffic lights) hanging below the arch beam
+	local lightPodCFrame = topBeam.CFrame * CFrame.new(0, -4.8, -1.0)
+	local lightPod = Instance.new("Part")
+	lightPod.Name = "SignalLightPod"
+	lightPod.Anchored = true
+	lightPod.CanCollide = false
+	lightPod.Material = Enum.Material.WoodPlanks
+	lightPod.Color = Color3.fromRGB(30, 20, 12)
+	lightPod.Size = Vector3.new(24.0, 5.0, 2.5)
+	lightPod.CFrame = lightPodCFrame
+	lightPod.Parent = startModel
+
+	local signalColors = {
+		{ name = "RedLight", color = Color3.fromRGB(255, 40, 40), offsetX = 7.0 },
+		{ name = "YellowLight", color = Color3.fromRGB(255, 200, 30), offsetX = 0 },
+		{ name = "GreenLight", color = Color3.fromRGB(40, 255, 80), offsetX = -7.0 },
+	}
+
+	for _, sig in ipairs(signalColors) do
+		local lightPart = Instance.new("Part")
+		lightPart.Name = sig.name
+		lightPart.Anchored = true
+		lightPart.CanCollide = false
+		lightPart.Shape = Enum.PartType.Ball
+		lightPart.Material = Enum.Material.Neon
+		lightPart.Color = sig.color
+		lightPart.Size = Vector3.new(4.0, 4.0, 4.0)
+		lightPart.CFrame = lightPodCFrame * CFrame.new(sig.offsetX, 0, -1.2)
+		lightPart.Parent = startModel
+
+		local pLight = Instance.new("PointLight")
+		pLight.Color = sig.color
+		pLight.Brightness = 4.0
+		pLight.Range = 16
+		pLight.Parent = lightPart
+	end
+
+	-- Mount Crossed Pirate Cutlasses (13265924820) proudly ABOVE the arch (100% visible, zero obstruction!)
 	local swordAsset = pirateAssets and pirateAssets:FindFirstChild("PirateSword")
 	if swordAsset then
-		local sClone = swordAsset:Clone()
-		sClone.Name = "CrossedSwords"
-		sClone:PivotTo(archCenterCFrame * CFrame.new(0, archHeight + 14, 0))
-		for _, d in ipairs(sClone:GetDescendants()) do
-			d.Name = "SwordMesh_" .. d.Name
-			if d:IsA("BasePart") then
-				d.CanCollide = false
-				d.Anchored = true
+		for idx, angle in ipairs({ 22, -22 }) do
+			local sClone = swordAsset:Clone()
+			sClone.Name = "CrossedSword_" .. idx
+			sClone:PivotTo(topBeam.CFrame * CFrame.new(0, 30.0, idx == 1 and -0.8 or 0.8) * CFrame.Angles(0, 0, math.rad(angle)))
+			for _, d in ipairs(sClone:GetDescendants()) do
+				d.Name = "SwordMesh_" .. d.Name
+				if d:IsA("BasePart") then
+					d.CanCollide = false
+					d.Anchored = true
+				end
 			end
+			sClone.Parent = startModel
 		end
-		sClone.Parent = startModel
 	end
 
 	-- Flying Pirate Flags (11961818089) on pillars
