@@ -487,8 +487,10 @@ end
 task.spawn(function()
 	task.wait(0.5) -- Fast server startup
 
-	-- Safe void kill height for deeply lowered scenic maps
-	Workspace.FallenPartsDestroyHeight = -2000
+	-- Safe void kill height for deeply lowered scenic maps (safe pcall)
+	pcall(function()
+		Workspace.FallenPartsDestroyHeight = -2000
+	end)
 
 	-- Pre-build default template model in ReplicatedStorage.Maps (do not load into Workspace yet)
 	MapManager.ensureMapTemplate("Oval Speedway")
