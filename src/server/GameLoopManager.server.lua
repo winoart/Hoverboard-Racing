@@ -22,7 +22,7 @@ local function reloadMapsFromDataStore()
 		return AdminConfigStore:GetAsync("ShopData_v2")
 	end)
 	if success and result and type(result) == "table" and result.Maps then
-		cachedMaps = result.Maps
+		cachedMaps = MapManager.mergeDefaultMaps(result.Maps, MonetizationConfig.ShopData.Maps)
 		print("🗺️ [GameLoopManager] 맵 목록이 DataStore에서 로드되었습니다! (총 " .. #cachedMaps .. "종)")
 	else
 		cachedMaps = MonetizationConfig.ShopData.Maps or {}
@@ -486,6 +486,9 @@ end
 -- Main Infinite Game Loop Server Manager Thread
 task.spawn(function()
 	task.wait(0.5) -- Fast server startup
+
+	-- Safe void kill height for deeply lowered scenic maps
+	Workspace.FallenPartsDestroyHeight = -2000
 
 	-- Pre-build default template model in ReplicatedStorage.Maps (do not load into Workspace yet)
 	MapManager.ensureMapTemplate("Oval Speedway")

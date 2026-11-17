@@ -13,6 +13,8 @@ MapManager.MapLaps = {
 	["Oval Speedway"] = 5,
 	["Desert Track"] = 4,
 	["Frost Glacier"] = 3,
+	["Autobahn Highway"] = 1,
+	["Pirate Treasure Island"] = 3,
 	["Cyber City"] = 3,
 	["Magma Ridge"] = 3,
 }
@@ -21,6 +23,28 @@ MapManager.CustomMaps = {}
 
 function MapManager.setCustomMaps(mapsList: { any }?)
 	MapManager.CustomMaps = mapsList or {}
+end
+
+function MapManager.mergeDefaultMaps(loadedMaps: { any }?, defaultMaps: { any }?): { any }
+	local merged: { any } = {}
+	local seenIds: { [string]: boolean } = {}
+	if loadedMaps then
+		for _, m in ipairs(loadedMaps) do
+			table.insert(merged, m)
+			if m and m.id then
+				seenIds[tostring(m.id)] = true
+			end
+		end
+	end
+	if defaultMaps then
+		for _, defMap in ipairs(defaultMaps) do
+			if defMap and defMap.id and not seenIds[tostring(defMap.id)] then
+				table.insert(merged, defMap)
+				seenIds[tostring(defMap.id)] = true
+			end
+		end
+	end
+	return merged
 end
 
 function MapManager.getTotalLaps(mapName: string): number
@@ -92,6 +116,18 @@ function MapManager.ensureMapTemplate(mapName: string): Model
 		local newModel = MapBuilder.buildFrostGlacierModel()
 		newModel.Parent = mapsFolder
 		return newModel
+	elseif mapName == "Autobahn Highway" then
+		local newModel = MapBuilder.buildAutobahnHighwayModel()
+		newModel.Parent = mapsFolder
+		return newModel
+	elseif mapName == "Pirate Treasure Island" then
+		local newModel = MapBuilder.buildPirateTreasureIslandModel()
+		newModel.Parent = mapsFolder
+		return newModel
+	elseif mapName == "Cyber City" then
+		local newModel = MapBuilder.buildCyberCityModel()
+		newModel.Parent = mapsFolder
+		return newModel
 	end
 
 	warn("🚨 [MapManager] Could not find a VALID map template '" .. mapName .. "' with physical parts in ReplicatedStorage.Maps or Workspace! Generating fallback map...")
@@ -124,9 +160,10 @@ function MapManager.LoadMap(mapName: string): (Model, CFrame)
 	local activeMap = template:Clone()
 	activeMap.Name = "ActiveMap"
 
-	-- Get Lounge position & position map right below Lounge (Y - 80 studs)
+	-- Get Lounge position & position map comfortably below Lounge (Y - 260 studs)
+	-- Prevents tall start arches, pirate swords, galleon masts, and mountains from clipping into the WaitingRoom
 	local loungeCFrame = MapManager.getLoungeCFrame()
-	local targetMapPos = Vector3.new(loungeCFrame.Position.X, loungeCFrame.Position.Y - 80, loungeCFrame.Position.Z)
+	local targetMapPos = Vector3.new(loungeCFrame.Position.X, loungeCFrame.Position.Y - 260, loungeCFrame.Position.Z)
 
 	-- Find StartGrid to use as the center of our pivot
 	local startGridPart = activeMap:FindFirstChild("TrackStartGridPart", true) :: BasePart?
