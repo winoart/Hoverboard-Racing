@@ -2879,6 +2879,7 @@ function MapBuilder.buildPirateTreasureIslandModel(): Model
 		road.Name = "PirateTrack_" .. i
 		road.Anchored = true
 		road.CanCollide = true
+		road.CastShadow = false
 		road.Material = roadMat
 		road.Color = roadColor
 		road.Size = Vector3.new(TRACK_WIDTH, TRACK_THICKNESS, segLen)
@@ -2893,6 +2894,7 @@ function MapBuilder.buildPirateTreasureIslandModel(): Model
 		stripe.Name = "TrackCenterStripe"
 		stripe.Anchored = true
 		stripe.CanCollide = false
+		stripe.CastShadow = false
 		stripe.Material = isCavernZone and Enum.Material.Metal or Enum.Material.Wood
 		stripe.Color = stripeColor
 		stripe.Size = Vector3.new(1.4, 0.2, segLen)
@@ -2906,6 +2908,7 @@ function MapBuilder.buildPirateTreasureIslandModel(): Model
 			curb.Name = "TrackCurb"
 			curb.Anchored = true
 			curb.CanCollide = true
+			curb.CastShadow = false
 			curb.Material = roadMat
 			curb.Color = curbColor
 			curb.Size = Vector3.new(2.4, barrierH, segLen)
@@ -2916,6 +2919,7 @@ function MapBuilder.buildPirateTreasureIslandModel(): Model
 			ropeRail.Name = "RopeRail"
 			ropeRail.Anchored = true
 			ropeRail.CanCollide = false
+			ropeRail.CastShadow = false
 			ropeRail.Material = Enum.Material.Wood
 			ropeRail.Color = Color3.fromRGB(180, 140, 90)
 			ropeRail.Size = Vector3.new(0.8, 0.8, segLen)
@@ -2926,6 +2930,7 @@ function MapBuilder.buildPirateTreasureIslandModel(): Model
 			guard.Name = "TrackGuardWall"
 			guard.Anchored = true
 			guard.CanCollide = true
+			guard.CastShadow = false
 			guard.Transparency = 1
 			guard.Size = Vector3.new(1.5, 24, segLen)
 			guard.CFrame = cf * CFrame.new(side * (halfW + 0.6), 12, 0)
@@ -2940,6 +2945,7 @@ function MapBuilder.buildPirateTreasureIslandModel(): Model
 				stilt.Name = "TrackStiltPillar"
 				stilt.Anchored = true
 				stilt.CanCollide = false
+				stilt.CastShadow = false
 				stilt.Material = Enum.Material.Wood
 				stilt.Color = Color3.fromRGB(75, 45, 25)
 				stilt.Size = Vector3.new(3.0, stiltH, 3.0)
@@ -2965,10 +2971,11 @@ function MapBuilder.buildPirateTreasureIslandModel(): Model
 		water.Name = "CaribbeanOcean_" .. idx
 		water.Anchored = true
 		water.CanCollide = true
-		water.Material = Enum.Material.Glass
-		water.Color = Color3.fromRGB(18, 168, 212)
-		water.Transparency = 0.28
-		water.Reflectance = 0.35
+		water.CastShadow = false
+		water.Material = Enum.Material.SmoothPlastic
+		water.Color = Color3.fromRGB(0, 160, 215)
+		water.Transparency = 0.35
+		water.Reflectance = 0.2
 		water.Size = Vector3.new(860, 4, 860)
 		water.CFrame = CFrame.new(q.x, 2, q.z)
 		water.TopSurface = Enum.SurfaceType.Smooth
@@ -2979,6 +2986,7 @@ function MapBuilder.buildPirateTreasureIslandModel(): Model
 		seaBed.Name = "SandySeaBed_" .. idx
 		seaBed.Anchored = true
 		seaBed.CanCollide = true
+		seaBed.CastShadow = false
 		seaBed.Material = Enum.Material.Sand
 		seaBed.Color = Color3.fromRGB(225, 215, 185)
 		seaBed.Size = Vector3.new(860, 6, 860)
@@ -2993,6 +3001,7 @@ function MapBuilder.buildPirateTreasureIslandModel(): Model
 	beachSand.Name = "TropicalBeachSand"
 	beachSand.Anchored = true
 	beachSand.CanCollide = true
+	beachSand.CastShadow = false
 	beachSand.Material = Enum.Material.Sand
 	beachSand.Color = Color3.fromRGB(240, 225, 185)
 	beachSand.Size = Vector3.new(420, 6, 440)
@@ -3018,8 +3027,13 @@ function MapBuilder.buildPirateTreasureIslandModel(): Model
 		shipClone:PivotTo(shipCF)
 		for _, d in ipairs(shipClone:GetDescendants()) do
 			if d:IsA("BasePart") then
-				d.CanCollide = false -- Keep completely safe so no collisions with track
-				d.Anchored = true
+				if d.Size.Magnitude < 2.5 and not d:IsA("MeshPart") then
+					d:Destroy()
+				else
+					d.CanCollide = false -- Keep completely safe so no collisions with track
+					d.Anchored = true
+					d.CastShadow = false
+				end
 			end
 		end
 		shipClone.Parent = galleonFolder
@@ -4135,7 +4149,7 @@ local function fireSingleCannon(cannonModel)
 	puff.Speed = NumberRange.new(25, 40)
 	puff.Lifetime = NumberRange.new(0.8, 1.4)
 	puff.Parent = flash
-	puff:Emit(18)
+	puff:Emit(8)
 
 	local sound = Instance.new("Sound")
 	sound.SoundId = "rbxassetid://287390954"
@@ -4172,7 +4186,7 @@ local function fireSingleCannon(cannonModel)
 	tail.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.3), NumberSequenceKeypoint.new(1, 1.0) })
 	tail.Speed = NumberRange.new(2, 6)
 	tail.Lifetime = NumberRange.new(0.5, 0.9)
-	tail.Rate = 35
+	tail.Rate = 12
 	tail.Parent = ball
 
 	local splashTriggered = false
@@ -4198,7 +4212,7 @@ local function fireSingleCannon(cannonModel)
 		spray.Lifetime = NumberRange.new(0.8, 1.3)
 		spray.EmissionDirection = Enum.NormalId.Top
 		spray.Parent = splashAnchor
-		spray:Emit(35)
+		spray:Emit(15)
 
 		local sSound = Instance.new("Sound")
 		sSound.SoundId = "rbxassetid://12222225"
@@ -4210,16 +4224,11 @@ local function fireSingleCannon(cannonModel)
 		Debris:AddItem(splashAnchor, 2.0)
 	end
 
-	task.spawn(function()
-		local t0 = os.clock()
-		while ball and ball.Parent and (os.clock() - t0 < 3.5) do
-			task.wait(0.05)
-			if ball.Position.Y <= 6.0 then
-				triggerSplash(Vector3.new(ball.Position.X, 6.0, ball.Position.Z))
-				break
-			end
+	task.delay(1.15, function()
+		if ball and ball.Parent then
+			local p = ball.Position
+			triggerSplash(Vector3.new(p.X, 6.0, p.Z))
 		end
-		if ball and ball.Parent then ball:Destroy() end
 	end)
 end
 
@@ -4244,14 +4253,14 @@ if flameEmitter and fireSound then
 		while map and map.Parent do
 			fireSound:Play()
 			flameEmitter.Enabled = true
-			flameEmitter.Rate = 95
+			flameEmitter.Rate = 45
 			smokeEmitter.Enabled = true
-			smokeEmitter.Rate = 50
-			fireLight.Brightness = 9.5
+			smokeEmitter.Rate = 20
+			fireLight.Brightness = 8.0
 
 			for _, cf in ipairs(cliffFlames) do
 				cf.Enabled = true
-				cf.Rate = 65
+				cf.Rate = 25
 			end
 
 			task.wait(2.4)
@@ -4277,9 +4286,9 @@ if wheelPart then
 	task.spawn(function()
 		local t = 0
 		while map and map.Parent do
-			t = t + 0.05
+			t = t + 0.1
 			wheelPart.CFrame = origWheelCF * CFrame.Angles(0, 0, math.sin(t * 1.6) * 0.42)
-			task.wait(0.05)
+			task.wait(0.1)
 		end
 	end)
 end
@@ -4296,6 +4305,20 @@ end
 				if not d.CanCollide then
 					d.CanQuery = false
 				end
+			end
+
+			-- Disable dynamic shadows on decorative / track parts to eliminate shadow cascades lag
+			local name = d.Name
+			if name:find("Track") or name:find("Rope") or name:find("Rail") or name:find("Stripe")
+				or name:find("Curb") or name:find("Ocean") or name:find("SeaBed") or name:find("Beach")
+				or name:find("Frond") or name:find("Coconut") or name:find("Palm") or name:find("Cable")
+				or name:find("Hanger") or name:find("Dropper") or name:find("Stalactite") or name:find("Stalagmite")
+				or name:find("Crystal") or name:find("Gold") or name:find("Lantern") or name:find("Torch")
+				or name:find("Checker") or name:find("StartLine") or name:find("Sign") or name:find("Sword")
+				or name:find("Flag") or name:find("Mug") or name:find("Barrel") or name:find("Table")
+				or name:find("Wall") or name:find("Boulder") or name:find("Pillar") or name:find("ArchBeam")
+				or name:find("Mast") or name:find("Sail") or name:find("Rigging") or name:find("Yard") then
+				d.CastShadow = false
 			end
 		end
 	end
