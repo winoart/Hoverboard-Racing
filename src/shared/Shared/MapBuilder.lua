@@ -3025,27 +3025,88 @@ function MapBuilder.buildPirateTreasureIslandModel(): Model
 		shipClone.Parent = galleonFolder
 	end
 
-	-- Pirate Captain (100944702942220) + Ship's Wheel (14924421591) on Quarterdeck
+	-- Pirate Captain (100944702942220) + Ship's Wheel (14924421591) + Rum Mugs (11487426084) on Quarterdeck
 	local captainP, captainTan = getPiratePoint(0.50 * 2 * math.pi)
 	local captainCF = CFrame.lookAt(captainP, captainP + captainTan)
 
-	-- Elevated wooden captain's quarterdeck platform on outer port side
+	-- Elevated wooden captain's quarterdeck platform - positioned right along track railing for high visibility
 	local quarterdeckPlatform = Instance.new("Part")
 	quarterdeckPlatform.Name = "CaptainQuarterdeck"
 	quarterdeckPlatform.Anchored = true
 	quarterdeckPlatform.CanCollide = true
 	quarterdeckPlatform.Material = Enum.Material.WoodPlanks
 	quarterdeckPlatform.Color = Color3.fromRGB(75, 45, 25)
-	quarterdeckPlatform.Size = Vector3.new(18, 4, 24)
-	quarterdeckPlatform.CFrame = captainCF * CFrame.new(-(halfW + 11), 3.0, 0)
+	quarterdeckPlatform.Size = Vector3.new(24, 6, 32)
+	quarterdeckPlatform.CFrame = captainCF * CFrame.new(-(halfW + 6), 5.5, 0)
 	quarterdeckPlatform.Parent = galleonFolder
 
-	-- Place Pirate Captain standing at helm
+	-- Carved decorative railings with gold trim on outer edges
+	for _, rSide in ipairs({ -1, 1 }) do
+		local rail = Instance.new("Part")
+		rail.Name = "QuarterdeckRailing"
+		rail.Anchored = true
+		rail.CanCollide = false
+		rail.Material = Enum.Material.Wood
+		rail.Color = Color3.fromRGB(90, 55, 30)
+		rail.Size = Vector3.new(1.8, 4.0, 32)
+		rail.CFrame = quarterdeckPlatform.CFrame * CFrame.new(rSide * 11.5, 4.5, 0)
+		rail.Parent = galleonFolder
+	end
+
+	-- Grand Brass Ship Lanterns on platform corners illuminating the Captain & Helm
+	for _, cZ in ipairs({ -14, 14 }) do
+		local lPost = Instance.new("Part")
+		lPost.Name = "QuarterdeckLanternPost"
+		lPost.Anchored = true
+		lPost.CanCollide = false
+		lPost.Material = Enum.Material.Wood
+		lPost.Color = Color3.fromRGB(55, 35, 20)
+		lPost.Size = Vector3.new(1.6, 12.0, 1.6)
+		lPost.CFrame = quarterdeckPlatform.CFrame * CFrame.new(10.5, 8.5, cZ)
+		lPost.Parent = galleonFolder
+
+		local lamp = Instance.new("Part")
+		lamp.Name = "QuarterdeckLamp"
+		lamp.Anchored = true
+		lamp.CanCollide = false
+		lamp.Material = Enum.Material.Neon
+		lamp.Color = Color3.fromRGB(255, 225, 130)
+		lamp.Size = Vector3.new(2.8, 4.0, 2.8)
+		lamp.CFrame = lPost.CFrame * CFrame.new(0, 7.0, 0)
+		lamp.Parent = galleonFolder
+
+		local lampLight = Instance.new("PointLight")
+		lampLight.Color = Color3.fromRGB(255, 195, 85)
+		lampLight.Brightness = 4.5
+		lampLight.Range = 36
+		lampLight.Parent = lamp
+	end
+
+	-- Overhead Theatrical Spotlight directly focused onto the Captain & Steering Helm
+	local spotRig = Instance.new("Part")
+	spotRig.Name = "CaptainSpotlightMount"
+	spotRig.Anchored = true
+	spotRig.CanCollide = false
+	spotRig.Transparency = 1
+	spotRig.Size = Vector3.new(2, 2, 2)
+	spotRig.CFrame = quarterdeckPlatform.CFrame * CFrame.new(0, 26, 0)
+	spotRig.Parent = galleonFolder
+
+	local spotLight = Instance.new("SpotLight")
+	spotLight.Face = Enum.NormalId.Bottom
+	spotLight.Color = Color3.fromRGB(255, 220, 140)
+	spotLight.Brightness = 6.0
+	spotLight.Range = 40
+	spotLight.Angle = 65
+	spotLight.Parent = spotRig
+
+	-- 1. COLOSSAL PIRATE CAPTAIN (100944702942220) - Scaled 2.8x (Height ~18 studs!)
 	local captainAsset = pirateAssets and pirateAssets:FindFirstChild("PirateCaptain")
 	if captainAsset then
 		local capClone = captainAsset:Clone()
 		capClone.Name = "CaptainJack"
-		capClone:PivotTo(quarterdeckPlatform.CFrame * CFrame.new(0, 5.2, 0) * CFrame.Angles(0, math.rad(90), 0))
+		capClone:ScaleTo(2.8)
+		capClone:PivotTo(quarterdeckPlatform.CFrame * CFrame.new(-3.5, 3.0 + 8.9, 0) * CFrame.Angles(0, math.rad(90), 0))
 		for _, d in ipairs(capClone:GetDescendants()) do
 			if d:IsA("BasePart") then
 				d.CanCollide = false
@@ -3053,9 +3114,42 @@ function MapBuilder.buildPirateTreasureIslandModel(): Model
 			end
 		end
 		capClone.Parent = galleonFolder
+
+		-- Prominent Cartoon Pirate Name Tag above Captain Jack's head
+		local head = capClone:FindFirstChild("Head", true) or capClone.PrimaryPart
+		if head then
+			local bb = Instance.new("BillboardGui")
+			bb.Name = "CaptainTitleHUD"
+			bb.Size = UDim2.new(0, 260, 0, 56)
+			bb.StudsOffset = Vector3.new(0, 6.5, 0)
+			bb.AlwaysOnTop = true
+			bb.MaxDistance = 350
+			bb.Parent = head
+
+			local title = Instance.new("TextLabel")
+			title.Size = UDim2.new(1, 0, 1, 0)
+			title.BackgroundTransparency = 1
+			title.Text = "☠️ 캡틴 잭 (Captain Jack)"
+			title.TextColor3 = Color3.fromRGB(255, 225, 90)
+			title.TextStrokeColor3 = Color3.fromRGB(35, 18, 5)
+			title.TextStrokeTransparency = 0
+			title.Font = Enum.Font.FredokaOne
+			title.TextSize = 26
+			title.Parent = bb
+		end
 	end
 
-	-- Place Ship's Wheel (14924421591)
+	-- 2. MASSIVE SHIP'S WHEEL (14924421591) - Scaled 3.5x on Steering Pedestal
+	local wheelPedestal = Instance.new("Part")
+	wheelPedestal.Name = "SteeringPedestal"
+	wheelPedestal.Anchored = true
+	wheelPedestal.CanCollide = false
+	wheelPedestal.Material = Enum.Material.WoodPlanks
+	wheelPedestal.Color = Color3.fromRGB(65, 38, 20)
+	wheelPedestal.Size = Vector3.new(4.5, 7.5, 4.5)
+	wheelPedestal.CFrame = quarterdeckPlatform.CFrame * CFrame.new(3.5, 3.0 + 3.75, 0)
+	wheelPedestal.Parent = galleonFolder
+
 	local wheelAsset = pirateAssets and pirateAssets:FindFirstChild("ShipsWheel")
 	if wheelAsset then
 		local wheelClone = wheelAsset:Clone()
@@ -3064,23 +3158,73 @@ function MapBuilder.buildPirateTreasureIslandModel(): Model
 		if handle and handle:IsA("BasePart") then
 			handle.Anchored = true
 			handle.CanCollide = false
-			handle.Size = Vector3.new(4, 4, 1.5)
-			handle.CFrame = quarterdeckPlatform.CFrame * CFrame.new(0, 5.0, -4) * CFrame.Angles(0, math.rad(90), 0)
+			handle.Size = Vector3.new(3, 3, 3)
+			handle.CFrame = quarterdeckPlatform.CFrame * CFrame.new(3.5, 3.0 + 7.8, 0) * CFrame.Angles(0, math.rad(90), 0)
+			local sMesh = handle:FindFirstChildWhichIsA("SpecialMesh")
+			if sMesh then
+				sMesh.Scale = Vector3.new(3.5, 3.5, 3.5)
+			end
 		end
 		wheelClone.Parent = galleonFolder
 	end
 
-	-- Rum Mugs (11487426084) on Captain's table
+	-- 3. GIANT RUM MUGS (11487426084) - Scaled 4.5x on Captain's Table with Treasure
+	local rumTable = Instance.new("Part")
+	rumTable.Name = "CaptainsRumTable"
+	rumTable.Anchored = true
+	rumTable.CanCollide = false
+	rumTable.Material = Enum.Material.Wood
+	rumTable.Color = Color3.fromRGB(70, 42, 24)
+	rumTable.Size = Vector3.new(8.0, 4.0, 10.0)
+	rumTable.CFrame = quarterdeckPlatform.CFrame * CFrame.new(1.0, 3.0 + 2.0, 8.5)
+	rumTable.Parent = galleonFolder
+
+	-- Wooden Rum Barrel alongside table
+	local barrel = Instance.new("Part")
+	barrel.Name = "RumBarrel"
+	barrel.Shape = Enum.PartType.Cylinder
+	barrel.Size = Vector3.new(6.0, 5.5, 5.5)
+	barrel.Material = Enum.Material.Wood
+	barrel.Color = Color3.fromRGB(85, 50, 28)
+	barrel.CFrame = quarterdeckPlatform.CFrame * CFrame.new(-5.5, 3.0 + 2.75, 8.5) * CFrame.Angles(0, 0, math.rad(90))
+	barrel.Anchored = true
+	barrel.CanCollide = false
+	barrel.Parent = galleonFolder
+
+	-- Gold coin pile on table
+	local tableGold = Instance.new("Part")
+	tableGold.Name = "TableGoldPile"
+	tableGold.Size = Vector3.new(5.0, 1.0, 6.0)
+	tableGold.Material = Enum.Material.Foil
+	tableGold.Color = Color3.fromRGB(255, 215, 0)
+	tableGold.CFrame = rumTable.CFrame * CFrame.new(0, 2.3, 0)
+	tableGold.Anchored = true
+	tableGold.CanCollide = false
+	tableGold.Parent = galleonFolder
+
 	local rumAsset = pirateAssets and pirateAssets:FindFirstChild("RumMug")
 	if rumAsset then
-		for _, rOff in ipairs({ Vector3.new(-3, 3.2, -5), Vector3.new(3, 3.2, -5) }) do
+		for idx, rOff in ipairs({ Vector3.new(-1.8, 3.0 + 4.2, 8.5), Vector3.new(1.8, 3.0 + 4.2, 8.5) }) do
 			local mugClone = rumAsset:Clone()
+			mugClone.Name = "GiantRumMug_" .. idx
 			mugClone:PivotTo(quarterdeckPlatform.CFrame * CFrame.new(rOff))
 			for _, d in ipairs(mugClone:GetDescendants()) do
 				if d:IsA("BasePart") then
 					d.CanCollide = false
 					d.Anchored = true
+					local sMesh = d:FindFirstChildWhichIsA("SpecialMesh")
+					if sMesh then
+						sMesh.Scale = Vector3.new(4.5, 4.5, 4.5)
+					end
 				end
+			end
+			local handle = mugClone:FindFirstChild("Handle", true)
+			if handle and handle:IsA("BasePart") then
+				local mLight = Instance.new("PointLight")
+				mLight.Color = Color3.fromRGB(255, 170, 30)
+				mLight.Brightness = 3.5
+				mLight.Range = 16
+				mLight.Parent = handle
 			end
 			mugClone.Parent = galleonFolder
 		end
@@ -4075,6 +4219,22 @@ if flameEmitter and fireSound then
 			end
 
 			task.wait(5.5)
+		end
+	end)
+end
+
+-- Ship's Wheel realistic steering oscillation
+local galleon = map:FindFirstChild("GalleonShipSection")
+local wheelObj = galleon and galleon:FindFirstChild("QuarterdeckWheel", true)
+local wheelPart = wheelObj and (wheelObj:IsA("BasePart") and wheelObj or wheelObj:FindFirstChild("Handle"))
+if wheelPart then
+	local origWheelCF = wheelPart.CFrame
+	task.spawn(function()
+		local t = 0
+		while map and map.Parent do
+			t = t + 0.05
+			wheelPart.CFrame = origWheelCF * CFrame.Angles(0, 0, math.sin(t * 1.6) * 0.42)
+			task.wait(0.05)
 		end
 	end)
 end
