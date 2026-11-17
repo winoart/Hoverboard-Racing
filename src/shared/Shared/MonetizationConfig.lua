@@ -157,6 +157,22 @@ MonetizationConfig.ShopData = {
 			laps = 3,
 			isVisible = true,
 		},
+		{
+			id = "Autobahn Highway",
+			name = "🛣️ Autobahn Highway",
+			desc = "No-Limit Straight Sprint",
+			imageId = "",
+			laps = 1,
+			isVisible = true,
+		},
+		{
+			id = "Pirate Treasure Island",
+			name = "🏴‍☠️ Pirate Treasure Island",
+			desc = "Tropical Galleon & Skull Cave",
+			imageId = "",
+			laps = 3,
+			isVisible = true,
+		},
 	}
 }
 

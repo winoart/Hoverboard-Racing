@@ -66,16 +66,16 @@ getPromoFunc.OnServerInvoke = function(player)
 		return AdminConfigStore:GetAsync("ShopData_v2")
 	end)
 	
-	local MonetizationConfig = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("MonetizationConfig"))
+	local Shared = ReplicatedStorage:WaitForChild("Shared")
+	local MonetizationConfig = require(Shared:WaitForChild("MonetizationConfig"))
+	local MapManager = require(Shared:WaitForChild("MapManager"))
 	
 	if success and result and type(result) == "table" and result.Events then
 		-- Boards 테이블이 없으면 MonetizationConfig 기본값으로 채워줌
 		if not result.Boards then
 			result.Boards = MonetizationConfig.ShopData.Boards or {}
 		end
-		if not result.Maps then
-			result.Maps = MonetizationConfig.ShopData.Maps or {}
-		end
+		result.Maps = MapManager.mergeDefaultMaps(result.Maps, MonetizationConfig.ShopData.Maps)
 		return result
 	else
 		if not success then

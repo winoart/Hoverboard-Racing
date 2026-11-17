@@ -51,8 +51,8 @@ local function playItemSelectSound()
 		itemSelectSound.TimePosition = 0
 		itemSelectSound:Play()
 	end)
+	
 end
-
 -- Folder for custom models
 local customModelsFolder = ReplicatedStorage:FindFirstChild("HoverboardModels")
 
