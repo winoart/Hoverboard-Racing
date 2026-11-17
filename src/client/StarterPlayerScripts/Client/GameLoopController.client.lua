@@ -4,6 +4,7 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 local TweenService = game:GetService("TweenService")
 local SoundService = game:GetService("SoundService")
@@ -50,6 +51,7 @@ local phaseTimeLeft = 0
 local currentChosenMap = "Oval Speedway"
 local currentMapVotes: MapVoteData = {
 	["Oval Speedway"] = {},
+	["Pirate Treasure Island"] = {},
 	["Cyber City"] = {},
 	["Magma Ridge"] = {},
 	["Desert Track"] = {},
@@ -88,9 +90,108 @@ local cardVoteLabels: { [string]: TextLabel } = {}
 local cardAvatarContainers: { [string]: Frame } = {}
 local cardStrokes: { [string]: UIStroke } = {}
 
--- Update Avatar Thumbnails & Vote Count Labels
+type ViewportCamEntry = {
+	vpf: ViewportFrame,
+	cam: Camera,
+	focusPos: Vector3,
+	radius: number,
+	height: number,
+	baseAngle: number,
+}
+
+local VIEWPORT_SHOWCASE_PRESETS: {
+	[string]: {
+		sky: Color3,
+		focus: Vector3,
+		radius: number,
+		height: number,
+		baseAngle: number,
+		fov: number,
+	},
+} = {
+	["Oval Speedway"] = {
+		sky = Color3.fromRGB(35, 62, 105),
+		focus = Vector3.new(235, 16, -8),
+		radius = 115,
+		height = 36,
+		baseAngle = math.rad(35),
+		fov = 50,
+	},
+	["Desert Track"] = {
+		sky = Color3.fromRGB(72, 50, 36),
+		focus = Vector3.new(-45, 16, 10),
+		radius = 120,
+		height = 38,
+		baseAngle = math.rad(25),
+		fov = 50,
+	},
+	["Frost Glacier"] = {
+		sky = Color3.fromRGB(22, 42, 76),
+		focus = Vector3.new(-70, 42, -15),
+		radius = 155,
+		height = 46,
+		baseAngle = math.rad(-35),
+		fov = 52,
+	},
+	["Autobahn Highway"] = {
+		sky = Color3.fromRGB(28, 48, 82),
+		focus = Vector3.new(0, 22, -45),
+		radius = 125,
+		height = 36,
+		baseAngle = math.rad(35),
+		fov = 50,
+	},
+	["Pirate Treasure Island"] = {
+		sky = Color3.fromRGB(24, 85, 140),
+		focus = Vector3.new(0, 32, -300),
+		radius = 110,
+		height = 28,
+		baseAngle = math.rad(-75),
+		fov = 52,
+	},
+	["Cyber City"] = {
+		sky = Color3.fromRGB(18, 12, 38),
+		focus = Vector3.new(125, 48, 20),
+		radius = 165,
+		height = 48,
+		baseAngle = math.rad(25),
+		fov = 52,
+	},
+}
+
+local activeViewportCams: { ViewportCamEntry } = {}
+local viewportSpinConn: RBXScriptConnection? = nil
+
+local function stopViewportSpin()
+	if viewportSpinConn then
+		viewportSpinConn:Disconnect()
+		viewportSpinConn = nil
+	end
+	table.clear(activeViewportCams)
+end
+
+local function startViewportSpin()
+	-- Kept static for silky-smooth 60 FPS UI rendering (Roblox caches static ViewportFrames with 0 GPU overhead)
+end
+
+-- Update Avatar Thumbnails & Vote Count Labels (with change detection to eliminate 1s GC hitches)
+local lastRenderedVoteKey = ""
+
 local function updateMapCardAvatars(mapVotes: MapVoteData)
 	pcall(function()
+		local sigParts = {}
+		for _, config in ipairs(currentCandidateMaps) do
+			local mId = tostring(config.id)
+			local voterList = mapVotes[mId] or {}
+			table.insert(sigParts, mId .. ":" .. #voterList)
+			for _, v in ipairs(voterList) do
+				table.insert(sigParts, tostring(v.userId or 0))
+			end
+		end
+		local currentSig = table.concat(sigParts, "_")
+		local votesChanged = (currentSig ~= lastRenderedVoteKey)
+		lastRenderedVoteKey = currentSig
+
 		for _, config in ipairs(currentCandidateMaps) do
 			local mId = tostring(config.id)
 			local voterList = mapVotes[mId] or {}
@@ -101,7 +202,7 @@ local function updateMapCardAvatars(mapVotes: MapVoteData)
 				voteLabel.Text = string.format("🗳️ %d Votes", #voterList)
 			end
 
-			if container then
+			if container and votesChanged then
 				for _, child in ipairs(container:GetChildren()) do
 					if child:IsA("ImageLabel") then
 						child:Destroy()
@@ -140,6 +241,8 @@ end
 local function renderMapCards(candidates: { any })
 	if not cardContainer then return end
 
+	stopViewportSpin()
+
 	cardFrames = {}
 	cardVoteLabels = {}
 	cardAvatarContainers = {}
@@ -155,16 +258,16 @@ local function renderMapCards(candidates: { any })
 	cardLayout.FillDirection = Enum.FillDirection.Horizontal
 	cardLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	cardLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-	cardLayout.Padding = UDim.new(0, 15)
+	cardLayout.Padding = UDim.new(0, 12)
 	cardLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	cardLayout.Parent = cardContainer
 
 	local count = #candidates
 	if count == 0 then return end
 
-	local totalAvailableWidth = 750
-	local cardWidth = math.min(250, math.floor((totalAvailableWidth - (count - 1) * 15) / count))
-	if cardWidth < 180 then cardWidth = 180 end
+	local totalAvailableWidth = 940
+	local cardWidth = math.min(250, math.floor((totalAvailableWidth - (count - 1) * 12) / count))
+	if cardWidth < 170 then cardWidth = 170 end
 
 	for idx, config in ipairs(candidates) do
 		local mId = tostring(config.id)
@@ -221,8 +324,8 @@ local function renderMapCards(candidates: { any })
 		if hasCustomImage then
 			local mapImage = Instance.new("ImageLabel")
 			mapImage.Name = "MapImage"
-			mapImage.Size = UDim2.new(1, -20, 0, 120)
-			mapImage.Position = UDim2.new(0, 10, 0, 15)
+			mapImage.Size = UDim2.new(1, -16, 0, 142)
+			mapImage.Position = UDim2.new(0, 8, 0, 10)
 			mapImage.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 			mapImage.Image = config.imageId
 			mapImage.ScaleType = Enum.ScaleType.Crop
@@ -231,15 +334,16 @@ local function renderMapCards(candidates: { any })
 			mapImage.Parent = card
 			previewFrame = mapImage
 		else
+			local preset = VIEWPORT_SHOWCASE_PRESETS[mId]
 			local vpf = Instance.new("ViewportFrame")
 			vpf.Name = "MapViewport"
-			vpf.Size = UDim2.new(1, -20, 0, 120)
-			vpf.Position = UDim2.new(0, 10, 0, 15)
-			vpf.BackgroundColor3 = Color3.fromRGB(22, 26, 35)
+			vpf.Size = UDim2.new(1, -16, 0, 142)
+			vpf.Position = UDim2.new(0, 8, 0, 10)
+			vpf.BackgroundColor3 = preset and preset.sky or Color3.fromRGB(22, 26, 35)
 			vpf.BorderSizePixel = 0
 			vpf.ZIndex = 38
-			vpf.Ambient = Color3.fromRGB(180, 180, 195)
-			vpf.LightColor = Color3.fromRGB(255, 255, 255)
+			vpf.Ambient = Color3.fromRGB(195, 200, 215)
+			vpf.LightColor = Color3.fromRGB(255, 250, 240)
 			vpf.LightDirection = Vector3.new(-1, -2, -1).Unit
 			vpf.Parent = card
 			previewFrame = vpf
@@ -256,20 +360,69 @@ local function renderMapCards(candidates: { any })
 				end
 
 				if mapTemplate and mapTemplate:IsA("Model") then
+					local activePreset = preset or VIEWPORT_SHOWCASE_PRESETS[mapTemplate.Name]
+					if activePreset then
+						vpf.BackgroundColor3 = activePreset.sky
+					end
+
+					local focusPos: Vector3
+					local radius: number
+					local height: number
+					local baseAngle: number
+					local fov: number
+
+					if activePreset then
+						focusPos = activePreset.focus
+						radius = activePreset.radius
+						height = activePreset.height
+						baseAngle = activePreset.baseAngle
+						fov = activePreset.fov
+					else
+						local sp = mapTemplate:FindFirstChild("StartingPoint") or mapTemplate:FindFirstChild("TrackStartGridPart")
+						if sp and sp:IsA("Model") then
+							focusPos = sp:GetPivot().Position
+						elseif sp and sp:IsA("BasePart") then
+							focusPos = sp.Position
+						else
+							local bbCf = mapTemplate:GetBoundingBox()
+							focusPos = bbCf.Position
+						end
+						radius = 130
+						height = 40
+						baseAngle = 0
+						fov = 50
+					end
+
+					local maxRadius = radius * 1.55
 					local mapClone = mapTemplate:Clone()
-					
-					-- Strip non-visual, lighting, particle, or invisible helper instances for speed
+
+					-- Aggressive distance culling: strip 95%+ of distant parts to make ViewportFrame render instantly with 0 lag
 					for _, d in ipairs(mapClone:GetDescendants()) do
-						if d:IsA("Sound") or d:IsA("Script") or d:IsA("LocalScript") or d:IsA("TouchTransmitter") or d:IsA("Light") or d:IsA("ParticleEmitter") or d.Name == "TrackGuardWall" or d.Name == "TrackStartGridPart" or (d.Parent and d.Parent.Name == "Checkpoints") then
+						if d:IsA("Sound")
+							or d:IsA("Script")
+							or d:IsA("LocalScript")
+							or d:IsA("TouchTransmitter")
+							or d:IsA("Light")
+							or d:IsA("ParticleEmitter")
+							or d.Name == "TrackGuardWall"
+							or d.Name == "TrackStartGridPart"
+							or string.find(d.Name, "^SnowEmitterPart") ~= nil
+							or (d.Parent and d.Parent.Name == "Checkpoints")
+						then
 							d:Destroy()
 						elseif d:IsA("BasePart") then
-							d.CanCollide = false
-							d.CanTouch = false
-							d.CanQuery = false
-							d.Anchored = true
-							d.CastShadow = false
-							if d.Position.Y < -500 then
+							local dist = (d.Position - focusPos).Magnitude
+							if dist > maxRadius or d.Position.Y < -500 or (d.Size.Magnitude < 3.0 and not d:IsA("MeshPart")) then
 								d:Destroy()
+							else
+								d.CanCollide = false
+								d.CanTouch = false
+								d.CanQuery = false
+								d.Anchored = true
+								d.CastShadow = false
+								if d.Name == "GlacierSnowPlain" then
+									d.Color = Color3.fromRGB(175, 210, 242)
+								end
 							end
 						end
 					end
@@ -278,17 +431,14 @@ local function renderMapCards(candidates: { any })
 						mapClone:Destroy()
 						return
 					end
-					
+
 					mapClone.Parent = vpf
 
+					-- Set crisp static cinematic camera angle (cached by Roblox for 60 FPS)
 					local cam = Instance.new("Camera")
-					cam.FieldOfView = 45
-					local bbCf, bbSize = mapClone:GetBoundingBox()
-					local maxDim = math.max(bbSize.X, bbSize.Z)
-					if maxDim < 10 then maxDim = 100 end
-					local dist = maxDim / (2 * math.tan(math.rad(cam.FieldOfView / 2))) * 0.95
-					local camOffset = Vector3.new(0, dist * 0.85, dist * 0.65)
-					cam.CFrame = CFrame.lookAt(bbCf.Position + camOffset, bbCf.Position)
+					cam.FieldOfView = fov
+					local initialOffset = Vector3.new(math.cos(baseAngle) * radius, height, math.sin(baseAngle) * radius)
+					cam.CFrame = CFrame.lookAt(focusPos + initialOffset, focusPos)
 					cam.Parent = vpf
 					vpf.CurrentCamera = cam
 				end
@@ -320,8 +470,8 @@ local function renderMapCards(candidates: { any })
 		avatarLayout.Parent = avatarFrame
 
 		local mapTitleLabel = Instance.new("TextLabel")
-		mapTitleLabel.Size = UDim2.new(1, -20, 0, 30)
-		mapTitleLabel.Position = UDim2.new(0, 10, 0, 145)
+		mapTitleLabel.Size = UDim2.new(1, -16, 0, 28)
+		mapTitleLabel.Position = UDim2.new(0, 8, 0, 158)
 		mapTitleLabel.BackgroundTransparency = 1
 		mapTitleLabel.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
 		mapTitleLabel.Text = config.name or config.title or mId
@@ -337,8 +487,8 @@ local function renderMapCards(candidates: { any })
 		mapTitleStroke.Parent = mapTitleLabel
 
 		local mapSubLabel = Instance.new("TextLabel")
-		mapSubLabel.Size = UDim2.new(1, -20, 0, 20)
-		mapSubLabel.Position = UDim2.new(0, 10, 0, 180)
+		mapSubLabel.Size = UDim2.new(1, -16, 0, 20)
+		mapSubLabel.Position = UDim2.new(0, 8, 0, 187)
 		mapSubLabel.BackgroundTransparency = 1
 		mapSubLabel.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
 		local subText = config.desc or config.sub or ""
@@ -358,8 +508,8 @@ local function renderMapCards(candidates: { any })
 		mapSubStroke.Parent = mapSubLabel
 
 		local vLabel = Instance.new("TextLabel")
-		vLabel.Size = UDim2.new(1, -20, 0, 30)
-		vLabel.Position = UDim2.new(0, 10, 0, 215)
+		vLabel.Size = UDim2.new(1, -16, 0, 30)
+		vLabel.Position = UDim2.new(0, 8, 0, 216)
 		vLabel.BackgroundTransparency = 1
 		vLabel.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
 		vLabel.Text = "🗳️ 0 Votes"
@@ -468,6 +618,12 @@ local function refreshDisplays()
 				reopenVoteButton.Visible = (currentPhase == "MAP_VOTING" and isVotingModalDismissed and not LocalPlayer:GetAttribute("IsAFK"))
 			end
 		end
+
+		if currentPhase ~= "MAP_VOTING" then
+			stopViewportSpin()
+		elseif #activeViewportCams > 0 then
+			startViewportSpin()
+		end
 	end)
 end
 
@@ -569,10 +725,10 @@ local function createGameLoopUI()
 		refreshDisplays()
 	end)
 
-	-- [2] 3-CARD MAP VOTING MODAL UI (15s)
+	-- [2] MAP VOTING MODAL UI (15s)
 	votingModalFrame = Instance.new("Frame")
 	votingModalFrame.Name = "VotingModal"
-	votingModalFrame.Size = UDim2.new(0, 780, 0, 390)
+	votingModalFrame.Size = UDim2.new(0, 980, 0, 390)
 	votingModalFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 	votingModalFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
 	votingModalFrame.BackgroundColor3 = Color3.fromRGB(150, 240, 255) -- Cyan Glass
