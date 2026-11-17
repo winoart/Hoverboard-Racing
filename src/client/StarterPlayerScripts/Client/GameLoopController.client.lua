@@ -171,7 +171,22 @@ local function stopViewportSpin()
 end
 
 local function startViewportSpin()
-	-- Kept static for silky-smooth 60 FPS UI rendering (Roblox caches static ViewportFrames with 0 GPU overhead)
+	if viewportSpinConn then return end
+	viewportSpinConn = RunService.RenderStepped:Connect(function()
+		if not votingModalFrame or not votingModalFrame.Visible or currentPhase ~= "MAP_VOTING" then
+			return
+		end
+		local t = os.clock()
+		for _, entry in ipairs(activeViewportCams) do
+			if entry.vpf.Parent and entry.cam.Parent then
+				-- Silky smooth cinematic crane sway (+/- 14 degrees) showcasing the hero landmarks
+				local ang = entry.baseAngle + math.sin(t * 0.75 + entry.baseAngle) * 0.22
+				local swayH = entry.height + math.sin(t * 0.55 + entry.baseAngle) * 1.8
+				local offset = Vector3.new(math.cos(ang) * entry.radius, swayH, math.sin(ang) * entry.radius)
+				entry.cam.CFrame = CFrame.lookAt(entry.focusPos + offset, entry.focusPos)
+			end
+		end
+	end)
 end
 
 -- Update Avatar Thumbnails & Vote Count Labels (with change detection to eliminate 1s GC hitches)
@@ -434,13 +449,23 @@ local function renderMapCards(candidates: { any })
 
 					mapClone.Parent = vpf
 
-					-- Set crisp static cinematic camera angle (cached by Roblox for 60 FPS)
+					-- Set cinematic camera angle and register for smooth dynamic sway
 					local cam = Instance.new("Camera")
 					cam.FieldOfView = fov
 					local initialOffset = Vector3.new(math.cos(baseAngle) * radius, height, math.sin(baseAngle) * radius)
 					cam.CFrame = CFrame.lookAt(focusPos + initialOffset, focusPos)
 					cam.Parent = vpf
 					vpf.CurrentCamera = cam
+
+					table.insert(activeViewportCams, {
+						vpf = vpf,
+						cam = cam,
+						focusPos = focusPos,
+						radius = radius,
+						height = height,
+						baseAngle = baseAngle,
+					})
+					startViewportSpin()
 				end
 			end)
 		end
