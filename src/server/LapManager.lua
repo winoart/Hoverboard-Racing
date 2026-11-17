@@ -110,10 +110,12 @@ function LapManager.startTracking(mapName: string, startTime: number)
 	local activeMap = Workspace:FindFirstChild("ActiveMap") :: Model?
 	if not activeMap then return end
 
-	-- Collect Checkpoint parts
+	-- Collect Checkpoint parts (Prioritize dedicated Checkpoints folder to avoid false matches with decorative asset parts named "1", "2", etc.)
 	local checkpoints = {}
+	local cpFolder = activeMap:FindFirstChild("Checkpoints")
+	local searchList = cpFolder and cpFolder:GetChildren() or activeMap:GetDescendants()
 	
-	for _, child in ipairs(activeMap:GetDescendants()) do
+	for _, child in ipairs(searchList) do
 		local cpIndex = tonumber(child.Name)
 		if cpIndex then
 			if child:IsA("BasePart") then
