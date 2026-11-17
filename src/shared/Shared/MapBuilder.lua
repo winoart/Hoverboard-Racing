@@ -3710,60 +3710,19 @@ function MapBuilder.buildPirateTreasureIslandModel(): Model
 		end
 	end
 
-	-- 7. PROCEDURAL TROPICAL PALM TREES & SCENERY
+	-- 7. AUTHENTIC TROPICAL PALM TREES & SCENERY (Assets: 6316118777, 18909744969, 5146176634, 138350847332256)
 	local sceneryFolder = Instance.new("Folder")
 	sceneryFolder.Name = "TropicalScenery"
 	sceneryFolder.Parent = mapModel
 
-	local function createPalmTree(parent: Instance, pos: Vector3, groundY: number, scale: number)
-		local treeModel = Instance.new("Model")
-		treeModel.Name = "TropicalPalmTree"
-
-		local trunkH = 26 * scale
-		local trunkW = 3.2 * scale
-
-		local trunk = Instance.new("Part")
-		trunk.Name = "PalmTrunk"
-		trunk.Anchored = true
-		trunk.CanCollide = false
-		trunk.Material = Enum.Material.Wood
-		trunk.Color = Color3.fromRGB(120, 80, 50)
-		trunk.Size = Vector3.new(trunkW, trunkH, trunkW)
-		trunk.CFrame = CFrame.new(pos.X, groundY + trunkH / 2, pos.Z) * CFrame.Angles(math.rad(math.random(-8, 8)), math.rad(math.random(0, 360)), math.rad(math.random(-8, 8)))
-		trunk.Parent = treeModel
-		treeModel.PrimaryPart = trunk
-
-		local crownY = groundY + trunkH
-		local frondCount = 6
-		for f = 1, frondCount do
-			local fAng = (f / frondCount) * math.pi * 2
-			local frond = Instance.new("Part")
-			frond.Name = "PalmFrond_" .. f
-			frond.Anchored = true
-			frond.CanCollide = false
-			frond.Material = Enum.Material.SmoothPlastic
-			frond.Color = Color3.fromRGB(45, 150, 55)
-			frond.Size = Vector3.new(4.5 * scale, 0.8 * scale, 22 * scale)
-			local leafCF = CFrame.new(pos.X, crownY, pos.Z) * CFrame.Angles(0, fAng, 0) * CFrame.Angles(math.rad(-22), 0, 0) * CFrame.new(0, 0, 9 * scale)
-			frond.CFrame = leafCF
-			frond.Parent = treeModel
+	local palmTemplates = {}
+	if pirateAssets then
+		for _, assetId in ipairs({ "6316118777", "18909744969", "5146176634", "138350847332256" }) do
+			local tpl = pirateAssets:FindFirstChild("PalmTree_" .. assetId)
+			if tpl and tpl:IsA("Model") then
+				table.insert(palmTemplates, tpl)
+			end
 		end
-
-		for c = 1, 3 do
-			local cAng = (c / 3) * math.pi * 2
-			local coconut = Instance.new("Part")
-			coconut.Name = "Coconut_" .. c
-			coconut.Anchored = true
-			coconut.CanCollide = false
-			coconut.Material = Enum.Material.SmoothPlastic
-			coconut.Color = Color3.fromRGB(75, 45, 25)
-			coconut.Size = Vector3.new(2.2 * scale, 2.6 * scale, 2.2 * scale)
-			coconut.CFrame = CFrame.new(pos.X, crownY - 1.5 * scale, pos.Z) * CFrame.new(math.cos(cAng) * 2, 0, math.sin(cAng) * 2)
-			coconut.Parent = treeModel
-		end
-
-		treeModel.Parent = parent
-		return treeModel
 	end
 
 	for pStep = 1, 40 do
@@ -3777,8 +3736,13 @@ function MapBuilder.buildPirateTreasureIslandModel(): Model
 				local px = p.X + side * normal.X * offset
 				local pz = p.Z + side * normal.Z * offset
 				if distToTrack(px, pz) >= 42 and math.abs(px) < 380 and math.abs(pz) < 400 then
-					local scale = 0.9 + (pStep % 4) * 0.15
-					createPalmTree(sceneryFolder, Vector3.new(px, 0, pz), 6, scale)
+					local scale = 0.95 + (pStep % 4) * 0.12
+					local yaw = math.rad(math.random(0, 360))
+					if #palmTemplates > 0 then
+						local tplIdx = ((pStep + (side == 1 and 0 or 2)) % #palmTemplates) + 1
+						local tpl = palmTemplates[tplIdx]
+						placeScaledAssetModel(tpl, sceneryFolder, "AuthenticPalmTree", Vector3.new(px, 6, pz), 6, scale, yaw)
+					end
 				end
 			end
 		end
