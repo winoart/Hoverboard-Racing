@@ -17,6 +17,7 @@ local BGM_IDS = {
 	OvalSpeedway = "rbxassetid://119805423797573", -- Oval Speedway 맵 BGM
 	DesertTrack = "rbxassetid://70712183409265", -- Desert Track 맵 BGM
 	PirateTreasureIsland = "rbxassetid://98772318601791", -- 🏴‍☠️ Pirate Treasure Island 맵 BGM
+	EmeraldLakeHaven = "rbxassetid://1843516599", -- 🌲 Emerald Lake Haven 힐링 BGM
 	FrostGlacier = "rbxassetid://1843516599", -- Frost Glacier 맵 BGM
 	AutobahnHighway = "rbxassetid://1843516599", -- Autobahn Highway 맵 BGM
 	MagmaRidge = "rbxassetid://0", -- Magma Ridge 맵 BGM
@@ -80,6 +81,8 @@ local function updateBGM()
 				mapBGM = BGM_IDS.DesertTrack
 			elseif currentMap == "Pirate Treasure Island" then
 				mapBGM = BGM_IDS.PirateTreasureIsland
+			elseif currentMap == "Emerald Lake Haven" then
+				mapBGM = BGM_IDS.EmeraldLakeHaven
 			elseif currentMap == "Frost Glacier" then
 				mapBGM = BGM_IDS.FrostGlacier
 			elseif currentMap == "Autobahn Highway" then

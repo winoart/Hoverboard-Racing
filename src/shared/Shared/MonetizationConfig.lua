@@ -173,6 +173,14 @@ MonetizationConfig.ShopData = {
 			laps = 3,
 			isVisible = true,
 		},
+		{
+			id = "Emerald Lake Haven",
+			name = "🌲 Emerald Lake Haven",
+			desc = "Canadian Mountain & Lakeside",
+			imageId = "",
+			laps = 3,
+			isVisible = true,
+		},
 	}
 }
 

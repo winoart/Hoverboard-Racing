@@ -4292,4 +4292,1046 @@ end
 	return mapModel
 end
 
+function MapBuilder.buildEmeraldLakeHavenModel(): Model
+	local ReplicatedStorage = game:GetService("ReplicatedStorage")
+	local treeTemplates = ReplicatedStorage:FindFirstChild("TreeTemplates")
+
+	local mapModel = Instance.new("Model")
+	mapModel.Name = "Emerald Lake Haven"
+
+	local SEGMENTS = 240
+	local TRACK_WIDTH = 58
+	local halfW = TRACK_WIDTH / 2
+	local TRACK_THICKNESS = 2.4
+
+	local function getHavenPoint(t: number): (Vector3, Vector3)
+		local x = 320 * math.sin(t) + 65 * math.sin(2 * t)
+		local z = -340 * math.cos(t) + 45 * math.cos(2 * t)
+
+		local dx = 320 * math.cos(t) + 130 * math.cos(2 * t)
+		local dz = 340 * math.sin(t) - 90 * math.sin(2 * t)
+
+		local frac = t / (2 * math.pi)
+		local y = 12.0
+		local dy = 0.0
+
+		if frac < 0.22 then
+			y = 12.0
+			dy = 0.0
+		elseif frac < 0.42 then
+			local u = (frac - 0.22) / 0.20
+			local s = u * u * (3 - 2 * u)
+			local ds = (6 * u - 6 * u * u) / 0.20
+			y = 12.0 + 22.0 * s
+			dy = (22.0 * ds) / (2 * math.pi)
+		elseif frac < 0.58 then
+			y = 34.0
+			dy = 0.0
+		elseif frac < 0.70 then
+			local u = (frac - 0.58) / 0.12
+			local s = u * u * (3 - 2 * u)
+			local ds = (6 * u - 6 * u * u) / 0.12
+			y = 34.0 - 18.0 * s
+			dy = (-18.0 * ds) / (2 * math.pi)
+		elseif frac < 0.86 then
+			local u = (frac - 0.70) / 0.16
+			local s = 4 * u * (1 - u)
+			local ds = (4 - 8 * u) / 0.16
+			y = 16.0 + 9.0 * s
+			dy = (9.0 * ds) / (2 * math.pi)
+		else
+			local u = (frac - 0.86) / 0.14
+			local s = u * u * (3 - 2 * u)
+			local ds = (6 * u - 6 * u * u) / 0.14
+			y = 16.0 - 4.0 * s
+			dy = (-4.0 * ds) / (2 * math.pi)
+		end
+
+		local pos = Vector3.new(x, y, z)
+		local tan = Vector3.new(dx, dy, dz).Unit
+		return pos, tan
+	end
+
+	local function distToTrack(x: number, z: number): number
+		local minDist = 99999
+		for step = 1, 60 do
+			local t = (step / 60) * math.pi * 2
+			local p = getHavenPoint(t)
+			local d = math.sqrt((x - p.X)^2 + (z - p.Z)^2)
+			if d < minDist then minDist = d end
+		end
+		return minDist
+	end
+
+	-- 1. TRACK & GUARDWALLS
+	local trackFolder = Instance.new("Folder")
+	trackFolder.Name = "HoverboardTrack"
+	trackFolder.Parent = mapModel
+
+	local woodPlanks = Enum.Material.WoodPlanks
+	local slateMat   = Enum.Material.Slate
+
+	for i = 1, SEGMENTS do
+		local t1 = ((i - 1) / SEGMENTS) * math.pi * 2
+		local t2 = (i / SEGMENTS) * math.pi * 2
+		local p1 = getHavenPoint(t1)
+		local p2 = getHavenPoint(t2)
+
+		local midPos = (p1 + p2) * 0.5
+		local segLen = (p2 - p1).Magnitude + 1.2
+		local cf = CFrame.lookAt(midPos, p2)
+
+		local frac = t1 / (2 * math.pi)
+		local isPromenade    = (frac < 0.22)
+		local isPineRidge    = (frac >= 0.22 and frac < 0.58)
+		local isVillageRun   = (frac >= 0.58 and frac < 0.70)
+		local isTrestleBridge= (frac >= 0.70 and frac < 0.86)
+		local isShoreline    = (frac >= 0.86)
+
+		local roadMat = woodPlanks
+		local roadColor = Color3.fromRGB(135, 96, 64) -- Cedar lakeside boardwalk
+		local curbColor = Color3.fromRGB(75, 48, 28)
+
+		if isPineRidge then
+			roadMat = slateMat
+			roadColor = Color3.fromRGB(80, 78, 72) -- Mountain forest stone
+			curbColor = Color3.fromRGB(55, 52, 48)
+		elseif isVillageRun then
+			roadColor = Color3.fromRGB(115, 75, 45) -- Rich chestnut timber
+			curbColor = Color3.fromRGB(68, 42, 22)
+		elseif isTrestleBridge then
+			roadColor = Color3.fromRGB(145, 108, 72) -- Weathered Canadian fir trestle
+			curbColor = Color3.fromRGB(85, 58, 35)
+		elseif isShoreline then
+			roadColor = Color3.fromRGB(128, 92, 60)
+			curbColor = Color3.fromRGB(72, 48, 28)
+		end
+
+		local road = Instance.new("Part")
+		road.Name = "HavenTrack_" .. i
+		road.Anchored = true
+		road.CanCollide = true
+		road.CastShadow = false
+		road.Material = roadMat
+		road.Color = roadColor
+		road.Size = Vector3.new(TRACK_WIDTH, TRACK_THICKNESS, segLen)
+		road.CFrame = cf
+		road.TopSurface = Enum.SurfaceType.Smooth
+		road.BottomSurface = Enum.SurfaceType.Smooth
+		road.Parent = trackFolder
+
+		-- Track center stripe: warm pine wood inlay
+		local stripe = Instance.new("Part")
+		stripe.Name = "TrackCenterStripe"
+		stripe.Anchored = true
+		stripe.CanCollide = false
+		stripe.CastShadow = false
+		stripe.Material = Enum.Material.Wood
+		stripe.Color = isPineRidge and Color3.fromRGB(215, 175, 70) or Color3.fromRGB(175, 130, 80)
+		stripe.Size = Vector3.new(1.4, 0.2, segLen)
+		stripe.CFrame = cf * CFrame.new(0, (TRACK_THICKNESS / 2) + 0.1, 0)
+		stripe.Parent = trackFolder
+
+		-- Curbs, Timber Railings & Protective Guardwalls
+		local barrierH = (isTrestleBridge or isPineRidge) and 5.0 or 3.2
+		for _, side in ipairs({ -1, 1 }) do
+			local curb = Instance.new("Part")
+			curb.Name = "TrackCurb"
+			curb.Anchored = true
+			curb.CanCollide = true
+			curb.CastShadow = false
+			curb.Material = roadMat
+			curb.Color = curbColor
+			curb.Size = Vector3.new(2.4, barrierH, segLen)
+			curb.CFrame = cf * CFrame.new(side * (halfW - 1.2), (barrierH - TRACK_THICKNESS) / 2 + 0.4, 0)
+			curb.Parent = trackFolder
+
+			local ropeRail = Instance.new("Part")
+			ropeRail.Name = "RopeRail"
+			ropeRail.Anchored = true
+			ropeRail.CanCollide = false
+			ropeRail.CastShadow = false
+			ropeRail.Material = Enum.Material.Wood
+			ropeRail.Color = Color3.fromRGB(170, 130, 80)
+			ropeRail.Size = Vector3.new(0.8, 0.8, segLen)
+			ropeRail.CFrame = cf * CFrame.new(side * (halfW - 1.2), barrierH + 0.4, 0)
+			ropeRail.Parent = trackFolder
+
+			local guard = Instance.new("Part")
+			guard.Name = "TrackGuardWall"
+			guard.Anchored = true
+			guard.CanCollide = true
+			guard.CastShadow = false
+			guard.Transparency = 1
+			guard.Size = Vector3.new(1.5, 24, segLen)
+			guard.CFrame = cf * CFrame.new(side * (halfW + 0.6), 12, 0)
+			guard.Parent = trackFolder
+		end
+
+		-- Heavy timber support stilts for elevated bridge and mountain sections
+		if p1.Y >= 18 and i % 3 == 0 then
+			for _, side in ipairs({ -1, 1 }) do
+				local stiltH = p1.Y - 2
+				local stilt = Instance.new("Part")
+				stilt.Name = "TrackStiltPillar"
+				stilt.Anchored = true
+				stilt.CanCollide = false
+				stilt.CastShadow = false
+				stilt.Material = Enum.Material.Wood
+				stilt.Color = Color3.fromRGB(72, 45, 25)
+				stilt.Size = Vector3.new(3.2, stiltH, 3.2)
+				stilt.CFrame = cf * CFrame.new(side * (halfW - 2), -stiltH / 2, 0)
+				stilt.Parent = trackFolder
+			end
+		end
+	end
+
+	-- 2. CENTRAL EMERALD LAKE & LUSH CANADIAN MEADOWS
+	local groundFolder = Instance.new("Folder")
+	groundFolder.Name = "EmeraldLakeAndTerrain"
+	groundFolder.Parent = mapModel
+
+	-- 4 Pristine Glacial Emerald Lake water tiles (Total 760x760)
+	local lakeQuads = {
+		{ x = -190, z = -200 },
+		{ x =  190, z = -200 },
+		{ x = -190, z =  180 },
+		{ x =  190, z =  180 },
+	}
+	for idx, q in ipairs(lakeQuads) do
+		local water = Instance.new("Part")
+		water.Name = "EmeraldWater_" .. idx
+		water.Anchored = true
+		water.CanCollide = true
+		water.CastShadow = false
+		water.Material = Enum.Material.SmoothPlastic
+		water.Color = Color3.fromRGB(16, 178, 162) -- Pristine glacial emerald turquoise
+		water.Transparency = 0.30
+		water.Reflectance = 0.25
+		water.Size = Vector3.new(420, 4, 420)
+		water.CFrame = CFrame.new(q.x, 2, q.z)
+		water.TopSurface = Enum.SurfaceType.Smooth
+		water.BottomSurface = Enum.SurfaceType.Smooth
+		water.Parent = groundFolder
+
+		local lakeBed = Instance.new("Part")
+		lakeBed.Name = "PebbleLakeBed_" .. idx
+		lakeBed.Anchored = true
+		lakeBed.CanCollide = true
+		lakeBed.CastShadow = false
+		lakeBed.Material = Enum.Material.Pebble
+		lakeBed.Color = Color3.fromRGB(145, 140, 128)
+		lakeBed.Size = Vector3.new(420, 6, 420)
+		lakeBed.CFrame = CFrame.new(q.x, -3, q.z)
+		lakeBed.TopSurface = Enum.SurfaceType.Smooth
+		lakeBed.BottomSurface = Enum.SurfaceType.Smooth
+		lakeBed.Parent = groundFolder
+	end
+
+	-- Outer Forest Grass Terrain
+	local outerGrass = Instance.new("Part")
+	outerGrass.Name = "CanadianForestFloor"
+	outerGrass.Anchored = true
+	outerGrass.CanCollide = true
+	outerGrass.CastShadow = false
+	outerGrass.Material = Enum.Material.Grass
+	outerGrass.Color = Color3.fromRGB(48, 92, 46) -- Deep Canadian evergreen grass
+	outerGrass.Size = Vector3.new(980, 6, 980)
+	outerGrass.CFrame = CFrame.new(0, 1, 0)
+	outerGrass.TopSurface = Enum.SurfaceType.Smooth
+	outerGrass.Parent = groundFolder
+
+	-- 3. COZY LOG CABIN VILLAGE & CAMPFIRE (Around t = 0.64 * 2 * pi)
+	local cabinFolder = Instance.new("Folder")
+	cabinFolder.Name = "LogCabinVillage"
+	cabinFolder.Parent = mapModel
+
+	local function createLogCabin(parent: Instance, cf: CFrame, w: number, h: number, d: number, name: string)
+		local cabinModel = Instance.new("Model")
+		cabinModel.Name = name
+
+		-- Main Log Body
+		local body = Instance.new("Part")
+		body.Name = "LogCabinBody"
+		body.Anchored = true
+		body.CanCollide = false
+		body.CastShadow = false
+		body.Material = Enum.Material.WoodPlanks
+		body.Color = Color3.fromRGB(92, 58, 32)
+		body.Size = Vector3.new(w, h, d)
+		body.CFrame = cf * CFrame.new(0, h / 2, 0)
+		body.Parent = cabinModel
+
+		-- Pitched Timber Roof with overhang
+		local roofW = w + 4
+		local roofD = d + 4
+		local roof = Instance.new("Part")
+		roof.Name = "CabinRoof"
+		roof.Anchored = true
+		roof.CanCollide = false
+		roof.CastShadow = false
+		roof.Material = Enum.Material.WoodPlanks
+		roof.Color = Color3.fromRGB(58, 36, 20)
+		roof.Size = Vector3.new(roofW, 3, roofD)
+		roof.CFrame = cf * CFrame.new(0, h + 1.5, 0)
+		roof.Parent = cabinModel
+
+		-- Cobblestone Stone Chimney
+		local chimney = Instance.new("Part")
+		chimney.Name = "StoneChimney"
+		chimney.Anchored = true
+		chimney.CanCollide = false
+		chimney.CastShadow = false
+		chimney.Material = Enum.Material.Cobblestone
+		chimney.Color = Color3.fromRGB(95, 90, 85)
+		chimney.Size = Vector3.new(3.5, h + 8, 3.5)
+		chimney.CFrame = cf * CFrame.new(w / 2 - 2, (h + 8) / 2, -d / 3)
+		chimney.Parent = cabinModel
+
+		-- Chimney Soft Smoke Emitter
+		local smoke = Instance.new("ParticleEmitter")
+		smoke.Name = "ChimneySmoke"
+		smoke.Color = ColorSequence.new(Color3.fromRGB(235, 235, 235))
+		smoke.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1.2), NumberSequenceKeypoint.new(1, 6.0) })
+		smoke.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.4), NumberSequenceKeypoint.new(1, 1.0) })
+		smoke.Speed = NumberRange.new(4, 8)
+		smoke.SpreadAngle = Vector2.new(12, 12)
+		smoke.Lifetime = NumberRange.new(2.5, 4.0)
+		smoke.Rate = 6
+		smoke.EmissionDirection = Enum.NormalId.Top
+		smoke.Parent = chimney
+
+		-- Cozy Glowing Golden Windows
+		for _, wOff in ipairs({ Vector3.new(-w / 3, h * 0.55, d / 2 + 0.2), Vector3.new(w / 3, h * 0.55, d / 2 + 0.2) }) do
+			local win = Instance.new("Part")
+			win.Name = "WarmWindow"
+			win.Anchored = true
+			win.CanCollide = false
+			win.CastShadow = false
+			win.Material = Enum.Material.Neon
+			win.Color = Color3.fromRGB(255, 215, 110)
+			win.Size = Vector3.new(4.5, 4.5, 0.4)
+			win.CFrame = cf * CFrame.new(wOff)
+			win.Parent = cabinModel
+
+			local wLight = Instance.new("PointLight")
+			wLight.Color = Color3.fromRGB(255, 195, 90)
+			wLight.Brightness = 2.5
+			wLight.Range = 22
+			wLight.Parent = win
+		end
+
+		-- Wooden Front Porch & Overhang
+		local porch = Instance.new("Part")
+		porch.Name = "CabinPorch"
+		porch.Anchored = true
+		porch.CanCollide = false
+		porch.CastShadow = false
+		porch.Material = Enum.Material.WoodPlanks
+		porch.Color = Color3.fromRGB(115, 75, 42)
+		porch.Size = Vector3.new(w + 2, 1.2, 8)
+		porch.CFrame = cf * CFrame.new(0, 0.6, d / 2 + 4)
+		porch.Parent = cabinModel
+
+		cabinModel.Parent = parent
+		return cabinModel
+	end
+
+	-- Place 3 Cozy Cabins along the hillside overlooking the lake
+	local cabinSpots = {
+		{ frac = 0.61, offX = -halfW - 28, offY = 2, offZ = 0,  w = 26, h = 14, d = 22, name = "CozyLakeChalet" },
+		{ frac = 0.65, offX = -halfW - 34, offY = 0, offZ = 8,  w = 22, h = 13, d = 18, name = "AnglerHavenCabin" },
+		{ frac = 0.68, offX = -halfW - 26, offY = 1, offZ = -6, w = 24, h = 14, d = 20, name = "PineRidgeLodge" },
+	}
+	for _, cs in ipairs(cabinSpots) do
+		local cp, cTan = getHavenPoint(cs.frac * 2 * math.pi)
+		local ccf = CFrame.lookAt(cp, cp + cTan) * CFrame.new(cs.offX, cs.offY, cs.offZ) * CFrame.Angles(0, math.rad(90), 0)
+		createLogCabin(cabinFolder, ccf, cs.w, cs.h, cs.d, cs.name)
+	end
+
+	-- Campfire Circle with River Stones, Charred Logs & Crackling Fire
+	local campP, campTan = getHavenPoint(0.635 * 2 * math.pi)
+	local campCF = CFrame.lookAt(campP, campP + campTan) * CFrame.new(-halfW - 14, 0.5, 6)
+
+	local fireBase = Instance.new("Part")
+	fireBase.Name = "CampfireBase"
+	fireBase.Anchored = true
+	fireBase.CanCollide = false
+	fireBase.CastShadow = false
+	fireBase.Material = Enum.Material.Pebble
+	fireBase.Color = Color3.fromRGB(90, 85, 80)
+	fireBase.Size = Vector3.new(12, 0.8, 12)
+	fireBase.CFrame = campCF
+	fireBase.Parent = cabinFolder
+
+	-- River Stone Ring
+	for s = 1, 8 do
+		local sAng = (s / 8) * math.pi * 2
+		local stone = Instance.new("Part")
+		stone.Name = "FireRingStone"
+		stone.Shape = Enum.PartType.Ball
+		stone.Anchored = true
+		stone.CanCollide = false
+		stone.CastShadow = false
+		stone.Material = Enum.Material.Rock
+		stone.Color = Color3.fromRGB(110, 105, 100)
+		stone.Size = Vector3.new(2.4, 2.0, 2.4)
+		stone.CFrame = campCF * CFrame.new(math.cos(sAng) * 4.2, 0.8, math.sin(sAng) * 4.2)
+		stone.Parent = cabinFolder
+	end
+
+	-- Campfire Flame Emitter & Warm Light
+	local firePart = Instance.new("Part")
+	firePart.Name = "CampfireFlamePart"
+	firePart.Anchored = true
+	firePart.CanCollide = false
+	firePart.CastShadow = false
+	firePart.Transparency = 1
+	firePart.Size = Vector3.new(2, 2, 2)
+	firePart.CFrame = campCF * CFrame.new(0, 1.2, 0)
+	firePart.Parent = cabinFolder
+
+	local cFire = Instance.new("ParticleEmitter")
+	cFire.Name = "CampfireFlame"
+	cFire.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 220, 80)),
+		ColorSequenceKeypoint.new(0.4, Color3.fromRGB(255, 120, 20)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(200, 40, 10))
+	})
+	cFire.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1.2), NumberSequenceKeypoint.new(1, 3.5) })
+	cFire.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.1), NumberSequenceKeypoint.new(1, 1.0) })
+	cFire.LightEmission = 0.85
+	cFire.Speed = NumberRange.new(6, 12)
+	cFire.Lifetime = NumberRange.new(0.6, 1.0)
+	cFire.Rate = 18
+	cFire.Parent = firePart
+
+	local cLight = Instance.new("PointLight")
+	cLight.Name = "CampfireLight"
+	cLight.Color = Color3.fromRGB(255, 140, 35)
+	cLight.Brightness = 3.8
+	cLight.Range = 28
+	cLight.Parent = firePart
+
+	-- Log Benches around campfire
+	for _, bAng in ipairs({ 0, math.rad(120), math.rad(240) }) do
+		local bench = Instance.new("Part")
+		bench.Name = "LogBench"
+		bench.Shape = Enum.PartType.Cylinder
+		bench.Anchored = true
+		bench.CanCollide = false
+		bench.CastShadow = false
+		bench.Material = Enum.Material.Wood
+		bench.Color = Color3.fromRGB(105, 68, 38)
+		bench.Size = Vector3.new(7.0, 2.2, 2.2)
+		bench.CFrame = campCF * CFrame.new(math.cos(bAng) * 7.5, 1.0, math.sin(bAng) * 7.5) * CFrame.Angles(0, bAng + math.rad(90), math.rad(90))
+		bench.Parent = cabinFolder
+	end
+
+	-- 4. LAKESIDE FISHING PIER & FRIENDLY FISHERMEN NPCS (At t = 0.655 * 2 * pi)
+	local pierFolder = Instance.new("Folder")
+	pierFolder.Name = "FishingPierAndAnglers"
+	pierFolder.Parent = mapModel
+
+	local pierP, pierTan = getHavenPoint(0.655 * 2 * math.pi)
+	local pierCF = CFrame.lookAt(pierP, pierP + pierTan) * CFrame.new(halfW + 4, 0, 0)
+
+	-- Wooden Pier Deck stretching into the emerald lake (Width 14, Length 48)
+	local pierDeck = Instance.new("Part")
+	pierDeck.Name = "LakesidePierDeck"
+	pierDeck.Anchored = true
+	pierDeck.CanCollide = true
+	pierDeck.CastShadow = false
+	pierDeck.Material = Enum.Material.WoodPlanks
+	pierDeck.Color = Color3.fromRGB(130, 92, 58)
+	pierDeck.Size = Vector3.new(46, 2.0, 14)
+	pierDeck.CFrame = pierCF * CFrame.new(23, 2.5, 0)
+	pierDeck.Parent = pierFolder
+
+	-- Pier Timber Pilings driven into lakebed
+	for _, px in ipairs({ 8, 22, 36, 44 }) do
+		for _, pz in ipairs({ -5.5, 5.5 }) do
+			local piling = Instance.new("Part")
+			piling.Name = "PierPiling"
+			piling.Anchored = true
+			piling.CanCollide = false
+			piling.CastShadow = false
+			piling.Material = Enum.Material.Wood
+			piling.Color = Color3.fromRGB(75, 48, 28)
+			piling.Size = Vector3.new(2.4, 14, 2.4)
+			piling.CFrame = pierDeck.CFrame * CFrame.new(px - 23, -5, pz)
+			piling.Parent = pierFolder
+		end
+	end
+
+	-- Warm Brass Pier Lantern Posts
+	for _, lz in ipairs({ -5.5, 5.5 }) do
+		local pPost = Instance.new("Part")
+		pPost.Name = "PierLanternPost"
+		pPost.Anchored = true
+		pPost.CanCollide = false
+		pPost.CastShadow = false
+		pPost.Material = Enum.Material.Wood
+		pPost.Color = Color3.fromRGB(60, 38, 22)
+		pPost.Size = Vector3.new(1.4, 9, 1.4)
+		pPost.CFrame = pierDeck.CFrame * CFrame.new(20, 5.5, lz)
+		pPost.Parent = pierFolder
+
+		local pLamp = Instance.new("Part")
+		pLamp.Name = "PierLamp"
+		pLamp.Anchored = true
+		pLamp.CanCollide = false
+		pLamp.CastShadow = false
+		pLamp.Material = Enum.Material.Neon
+		pLamp.Color = Color3.fromRGB(255, 225, 120)
+		pLamp.Size = Vector3.new(2.0, 2.8, 2.0)
+		pLamp.CFrame = pPost.CFrame * CFrame.new(0, 5.0, 0)
+		pLamp.Parent = pierFolder
+
+		local pLight = Instance.new("PointLight")
+		pLight.Color = Color3.fromRGB(255, 205, 95)
+		pLight.Brightness = 2.8
+		pLight.Range = 22
+		pLight.Parent = pLamp
+	end
+
+	-- Helper: Create Fisherman NPC
+	local function createFishermanNPC(parent: Instance, name: string, titleText: string, cf: CFrame, shirtColor: Color3, pantsColor: Color3)
+		local npcModel = Instance.new("Model")
+		npcModel.Name = name
+
+		-- Seated Pelvis & Legs
+		local legs = Instance.new("Part")
+		legs.Name = "Legs"
+		legs.Anchored = true
+		legs.CanCollide = false
+		legs.CastShadow = false
+		legs.Material = Enum.Material.SmoothPlastic
+		legs.Color = pantsColor
+		legs.Size = Vector3.new(3.0, 1.6, 3.2)
+		legs.CFrame = cf * CFrame.new(0, 0.8, 0)
+		legs.Parent = npcModel
+
+		-- Torso (Flannel Shirt)
+		local torso = Instance.new("Part")
+		torso.Name = "Torso"
+		torso.Anchored = true
+		torso.CanCollide = false
+		torso.CastShadow = false
+		torso.Material = Enum.Material.SmoothPlastic
+		torso.Color = shirtColor
+		torso.Size = Vector3.new(3.6, 4.0, 2.0)
+		torso.CFrame = cf * CFrame.new(0, 3.4, 0)
+		torso.Parent = npcModel
+		npcModel.PrimaryPart = torso
+
+		-- Head
+		local head = Instance.new("Part")
+		head.Name = "Head"
+		head.Shape = Enum.PartType.Ball
+		head.Anchored = true
+		head.CanCollide = false
+		head.CastShadow = false
+		head.Material = Enum.Material.SmoothPlastic
+		head.Color = Color3.fromRGB(255, 215, 175)
+		head.Size = Vector3.new(2.2, 2.2, 2.2)
+		head.CFrame = cf * CFrame.new(0, 6.0, 0)
+		head.Parent = npcModel
+
+		-- Fisherman's Bucket Hat
+		local hat = Instance.new("Part")
+		hat.Name = "BucketHat"
+		hat.Shape = Enum.PartType.Cylinder
+		hat.Anchored = true
+		hat.CanCollide = false
+		hat.CastShadow = false
+		hat.Material = Enum.Material.Fabric
+		hat.Color = Color3.fromRGB(180, 165, 120)
+		hat.Size = Vector3.new(1.0, 3.2, 3.2)
+		hat.CFrame = head.CFrame * CFrame.new(0, 1.1, 0) * CFrame.Angles(0, 0, math.rad(90))
+		hat.Parent = npcModel
+
+		-- Fishing Rod extending out over the lake
+		local rod = Instance.new("Part")
+		rod.Name = "FishingRod"
+		rod.Anchored = true
+		rod.CanCollide = false
+		rod.CastShadow = false
+		rod.Material = Enum.Material.Wood
+		rod.Color = Color3.fromRGB(120, 80, 45)
+		rod.Size = Vector3.new(0.5, 0.5, 18.0)
+		rod.CFrame = cf * CFrame.new(1.5, 4.0, 8.0) * CFrame.Angles(math.rad(-22), math.rad(15), 0)
+		rod.Parent = npcModel
+
+		-- Fishing Line & Bobber (floating in emerald water)
+		local bobber = Instance.new("Part")
+		bobber.Name = "FloatBobber"
+		bobber.Shape = Enum.PartType.Ball
+		bobber.Anchored = true
+		bobber.CanCollide = false
+		bobber.CastShadow = false
+		bobber.Material = Enum.Material.Neon
+		bobber.Color = Color3.fromRGB(255, 55, 45)
+		bobber.Size = Vector3.new(1.2, 1.2, 1.2)
+		bobber.CFrame = cf * CFrame.new(2.5, 2.2, 22.0)
+		bobber.Parent = npcModel
+
+		-- Tackle Box & Fish Bucket
+		local bucket = Instance.new("Part")
+		bucket.Name = "FishBucket"
+		bucket.Shape = Enum.PartType.Cylinder
+		bucket.Anchored = true
+		bucket.CanCollide = false
+		bucket.CastShadow = false
+		bucket.Material = Enum.Material.Metal
+		bucket.Color = Color3.fromRGB(160, 170, 180)
+		bucket.Size = Vector3.new(2.2, 2.0, 2.0)
+		bucket.CFrame = cf * CFrame.new(-2.8, 1.1, 0) * CFrame.Angles(0, 0, math.rad(90))
+		bucket.Parent = npcModel
+
+		-- Title BillboardGui
+		local bb = Instance.new("BillboardGui")
+		bb.Name = "AnglerTitleHUD"
+		bb.Size = UDim2.new(0, 240, 0, 50)
+		bb.StudsOffset = Vector3.new(0, 4.8, 0)
+		bb.AlwaysOnTop = true
+		bb.MaxDistance = 300
+		bb.Parent = head
+
+		local title = Instance.new("TextLabel")
+		title.Size = UDim2.new(1, 0, 1, 0)
+		title.BackgroundTransparency = 1
+		title.Font = Enum.Font.FredokaOne
+		title.Text = titleText
+		title.TextColor3 = Color3.fromRGB(255, 230, 110)
+		title.TextStrokeColor3 = Color3.fromRGB(25, 20, 10)
+		title.TextStrokeTransparency = 0
+		title.TextSize = 22
+		title.Parent = bb
+
+		npcModel.Parent = parent
+		return npcModel
+	end
+
+	-- Fisherman 1: Bob (sitting on pier end, red flannel)
+	local bobCF = pierDeck.CFrame * CFrame.new(18, 1.0, 0) * CFrame.Angles(0, math.rad(90), 0)
+	createFishermanNPC(pierFolder, "FishermanBob", "🎣 낚시꾼 밥 (Fisherman Bob)", bobCF, Color3.fromRGB(190, 45, 35), Color3.fromRGB(45, 65, 105))
+
+	-- Fisherman 2: John (sitting on pier side bench, forest green flannel)
+	local johnCF = pierDeck.CFrame * CFrame.new(4, 1.0, -4.5) * CFrame.Angles(0, math.rad(180), 0)
+	createFishermanNPC(pierFolder, "AnglerJohn", "🎣 강태공 존 (Angler John)", johnCF, Color3.fromRGB(45, 125, 65), Color3.fromRGB(60, 50, 40))
+
+	-- 2 Canadian Cedar Canoes moored alongside the pier
+	for cIdx, cOff in ipairs({ Vector3.new(14, -0.2, 10), Vector3.new(28, -0.2, 10) }) do
+		local canoe = Instance.new("Part")
+		canoe.Name = "CanadianCanoe_" .. cIdx
+		canoe.Anchored = true
+		canoe.CanCollide = false
+		canoe.CastShadow = false
+		canoe.Material = Enum.Material.WoodPlanks
+		canoe.Color = Color3.fromRGB(165, 95, 45) -- Warm Canadian cedar
+		canoe.Size = Vector3.new(18, 2.5, 4.5)
+		canoe.CFrame = pierDeck.CFrame * CFrame.new(cOff) * CFrame.Angles(0, 0, math.rad(cIdx == 1 and 4 or -4))
+		canoe.Parent = pierFolder
+
+		-- Wooden Oar resting across canoe
+		local oar = Instance.new("Part")
+		oar.Name = "CanoeOar"
+		oar.Anchored = true
+		oar.CanCollide = false
+		oar.CastShadow = false
+		oar.Material = Enum.Material.Wood
+		oar.Color = Color3.fromRGB(190, 145, 90)
+		oar.Size = Vector3.new(12, 0.4, 0.8)
+		oar.CFrame = canoe.CFrame * CFrame.new(0, 1.4, 0) * CFrame.Angles(0, math.rad(25), 0)
+		oar.Parent = canoe
+	end
+
+	-- 5. SCENIC WOODEN TRESTLE BRIDGE (Spanning frac = 0.70 to 0.86 over Emerald Bay)
+	local bridgeFolder = Instance.new("Folder")
+	bridgeFolder.Name = "WoodenTrestleBridge"
+	bridgeFolder.Parent = mapModel
+
+	local bStartIdx = math.floor(0.70 * SEGMENTS)
+	local bEndIdx   = math.floor(0.86 * SEGMENTS)
+
+	-- Timber Bridge Entrance & Exit Portals
+	for _, bt in ipairs({ (bStartIdx / SEGMENTS) * 2 * math.pi, (bEndIdx / SEGMENTS) * 2 * math.pi }) do
+		local bp, bTan = getHavenPoint(bt)
+		local bcf = CFrame.lookAt(bp, bp + bTan)
+
+		local portalModel = Instance.new("Model")
+		portalModel.Name = "TrestlePortal"
+		portalModel.Parent = bridgeFolder
+
+		for _, side in ipairs({ -1, 1 }) do
+			local pCol = Instance.new("Part")
+			pCol.Name = "PortalColumn"
+			pCol.Anchored = true
+			pCol.CanCollide = false
+			pCol.CastShadow = false
+			pCol.Material = Enum.Material.Wood
+			pCol.Color = Color3.fromRGB(80, 48, 28)
+			pCol.Size = Vector3.new(4.5, 34, 4.5)
+			pCol.CFrame = bcf * CFrame.new(side * (halfW + 3), 17, 0)
+			pCol.Parent = portalModel
+		end
+
+		local pBeam = Instance.new("Part")
+		pBeam.Name = "PortalTopBeam"
+		pBeam.Anchored = true
+		pBeam.CanCollide = false
+		pBeam.CastShadow = false
+		pBeam.Material = Enum.Material.Wood
+		pBeam.Color = Color3.fromRGB(68, 40, 22)
+		pBeam.Size = Vector3.new(TRACK_WIDTH + 14, 4.0, 4.5)
+		pBeam.CFrame = bcf * CFrame.new(0, 34, 0)
+		pBeam.Parent = portalModel
+
+		-- Hanging Brass Lantern on Portal
+		local bLamp = Instance.new("Part")
+		bLamp.Name = "PortalLantern"
+		bLamp.Anchored = true
+		bLamp.CanCollide = false
+		bLamp.CastShadow = false
+		bLamp.Material = Enum.Material.Neon
+		bLamp.Color = Color3.fromRGB(255, 220, 120)
+		bLamp.Size = Vector3.new(2.4, 3.2, 2.4)
+		bLamp.CFrame = bcf * CFrame.new(0, 30.5, 0)
+		bLamp.Parent = portalModel
+
+		local bLight = Instance.new("PointLight")
+		bLight.Color = Color3.fromRGB(255, 195, 80)
+		bLight.Brightness = 3.0
+		bLight.Range = 26
+		bLight.Parent = bLamp
+	end
+
+	-- 6. MAJESTIC CANADIAN ROCKY MOUNTAINS (Panoramic Ring)
+	local mountainFolder = Instance.new("Folder")
+	mountainFolder.Name = "RockyMountainAmphitheater"
+	mountainFolder.Parent = mapModel
+
+	local darkSlate = Color3.fromRGB(68, 64, 58)
+	local midSlate  = Color3.fromRGB(82, 78, 72)
+
+	local mountainPeaks = 14
+	for m = 1, mountainPeaks do
+		local mAng = (m / mountainPeaks) * math.pi * 2
+		local mDist = 440 + (m % 3) * 45
+		local mx = math.sin(mAng) * mDist
+		local mz = math.cos(mAng) * mDist
+
+		local peakH = 150 + (m % 4) * 25
+		local peakW = 130 + (m % 3) * 20
+		local peakD = 120 + (m % 2) * 25
+
+		local mountain = Instance.new("Part")
+		mountain.Name = "RockyMountainPeak_" .. m
+		mountain.Anchored = true
+		mountain.CanCollide = false
+		mountain.CastShadow = false
+		mountain.Material = Enum.Material.Slate
+		mountain.Color = (m % 2 == 0) and darkSlate or midSlate
+		mountain.Size = Vector3.new(peakW, peakH, peakD)
+		mountain.CFrame = CFrame.new(mx, peakH / 2 - 10, mz) * CFrame.Angles(math.rad(m % 3 == 0 and 6 or -6), math.rad(m * 25), 0)
+		mountain.Parent = mountainFolder
+
+		-- Glistening Alpine Snow Cap atop peak
+		local snowCap = Instance.new("Part")
+		snowCap.Name = "MountainSnowCap"
+		snowCap.Anchored = true
+		snowCap.CanCollide = false
+		snowCap.CastShadow = false
+		snowCap.Material = Enum.Material.Snow
+		snowCap.Color = Color3.fromRGB(250, 252, 255)
+		snowCap.Size = Vector3.new(peakW * 0.72, peakH * 0.32, peakD * 0.72)
+		snowCap.CFrame = mountain.CFrame * CFrame.new(0, peakH * 0.36, 0)
+		snowCap.Parent = mountainFolder
+	end
+
+	-- 7. DENSE CANADIAN EVERGREEN FOREST SCENERY
+	local sceneryFolder = Instance.new("Folder")
+	sceneryFolder.Name = "EvergreenForestScenery"
+	sceneryFolder.Parent = mapModel
+
+	local availableTrees = {}
+	if treeTemplates then
+		for _, tName in ipairs({ "Tree_4893246329", "Tree_8999194306", "Tree_24715381", "Tree_15692092527", "Tree_12549617200", "Tree_10707210767" }) do
+			local tpl = treeTemplates:FindFirstChild(tName)
+			if tpl and tpl:IsA("Model") then
+				table.insert(availableTrees, tpl)
+			end
+		end
+	end
+
+	for pStep = 1, 46 do
+		local t = (pStep / 46) * math.pi * 2
+		local p, tan = getHavenPoint(t)
+		local normal = Vector3.new(-tan.Z, 0, tan.X).Unit
+
+		for _, side in ipairs({ -1, 1 }) do
+			local offset = 48 + (pStep % 4) * 14
+			local px = p.X + side * normal.X * offset
+			local pz = p.Z + side * normal.Z * offset
+
+			if distToTrack(px, pz) >= 42 and math.abs(px) < 400 and math.abs(pz) < 420 then
+				local scale = 1.6 + (pStep % 4) * 0.25
+				local yaw = math.rad(math.random(0, 360))
+
+				if #availableTrees > 0 then
+					local tpl = availableTrees[((pStep + (side == 1 and 0 or 2)) % #availableTrees) + 1]
+					placeScaledAssetModel(tpl, sceneryFolder, "CanadianPine", Vector3.new(px, 1, pz), 1, scale, yaw)
+				else
+					createFallbackPine(sceneryFolder, Vector3.new(px, 1, pz), 1, scale, false)
+				end
+			end
+		end
+	end
+
+	-- 8. CHECKPOINTS (1..6)
+	local cpFolder = Instance.new("Folder")
+	cpFolder.Name = "Checkpoints"
+	cpFolder.Parent = mapModel
+
+	local cpAngles = {
+		{ name = "1", frac = 0.20 }, -- Lakeside Promenade
+		{ name = "2", frac = 0.40 }, -- Pine Ridge Climb
+		{ name = "3", frac = 0.60 }, -- Log Cabin Village
+		{ name = "4", frac = 0.72 }, -- Fishing Pier & Trestle Bridge Entrance
+		{ name = "5", frac = 0.84 }, -- Trestle Bridge Bay Crossing
+		{ name = "6", frac = 0.00 }, -- Start / Finish Line Arch!
+	}
+
+	for _, cpData in ipairs(cpAngles) do
+		local p, tan = getHavenPoint(cpData.frac * 2 * math.pi)
+		local cf = CFrame.lookAt(p, p + tan)
+
+		local cpPart = Instance.new("Part")
+		cpPart.Name = cpData.name
+		cpPart.Anchored = true
+		cpPart.CanCollide = false
+		cpPart.Transparency = 1
+		cpPart.Size = Vector3.new(TRACK_WIDTH + 14, 28, 22)
+		cpPart.CFrame = cf * CFrame.new(0, 14, 0)
+		cpPart.Parent = cpFolder
+	end
+
+	-- 9. START / FINISH LINE & RUSTIC TIMBER ARCH
+	local startP, startTan = getHavenPoint(0.0)
+	local flatForward = Vector3.new(startTan.X, 0, startTan.Z).Unit
+	local startPos = startP + Vector3.new(0, 0.4, 0)
+	local startCFrame = CFrame.lookAt(startPos, startPos - flatForward)
+
+	local startGrid = Instance.new("Part")
+	startGrid.Name = "TrackStartGridPart"
+	startGrid.Anchored = true
+	startGrid.CanCollide = false
+	startGrid.Transparency = 1
+	startGrid.Size = Vector3.new(TRACK_WIDTH, 2, 10)
+	startGrid.CFrame = startCFrame * CFrame.new(0, 1.5, -3)
+	startGrid.Parent = mapModel
+
+	local startModel = Instance.new("Model")
+	startModel.Name = "StartingPoint"
+	startModel.Parent = mapModel
+
+	local lineLength = 12.0
+	local lineWidth = TRACK_WIDTH + 4.0
+	local lineYOffset = 1.08
+
+	local startLineBase = Instance.new("Part")
+	startLineBase.Name = "StartLineBase"
+	startLineBase.Anchored = true
+	startLineBase.CanCollide = false
+	startLineBase.Material = Enum.Material.WoodPlanks
+	startLineBase.Color = Color3.fromRGB(42, 28, 18)
+	startLineBase.Size = Vector3.new(lineWidth, 0.15, lineLength)
+	startLineBase.CFrame = startCFrame * CFrame.new(0, lineYOffset, 0)
+	startLineBase.Parent = startModel
+	startModel.PrimaryPart = startLineBase
+
+	local rows = 2
+	local cols = 10
+	local tileW = lineWidth / cols
+	local tileL = lineLength / rows
+	for r = 1, rows do
+		for c = 1, cols do
+			local isWhite = ((r + c) % 2 == 0)
+			local offsetX = - (lineWidth / 2) + (c - 0.5) * tileW
+			local offsetZ = - (lineLength / 2) + (r - 0.5) * tileL
+			local tile = Instance.new("Part")
+			tile.Name = "CheckerTile"
+			tile.Anchored = true
+			tile.CanCollide = false
+			tile.CastShadow = false
+			tile.Material = Enum.Material.SmoothPlastic
+			tile.Color = isWhite and Color3.fromRGB(245, 245, 240) or Color3.fromRGB(30, 25, 25)
+			tile.Size = Vector3.new(tileW, 0.18, tileL)
+			tile.CFrame = startCFrame * CFrame.new(offsetX, lineYOffset + 0.02, offsetZ)
+			tile.Parent = startModel
+		end
+	end
+
+	local archAheadZ = 24.0
+	local archHeight = 28.0
+	local pillarOffset = (lineWidth / 2) + 4.0
+	local archCenterCFrame = startCFrame * CFrame.new(0, 0, archAheadZ)
+
+	for _, sideX in ipairs({ -pillarOffset, pillarOffset }) do
+		local pillar = Instance.new("Part")
+		pillar.Name = "StartArchPillar"
+		pillar.Anchored = true
+		pillar.CanCollide = true
+		pillar.Material = Enum.Material.Wood
+		pillar.Color = Color3.fromRGB(75, 45, 25)
+		pillar.Size = Vector3.new(5.0, archHeight, 6.0)
+		pillar.CFrame = archCenterCFrame * CFrame.new(sideX, archHeight / 2, 0)
+		pillar.Parent = startModel
+	end
+
+	local topBeam = Instance.new("Part")
+	topBeam.Name = "StartArchTopBeam"
+	topBeam.Anchored = true
+	topBeam.CanCollide = true
+	topBeam.Material = Enum.Material.Wood
+	topBeam.Color = Color3.fromRGB(62, 36, 18)
+	topBeam.Size = Vector3.new((pillarOffset * 2) + 6.0, 4.5, 6.0)
+	topBeam.CFrame = archCenterCFrame * CFrame.new(0, archHeight + 2, 0)
+	topBeam.Parent = startModel
+
+	-- Rustic National Park Signboard mounted flush on top beam
+	local signBoard = Instance.new("Part")
+	signBoard.Name = "StartSignBoard"
+	signBoard.Anchored = true
+	signBoard.CanCollide = false
+	signBoard.CastShadow = false
+	signBoard.Material = Enum.Material.WoodPlanks
+	signBoard.Color = Color3.fromRGB(42, 24, 14)
+	signBoard.Size = Vector3.new(46, 4.4, 1.2)
+	signBoard.CFrame = topBeam.CFrame * CFrame.new(0, 0, -3.2)
+	signBoard.Parent = startModel
+
+	for _, face in ipairs({ Enum.NormalId.Front, Enum.NormalId.Back }) do
+		local signGui = Instance.new("SurfaceGui")
+		signGui.Name = "StartSignGui_" .. tostring(face)
+		signGui.Face = face
+		signGui.CanvasSize = Vector2.new(920, 110)
+		signGui.SizingMode = Enum.SurfaceGuiSizingMode.FixedSize
+		signGui.LightInfluence = 0
+		signGui.Parent = signBoard
+
+		local signText = Instance.new("TextLabel")
+		signText.Size = UDim2.new(1, 0, 1, 0)
+		signText.BackgroundTransparency = 1
+		signText.Font = Enum.Font.FredokaOne
+		signText.Text = "🌲 EMERALD LAKE HAVEN 🌲"
+		signText.TextColor3 = Color3.fromRGB(240, 220, 110)
+		signText.TextStrokeColor3 = Color3.fromRGB(25, 18, 10)
+		signText.TextStrokeTransparency = 0
+		signText.TextScaled = true
+		signText.Parent = signGui
+	end
+
+	-- Countdown Signal Lights Pod (Traffic lights) hanging below the arch beam
+	local lightPodCFrame = topBeam.CFrame * CFrame.new(0, -4.8, -1.0)
+	local lightPod = Instance.new("Part")
+	lightPod.Name = "SignalLightPod"
+	lightPod.Anchored = true
+	lightPod.CanCollide = false
+	lightPod.CastShadow = false
+	lightPod.Material = Enum.Material.WoodPlanks
+	lightPod.Color = Color3.fromRGB(30, 20, 12)
+	lightPod.Size = Vector3.new(24.0, 5.0, 2.5)
+	lightPod.CFrame = lightPodCFrame
+	lightPod.Parent = startModel
+
+	local signalColors = {
+		{ name = "RedLight", color = Color3.fromRGB(255, 40, 40), offsetX = 7.0 },
+		{ name = "YellowLight", color = Color3.fromRGB(255, 200, 30), offsetX = 0 },
+		{ name = "GreenLight", color = Color3.fromRGB(40, 255, 80), offsetX = -7.0 },
+	}
+
+	for _, sig in ipairs(signalColors) do
+		local lightPart = Instance.new("Part")
+		lightPart.Name = sig.name
+		lightPart.Anchored = true
+		lightPart.CanCollide = false
+		lightPart.CastShadow = false
+		lightPart.Shape = Enum.PartType.Ball
+		lightPart.Material = Enum.Material.Neon
+		lightPart.Color = sig.color
+		lightPart.Size = Vector3.new(4.0, 4.0, 4.0)
+		lightPart.CFrame = lightPodCFrame * CFrame.new(sig.offsetX, 0, -1.2)
+		lightPart.Parent = startModel
+
+		local pLight = Instance.new("PointLight")
+		pLight.Color = sig.color
+		pLight.Brightness = 4.0
+		pLight.Range = 16
+		pLight.Parent = lightPart
+	end
+
+	-- 10. DYNAMIC HEALING EFFECTS SCRIPT (Campfire flicker & gentle water ripple)
+	local fxScript = Instance.new("Script")
+	fxScript.Name = "EmeraldLakeEffects"
+	fxScript.Source = [=[
+local map = script.Parent
+if not map then return end
+
+if not map:IsDescendantOf(workspace) then
+	map.AncestryChanged:Wait()
+	if not map:IsDescendantOf(workspace) then return end
+end
+
+local cabinFolder = map:FindFirstChild("LogCabinVillage")
+local campfirePart = cabinFolder and cabinFolder:FindFirstChild("CampfireFlamePart", true)
+local campfireLight = campfirePart and campfirePart:FindFirstChildWhichIsA("PointLight")
+
+-- Cozy Campfire Light Flicker Loop
+if campfireLight then
+	task.spawn(function()
+		while map and map.Parent do
+			campfireLight.Brightness = 3.5 + math.random(-4, 5) * 0.15
+			task.wait(0.12)
+		end
+	end)
+end
+]=]
+	fxScript.Parent = mapModel
+
+	-- 11. COLLISION & PERFORMANCE PASS
+	for _, d in ipairs(mapModel:GetDescendants()) do
+		if d:IsA("BasePart") then
+			if d.Parent and d.Parent.Name == "Checkpoints" then
+				d.CanTouch = true
+				d.CanQuery = false
+			else
+				d.CanTouch = false
+				if not d.CanCollide then
+					d.CanQuery = false
+				end
+			end
+
+			-- Disable dynamic shadows on repetitive decorative parts
+			local name = d.Name
+			if name:find("Track") or name:find("Rope") or name:find("Rail") or name:find("Stripe")
+				or name:find("Curb") or name:find("Water") or name:find("LakeBed") or name:find("Floor")
+				or name:find("Pine") or name:find("Trunk") or name:find("Leaf") or name:find("Leaves")
+				or name:find("Piling") or name:find("Pier") or name:find("Canoe") or name:find("Oar")
+				or name:find("Checker") or name:find("StartLine") or name:find("Sign") or name:find("LightPod")
+				or name:find("Lamp") or name:find("Lantern") or name:find("Peak") or name:find("SnowCap")
+				or name:find("Cabin") or name:find("Roof") or name:find("Chimney") or name:find("Window")
+				or name:find("Porch") or name:find("Stone") or name:find("Bench") or name:find("Rod")
+				or name:find("Bobber") or name:find("Bucket") or name:find("Portal") then
+				d.CastShadow = false
+			end
+		end
+	end
+
+	mapModel.PrimaryPart = startGrid
+	optimizeMapCollisionFlags(mapModel)
+	return mapModel
+end
+
 return MapBuilder

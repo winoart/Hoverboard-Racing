@@ -15,6 +15,7 @@ MapManager.MapLaps = {
 	["Frost Glacier"] = 3,
 	["Autobahn Highway"] = 1,
 	["Pirate Treasure Island"] = 3,
+	["Emerald Lake Haven"] = 3,
 	["Cyber City"] = 3,
 	["Magma Ridge"] = 3,
 }
@@ -122,6 +123,10 @@ function MapManager.ensureMapTemplate(mapName: string): Model
 		return newModel
 	elseif mapName == "Pirate Treasure Island" then
 		local newModel = MapBuilder.buildPirateTreasureIslandModel()
+		newModel.Parent = mapsFolder
+		return newModel
+	elseif mapName == "Emerald Lake Haven" then
+		local newModel = MapBuilder.buildEmeraldLakeHavenModel()
 		newModel.Parent = mapsFolder
 		return newModel
 	elseif mapName == "Cyber City" then
