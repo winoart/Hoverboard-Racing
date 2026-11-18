@@ -4295,75 +4295,82 @@ end
 function MapBuilder.buildEmeraldLakeHavenModel(): Model
 	local ReplicatedStorage = game:GetService("ReplicatedStorage")
 	local treeTemplates = ReplicatedStorage:FindFirstChild("TreeTemplates")
+	local mountainAssets = ReplicatedStorage:FindFirstChild("MountainAssets")
 
 	local mapModel = Instance.new("Model")
 	mapModel.Name = "Emerald Lake Haven"
 
-	local SEGMENTS = 240
+	local SEGMENTS = 360
 	local TRACK_WIDTH = 58
 	local halfW = TRACK_WIDTH / 2
 	local TRACK_THICKNESS = 2.4
 
-	local function getHavenPoint(t: number): (Vector3, Vector3)
-		local x = 320 * math.sin(t) + 65 * math.sin(2 * t)
-		local z = -340 * math.cos(t) + 45 * math.cos(2 * t)
+	-- 18 Strategic Canadian Rally Waypoints (Large winding circuit with balanced left & right turns, S-curves, chicanes)
+	local waypoints = {
+		Vector3.new(0, 12, -580),     -- 0: Start / Finish Line (Lakeside Promenade)
+		Vector3.new(260, 12, -580),   -- 1: Start straight speed run
+		Vector3.new(420, 14, -500),   -- 2: Turn 1 Right sweep
+		Vector3.new(580, 16, -360),   -- 3: Turn 2 Right entry into Eastern Pine Forest (CP 1)
+		Vector3.new(640, 18, -140),   -- 4: Turn 3 Right sweeping bend
+		Vector3.new(460, 20, 40),     -- 5: CHICANE 1: Deep Left cut into Emerald Cove
+		Vector3.new(620, 22, 240),    -- 6: CHICANE 1: Quick Right flick around Pine Peak (CP 2)
+		Vector3.new(480, 24, 460),    -- 7: Turn 5 Left sweeper towards Cabin Valley
+		Vector3.new(260, 26, 380),    -- 8: CHICANE 2: Right cut towards Log Cabin Village (CP 3)
+		Vector3.new(80, 32, 520),     -- 9: CHICANE 2: Left climb onto Pine Ridge
+		Vector3.new(-180, 40, 580),   -- 10: Turn 7 Sweeping Left along Mountain Ridge Pass
+		Vector3.new(-440, 34, 500),   -- 11: Turn 8 Left descending sweeper (CP 4)
+		Vector3.new(-520, 26, 320),   -- 12: CHICANE 3: Right flick before Trestle Bridge
+		Vector3.new(-660, 22, 160),   -- 13: High Trestle Bridge entry portal
+		Vector3.new(-640, 18, -120),  -- 14: Trestle Bridge span over Emerald Bay (CP 5)
+		Vector3.new(-420, 14, -200),  -- 15: CHICANE 4: Deep Right turn at Fishing Pier Cove
+		Vector3.new(-480, 13, -420),  -- 16: Turn 11 Left exit back towards Lake North
+		Vector3.new(-260, 12, -570),  -- 17: Turn 12 Final gentle Right sweep onto Main Straight
+	}
+	local N = #waypoints
 
-		local dx = 320 * math.cos(t) + 130 * math.cos(2 * t)
-		local dz = 340 * math.sin(t) - 90 * math.sin(2 * t)
+	-- Closed Catmull-Rom Spline Interpolator with Analytic Tangent Vector
+	local function getHavenPoint(u: number): (Vector3, Vector3)
+		u = u % N
+		local i = math.floor(u)
+		local s = u - i
 
-		local frac = t / (2 * math.pi)
-		local y = 12.0
-		local dy = 0.0
+		local p0 = waypoints[((i - 1 + N) % N) + 1]
+		local p1 = waypoints[(i % N) + 1]
+		local p2 = waypoints[((i + 1) % N) + 1]
+		local p3 = waypoints[((i + 2) % N) + 1]
 
-		if frac < 0.22 then
-			y = 12.0
-			dy = 0.0
-		elseif frac < 0.42 then
-			local u = (frac - 0.22) / 0.20
-			local s = u * u * (3 - 2 * u)
-			local ds = (6 * u - 6 * u * u) / 0.20
-			y = 12.0 + 22.0 * s
-			dy = (22.0 * ds) / (2 * math.pi)
-		elseif frac < 0.58 then
-			y = 34.0
-			dy = 0.0
-		elseif frac < 0.70 then
-			local u = (frac - 0.58) / 0.12
-			local s = u * u * (3 - 2 * u)
-			local ds = (6 * u - 6 * u * u) / 0.12
-			y = 34.0 - 18.0 * s
-			dy = (-18.0 * ds) / (2 * math.pi)
-		elseif frac < 0.86 then
-			local u = (frac - 0.70) / 0.16
-			local s = 4 * u * (1 - u)
-			local ds = (4 - 8 * u) / 0.16
-			y = 16.0 + 9.0 * s
-			dy = (9.0 * ds) / (2 * math.pi)
-		else
-			local u = (frac - 0.86) / 0.14
-			local s = u * u * (3 - 2 * u)
-			local ds = (6 * u - 6 * u * u) / 0.14
-			y = 16.0 - 4.0 * s
-			dy = (-4.0 * ds) / (2 * math.pi)
-		end
+		local s2 = s * s
+		local s3 = s2 * s
 
-		local pos = Vector3.new(x, y, z)
-		local tan = Vector3.new(dx, dy, dz).Unit
-		return pos, tan
+		local pos = 0.5 * (
+			(2 * p1) +
+			(-p0 + p2) * s +
+			(2 * p0 - 5 * p1 + 4 * p2 - p3) * s2 +
+			(-p0 + 3 * p1 - 3 * p2 + p3) * s3
+		)
+
+		local tan = 0.5 * (
+			(-p0 + p2) +
+			2 * (2 * p0 - 5 * p1 + 4 * p2 - p3) * s +
+			3 * (-p0 + 3 * p1 - 3 * p2 + p3) * s2
+		)
+		local tanMag = tan.Magnitude
+		local tanUnit = (tanMag > 0.001) and (tan / tanMag) or Vector3.new(1, 0, 0)
+		return pos, tanUnit
 	end
 
 	local function distToTrack(x: number, z: number): number
 		local minDist = 99999
-		for step = 1, 60 do
-			local t = (step / 60) * math.pi * 2
-			local p = getHavenPoint(t)
+		for step = 1, 90 do
+			local u = (step / 90) * N
+			local p = getHavenPoint(u)
 			local d = math.sqrt((x - p.X)^2 + (z - p.Z)^2)
 			if d < minDist then minDist = d end
 		end
 		return minDist
 	end
 
-	-- 1. TRACK & GUARDWALLS
+	-- 1. TRACK & GUARDWALLS (360 Segments with Dynamic Theming)
 	local trackFolder = Instance.new("Folder")
 	trackFolder.Name = "HoverboardTrack"
 	trackFolder.Parent = mapModel
@@ -4372,33 +4379,37 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 	local slateMat   = Enum.Material.Slate
 
 	for i = 1, SEGMENTS do
-		local t1 = ((i - 1) / SEGMENTS) * math.pi * 2
-		local t2 = (i / SEGMENTS) * math.pi * 2
-		local p1 = getHavenPoint(t1)
-		local p2 = getHavenPoint(t2)
+		local u1 = ((i - 1) / SEGMENTS) * N
+		local u2 = (i / SEGMENTS) * N
+		local p1 = getHavenPoint(u1)
+		local p2 = getHavenPoint(u2)
 
 		local midPos = (p1 + p2) * 0.5
 		local segLen = (p2 - p1).Magnitude + 1.2
 		local cf = CFrame.lookAt(midPos, p2)
 
-		local frac = t1 / (2 * math.pi)
-		local isPromenade    = (frac < 0.22)
-		local isPineRidge    = (frac >= 0.22 and frac < 0.58)
-		local isVillageRun   = (frac >= 0.58 and frac < 0.70)
-		local isTrestleBridge= (frac >= 0.70 and frac < 0.86)
-		local isShoreline    = (frac >= 0.86)
+		local frac = (i - 1) / SEGMENTS
+		local isPromenade     = (frac < 0.18)
+		local isForestAndCove = (frac >= 0.18 and frac < 0.44)
+		local isVillageRun    = (frac >= 0.44 and frac < 0.58)
+		local isPineRidgePass = (frac >= 0.58 and frac < 0.72)
+		local isTrestleBridge = (frac >= 0.72 and frac < 0.88)
+		local isShoreline     = (frac >= 0.88)
 
 		local roadMat = woodPlanks
 		local roadColor = Color3.fromRGB(135, 96, 64) -- Cedar lakeside boardwalk
 		local curbColor = Color3.fromRGB(75, 48, 28)
 
-		if isPineRidge then
+		if isPineRidgePass then
 			roadMat = slateMat
-			roadColor = Color3.fromRGB(80, 78, 72) -- Mountain forest stone
+			roadColor = Color3.fromRGB(80, 78, 72) -- Mountain forest rock highway
 			curbColor = Color3.fromRGB(55, 52, 48)
-		elseif isVillageRun then
-			roadColor = Color3.fromRGB(115, 75, 45) -- Rich chestnut timber
+		elseif isForestAndCove then
+			roadColor = Color3.fromRGB(118, 78, 48) -- Chestnut timber
 			curbColor = Color3.fromRGB(68, 42, 22)
+		elseif isVillageRun then
+			roadColor = Color3.fromRGB(112, 72, 42) -- Rich cabin timber
+			curbColor = Color3.fromRGB(65, 38, 20)
 		elseif isTrestleBridge then
 			roadColor = Color3.fromRGB(145, 108, 72) -- Weathered Canadian fir trestle
 			curbColor = Color3.fromRGB(85, 58, 35)
@@ -4420,20 +4431,20 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 		road.BottomSurface = Enum.SurfaceType.Smooth
 		road.Parent = trackFolder
 
-		-- Track center stripe: warm pine wood inlay
+		-- Track center stripe: warm pine inlay
 		local stripe = Instance.new("Part")
 		stripe.Name = "TrackCenterStripe"
 		stripe.Anchored = true
 		stripe.CanCollide = false
 		stripe.CastShadow = false
 		stripe.Material = Enum.Material.Wood
-		stripe.Color = isPineRidge and Color3.fromRGB(215, 175, 70) or Color3.fromRGB(175, 130, 80)
+		stripe.Color = isPineRidgePass and Color3.fromRGB(225, 185, 75) or Color3.fromRGB(180, 135, 82)
 		stripe.Size = Vector3.new(1.4, 0.2, segLen)
 		stripe.CFrame = cf * CFrame.new(0, (TRACK_THICKNESS / 2) + 0.1, 0)
 		stripe.Parent = trackFolder
 
-		-- Curbs, Timber Railings & Protective Guardwalls
-		local barrierH = (isTrestleBridge or isPineRidge) and 5.0 or 3.2
+		-- Curbs, Timber Railings & Protective Invisible Guardwalls
+		local barrierH = (isTrestleBridge or isPineRidgePass) and 5.2 or 3.4
 		for _, side in ipairs({ -1, 1 }) do
 			local curb = Instance.new("Part")
 			curb.Name = "TrackCurb"
@@ -4452,7 +4463,7 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 			ropeRail.CanCollide = false
 			ropeRail.CastShadow = false
 			ropeRail.Material = Enum.Material.Wood
-			ropeRail.Color = Color3.fromRGB(170, 130, 80)
+			ropeRail.Color = Color3.fromRGB(175, 135, 85)
 			ropeRail.Size = Vector3.new(0.8, 0.8, segLen)
 			ropeRail.CFrame = cf * CFrame.new(side * (halfW - 1.2), barrierH + 0.4, 0)
 			ropeRail.Parent = trackFolder
@@ -4463,15 +4474,15 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 			guard.CanCollide = true
 			guard.CastShadow = false
 			guard.Transparency = 1
-			guard.Size = Vector3.new(1.5, 24, segLen)
-			guard.CFrame = cf * CFrame.new(side * (halfW + 0.6), 12, 0)
+			guard.Size = Vector3.new(1.5, 26, segLen)
+			guard.CFrame = cf * CFrame.new(side * (halfW + 0.6), 13, 0)
 			guard.Parent = trackFolder
 		end
 
-		-- Heavy timber support stilts for elevated bridge and mountain sections
+		-- Heavy timber support stilts for elevated bridge and mountain pass sections
 		if p1.Y >= 18 and i % 3 == 0 then
 			for _, side in ipairs({ -1, 1 }) do
-				local stiltH = p1.Y - 2
+				local stiltH = p1.Y - 1.5
 				local stilt = Instance.new("Part")
 				stilt.Name = "TrackStiltPillar"
 				stilt.Anchored = true
@@ -4486,62 +4497,61 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 		end
 	end
 
-	-- 2. CENTRAL EMERALD LAKE & LUSH CANADIAN MEADOWS
+	-- 2. CENTRAL EMERALD GLACIAL LAKE & EXPANSIVE CANADIAN MEADOWS (Spanning 2400x2400)
 	local groundFolder = Instance.new("Folder")
 	groundFolder.Name = "EmeraldLakeAndTerrain"
 	groundFolder.Parent = mapModel
 
-	-- 4 Pristine Glacial Emerald Lake water tiles (Total 760x760)
-	local lakeQuads = {
-		{ x = -190, z = -200 },
-		{ x =  190, z = -200 },
-		{ x = -190, z =  180 },
-		{ x =  190, z =  180 },
-	}
-	for idx, q in ipairs(lakeQuads) do
-		local water = Instance.new("Part")
-		water.Name = "EmeraldWater_" .. idx
-		water.Anchored = true
-		water.CanCollide = true
-		water.CastShadow = false
-		water.Material = Enum.Material.SmoothPlastic
-		water.Color = Color3.fromRGB(16, 178, 162) -- Pristine glacial emerald turquoise
-		water.Transparency = 0.30
-		water.Reflectance = 0.25
-		water.Size = Vector3.new(420, 4, 420)
-		water.CFrame = CFrame.new(q.x, 2, q.z)
-		water.TopSurface = Enum.SurfaceType.Smooth
-		water.BottomSurface = Enum.SurfaceType.Smooth
-		water.Parent = groundFolder
+	-- 9 Pristine Glacial Emerald Lake water tiles (Total 1200x1200 studs)
+	local lakeGridCoords = { -380, 0, 380 }
+	local lakeTileIdx = 0
+	for _, lz in ipairs(lakeGridCoords) do
+		for _, lx in ipairs(lakeGridCoords) do
+			lakeTileIdx = lakeTileIdx + 1
+			local water = Instance.new("Part")
+			water.Name = "EmeraldWater_" .. lakeTileIdx
+			water.Anchored = true
+			water.CanCollide = true
+			water.CastShadow = false
+			water.Material = Enum.Material.SmoothPlastic
+			water.Color = Color3.fromRGB(16, 178, 162) -- Pristine glacial emerald turquoise
+			water.Transparency = 0.30
+			water.Reflectance = 0.25
+			water.Size = Vector3.new(460, 4, 460)
+			water.CFrame = CFrame.new(lx, 2.5, lz)
+			water.TopSurface = Enum.SurfaceType.Smooth
+			water.BottomSurface = Enum.SurfaceType.Smooth
+			water.Parent = groundFolder
 
-		local lakeBed = Instance.new("Part")
-		lakeBed.Name = "PebbleLakeBed_" .. idx
-		lakeBed.Anchored = true
-		lakeBed.CanCollide = true
-		lakeBed.CastShadow = false
-		lakeBed.Material = Enum.Material.Pebble
-		lakeBed.Color = Color3.fromRGB(145, 140, 128)
-		lakeBed.Size = Vector3.new(420, 6, 420)
-		lakeBed.CFrame = CFrame.new(q.x, -3, q.z)
-		lakeBed.TopSurface = Enum.SurfaceType.Smooth
-		lakeBed.BottomSurface = Enum.SurfaceType.Smooth
-		lakeBed.Parent = groundFolder
+			local lakeBed = Instance.new("Part")
+			lakeBed.Name = "PebbleLakeBed_" .. lakeTileIdx
+			lakeBed.Anchored = true
+			lakeBed.CanCollide = true
+			lakeBed.CastShadow = false
+			lakeBed.Material = Enum.Material.Pebble
+			lakeBed.Color = Color3.fromRGB(145, 140, 128)
+			lakeBed.Size = Vector3.new(460, 6, 460)
+			lakeBed.CFrame = CFrame.new(lx, -3, lz)
+			lakeBed.TopSurface = Enum.SurfaceType.Smooth
+			lakeBed.BottomSurface = Enum.SurfaceType.Smooth
+			lakeBed.Parent = groundFolder
+		end
 	end
 
-	-- Outer Forest Grass Terrain
+	-- Expansive Canadian Evergreen Grass Basin (2600x2600 studs, sunken slightly so emerald lake shines seamlessly)
 	local outerGrass = Instance.new("Part")
 	outerGrass.Name = "CanadianForestFloor"
 	outerGrass.Anchored = true
 	outerGrass.CanCollide = true
 	outerGrass.CastShadow = false
 	outerGrass.Material = Enum.Material.Grass
-	outerGrass.Color = Color3.fromRGB(48, 92, 46) -- Deep Canadian evergreen grass
-	outerGrass.Size = Vector3.new(980, 6, 980)
-	outerGrass.CFrame = CFrame.new(0, 1, 0)
+	outerGrass.Color = Color3.fromRGB(48, 92, 46) -- Deep Canadian evergreen meadow
+	outerGrass.Size = Vector3.new(2600, 6, 2600)
+	outerGrass.CFrame = CFrame.new(0, -1, 0)
 	outerGrass.TopSurface = Enum.SurfaceType.Smooth
 	outerGrass.Parent = groundFolder
 
-	-- 3. COZY LOG CABIN VILLAGE & CAMPFIRE (Around t = 0.64 * 2 * pi)
+	-- 3. COZY LOG CABIN VILLAGE & CAMPFIRE (Near Chicane 2 / Cabin Valley, u = 8.2)
 	local cabinFolder = Instance.new("Folder")
 	cabinFolder.Name = "LogCabinVillage"
 	cabinFolder.Parent = mapModel
@@ -4576,7 +4586,7 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 		roof.CFrame = cf * CFrame.new(0, h + 1.5, 0)
 		roof.Parent = cabinModel
 
-		-- Cobblestone Stone Chimney
+		-- Cobblestone Chimney
 		local chimney = Instance.new("Part")
 		chimney.Name = "StoneChimney"
 		chimney.Anchored = true
@@ -4621,7 +4631,7 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 			wLight.Parent = win
 		end
 
-		-- Wooden Front Porch & Overhang
+		-- Wooden Front Porch
 		local porch = Instance.new("Part")
 		porch.Name = "CabinPorch"
 		porch.Anchored = true
@@ -4637,21 +4647,21 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 		return cabinModel
 	end
 
-	-- Place 3 Cozy Cabins along the hillside overlooking the lake
+	-- 3 Cozy Cabins along the hillside overlooking the lake
 	local cabinSpots = {
-		{ frac = 0.61, offX = -halfW - 28, offY = 2, offZ = 0,  w = 26, h = 14, d = 22, name = "CozyLakeChalet" },
-		{ frac = 0.65, offX = -halfW - 34, offY = 0, offZ = 8,  w = 22, h = 13, d = 18, name = "AnglerHavenCabin" },
-		{ frac = 0.68, offX = -halfW - 26, offY = 1, offZ = -6, w = 24, h = 14, d = 20, name = "PineRidgeLodge" },
+		{ u = 8.0, offX = -halfW - 32, offY = 1, offZ = 0,  w = 26, h = 14, d = 22, name = "CozyLakeChalet" },
+		{ u = 8.3, offX = -halfW - 38, offY = 0, offZ = 12, w = 22, h = 13, d = 18, name = "AnglerHavenCabin" },
+		{ u = 8.6, offX = -halfW - 30, offY = 1, offZ = -8, w = 24, h = 14, d = 20, name = "PineRidgeLodge" },
 	}
 	for _, cs in ipairs(cabinSpots) do
-		local cp, cTan = getHavenPoint(cs.frac * 2 * math.pi)
+		local cp, cTan = getHavenPoint(cs.u)
 		local ccf = CFrame.lookAt(cp, cp + cTan) * CFrame.new(cs.offX, cs.offY, cs.offZ) * CFrame.Angles(0, math.rad(90), 0)
 		createLogCabin(cabinFolder, ccf, cs.w, cs.h, cs.d, cs.name)
 	end
 
-	-- Campfire Circle with River Stones, Charred Logs & Crackling Fire
-	local campP, campTan = getHavenPoint(0.635 * 2 * math.pi)
-	local campCF = CFrame.lookAt(campP, campP + campTan) * CFrame.new(-halfW - 14, 0.5, 6)
+	-- Campfire Circle with River Stones, Logs & Crackling Fire
+	local campP, campTan = getHavenPoint(8.25)
+	local campCF = CFrame.lookAt(campP, campP + campTan) * CFrame.new(-halfW - 16, 0.5, 8)
 
 	local fireBase = Instance.new("Part")
 	fireBase.Name = "CampfireBase"
@@ -4664,7 +4674,6 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 	fireBase.CFrame = campCF
 	fireBase.Parent = cabinFolder
 
-	-- River Stone Ring
 	for s = 1, 8 do
 		local sAng = (s / 8) * math.pi * 2
 		local stone = Instance.new("Part")
@@ -4680,7 +4689,6 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 		stone.Parent = cabinFolder
 	end
 
-	-- Campfire Flame Emitter & Warm Light
 	local firePart = Instance.new("Part")
 	firePart.Name = "CampfireFlamePart"
 	firePart.Anchored = true
@@ -4713,7 +4721,6 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 	cLight.Range = 28
 	cLight.Parent = firePart
 
-	-- Log Benches around campfire
 	for _, bAng in ipairs({ 0, math.rad(120), math.rad(240) }) do
 		local bench = Instance.new("Part")
 		bench.Name = "LogBench"
@@ -4728,15 +4735,15 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 		bench.Parent = cabinFolder
 	end
 
-	-- 4. LAKESIDE FISHING PIER & FRIENDLY FISHERMEN NPCS (At t = 0.655 * 2 * pi)
+	-- 4. LAKESIDE FISHING PIER & FRIENDLY FISHERMEN NPCS (At Chicane 4 Cove, u = 15.2)
 	local pierFolder = Instance.new("Folder")
 	pierFolder.Name = "FishingPierAndAnglers"
 	pierFolder.Parent = mapModel
 
-	local pierP, pierTan = getHavenPoint(0.655 * 2 * math.pi)
+	local pierP, pierTan = getHavenPoint(15.2)
 	local pierCF = CFrame.lookAt(pierP, pierP + pierTan) * CFrame.new(halfW + 4, 0, 0)
 
-	-- Wooden Pier Deck stretching into the emerald lake (Width 14, Length 48)
+	-- Wooden Pier Deck stretching into emerald water
 	local pierDeck = Instance.new("Part")
 	pierDeck.Name = "LakesidePierDeck"
 	pierDeck.Anchored = true
@@ -4744,12 +4751,11 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 	pierDeck.CastShadow = false
 	pierDeck.Material = Enum.Material.WoodPlanks
 	pierDeck.Color = Color3.fromRGB(130, 92, 58)
-	pierDeck.Size = Vector3.new(46, 2.0, 14)
-	pierDeck.CFrame = pierCF * CFrame.new(23, 2.5, 0)
+	pierDeck.Size = Vector3.new(48, 2.0, 14)
+	pierDeck.CFrame = pierCF * CFrame.new(24, 2.5, 0)
 	pierDeck.Parent = pierFolder
 
-	-- Pier Timber Pilings driven into lakebed
-	for _, px in ipairs({ 8, 22, 36, 44 }) do
+	for _, px in ipairs({ 8, 22, 36, 46 }) do
 		for _, pz in ipairs({ -5.5, 5.5 }) do
 			local piling = Instance.new("Part")
 			piling.Name = "PierPiling"
@@ -4759,12 +4765,11 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 			piling.Material = Enum.Material.Wood
 			piling.Color = Color3.fromRGB(75, 48, 28)
 			piling.Size = Vector3.new(2.4, 14, 2.4)
-			piling.CFrame = pierDeck.CFrame * CFrame.new(px - 23, -5, pz)
+			piling.CFrame = pierDeck.CFrame * CFrame.new(px - 24, -5, pz)
 			piling.Parent = pierFolder
 		end
 	end
 
-	-- Warm Brass Pier Lantern Posts
 	for _, lz in ipairs({ -5.5, 5.5 }) do
 		local pPost = Instance.new("Part")
 		pPost.Name = "PierLanternPost"
@@ -4774,7 +4779,7 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 		pPost.Material = Enum.Material.Wood
 		pPost.Color = Color3.fromRGB(60, 38, 22)
 		pPost.Size = Vector3.new(1.4, 9, 1.4)
-		pPost.CFrame = pierDeck.CFrame * CFrame.new(20, 5.5, lz)
+		pPost.CFrame = pierDeck.CFrame * CFrame.new(21, 5.5, lz)
 		pPost.Parent = pierFolder
 
 		local pLamp = Instance.new("Part")
@@ -4795,12 +4800,10 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 		pLight.Parent = pLamp
 	end
 
-	-- Helper: Create Fisherman NPC
 	local function createFishermanNPC(parent: Instance, name: string, titleText: string, cf: CFrame, shirtColor: Color3, pantsColor: Color3)
 		local npcModel = Instance.new("Model")
 		npcModel.Name = name
 
-		-- Seated Pelvis & Legs
 		local legs = Instance.new("Part")
 		legs.Name = "Legs"
 		legs.Anchored = true
@@ -4812,7 +4815,6 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 		legs.CFrame = cf * CFrame.new(0, 0.8, 0)
 		legs.Parent = npcModel
 
-		-- Torso (Flannel Shirt)
 		local torso = Instance.new("Part")
 		torso.Name = "Torso"
 		torso.Anchored = true
@@ -4825,7 +4827,6 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 		torso.Parent = npcModel
 		npcModel.PrimaryPart = torso
 
-		-- Head
 		local head = Instance.new("Part")
 		head.Name = "Head"
 		head.Shape = Enum.PartType.Ball
@@ -4838,7 +4839,6 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 		head.CFrame = cf * CFrame.new(0, 6.0, 0)
 		head.Parent = npcModel
 
-		-- Fisherman's Bucket Hat
 		local hat = Instance.new("Part")
 		hat.Name = "BucketHat"
 		hat.Shape = Enum.PartType.Cylinder
@@ -4851,7 +4851,6 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 		hat.CFrame = head.CFrame * CFrame.new(0, 1.1, 0) * CFrame.Angles(0, 0, math.rad(90))
 		hat.Parent = npcModel
 
-		-- Fishing Rod extending out over the lake
 		local rod = Instance.new("Part")
 		rod.Name = "FishingRod"
 		rod.Anchored = true
@@ -4863,7 +4862,6 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 		rod.CFrame = cf * CFrame.new(1.5, 4.0, 8.0) * CFrame.Angles(math.rad(-22), math.rad(15), 0)
 		rod.Parent = npcModel
 
-		-- Fishing Line & Bobber (floating in emerald water)
 		local bobber = Instance.new("Part")
 		bobber.Name = "FloatBobber"
 		bobber.Shape = Enum.PartType.Ball
@@ -4876,7 +4874,6 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 		bobber.CFrame = cf * CFrame.new(2.5, 2.2, 22.0)
 		bobber.Parent = npcModel
 
-		-- Tackle Box & Fish Bucket
 		local bucket = Instance.new("Part")
 		bucket.Name = "FishBucket"
 		bucket.Shape = Enum.PartType.Cylinder
@@ -4889,7 +4886,6 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 		bucket.CFrame = cf * CFrame.new(-2.8, 1.1, 0) * CFrame.Angles(0, 0, math.rad(90))
 		bucket.Parent = npcModel
 
-		-- Title BillboardGui
 		local bb = Instance.new("BillboardGui")
 		bb.Name = "AnglerTitleHUD"
 		bb.Size = UDim2.new(0, 240, 0, 50)
@@ -4913,15 +4909,14 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 		return npcModel
 	end
 
-	-- Fisherman 1: Bob (sitting on pier end, red flannel)
+	-- Bob & John
 	local bobCF = pierDeck.CFrame * CFrame.new(18, 1.0, 0) * CFrame.Angles(0, math.rad(90), 0)
 	createFishermanNPC(pierFolder, "FishermanBob", "🎣 낚시꾼 밥 (Fisherman Bob)", bobCF, Color3.fromRGB(190, 45, 35), Color3.fromRGB(45, 65, 105))
 
-	-- Fisherman 2: John (sitting on pier side bench, forest green flannel)
 	local johnCF = pierDeck.CFrame * CFrame.new(4, 1.0, -4.5) * CFrame.Angles(0, math.rad(180), 0)
 	createFishermanNPC(pierFolder, "AnglerJohn", "🎣 강태공 존 (Angler John)", johnCF, Color3.fromRGB(45, 125, 65), Color3.fromRGB(60, 50, 40))
 
-	-- 2 Canadian Cedar Canoes moored alongside the pier
+	-- 2 Canadian Cedar Canoes moored alongside pier
 	for cIdx, cOff in ipairs({ Vector3.new(14, -0.2, 10), Vector3.new(28, -0.2, 10) }) do
 		local canoe = Instance.new("Part")
 		canoe.Name = "CanadianCanoe_" .. cIdx
@@ -4929,12 +4924,11 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 		canoe.CanCollide = false
 		canoe.CastShadow = false
 		canoe.Material = Enum.Material.WoodPlanks
-		canoe.Color = Color3.fromRGB(165, 95, 45) -- Warm Canadian cedar
+		canoe.Color = Color3.fromRGB(165, 95, 45)
 		canoe.Size = Vector3.new(18, 2.5, 4.5)
 		canoe.CFrame = pierDeck.CFrame * CFrame.new(cOff) * CFrame.Angles(0, 0, math.rad(cIdx == 1 and 4 or -4))
 		canoe.Parent = pierFolder
 
-		-- Wooden Oar resting across canoe
 		local oar = Instance.new("Part")
 		oar.Name = "CanoeOar"
 		oar.Anchored = true
@@ -4947,16 +4941,12 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 		oar.Parent = canoe
 	end
 
-	-- 5. SCENIC WOODEN TRESTLE BRIDGE (Spanning frac = 0.70 to 0.86 over Emerald Bay)
+	-- 5. SCENIC WOODEN TRESTLE BRIDGE (Spanning Waypoint 13 to 14.8 over Emerald Bay)
 	local bridgeFolder = Instance.new("Folder")
 	bridgeFolder.Name = "WoodenTrestleBridge"
 	bridgeFolder.Parent = mapModel
 
-	local bStartIdx = math.floor(0.70 * SEGMENTS)
-	local bEndIdx   = math.floor(0.86 * SEGMENTS)
-
-	-- Timber Bridge Entrance & Exit Portals
-	for _, bt in ipairs({ (bStartIdx / SEGMENTS) * 2 * math.pi, (bEndIdx / SEGMENTS) * 2 * math.pi }) do
+	for _, bt in ipairs({ 13.0, 14.8 }) do
 		local bp, bTan = getHavenPoint(bt)
 		local bcf = CFrame.lookAt(bp, bp + bTan)
 
@@ -4988,7 +4978,6 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 		pBeam.CFrame = bcf * CFrame.new(0, 34, 0)
 		pBeam.Parent = portalModel
 
-		-- Hanging Brass Lantern on Portal
 		local bLamp = Instance.new("Part")
 		bLamp.Name = "PortalLantern"
 		bLamp.Anchored = true
@@ -5007,47 +4996,86 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 		bLight.Parent = bLamp
 	end
 
-	-- 6. MAJESTIC CANADIAN ROCKY MOUNTAINS (Panoramic Ring)
+	-- 6. MAJESTIC CANADIAN ROCKY MOUNTAINS (6 Authentic User Mountain Assets Integrated)
 	local mountainFolder = Instance.new("Folder")
 	mountainFolder.Name = "RockyMountainAmphitheater"
 	mountainFolder.Parent = mapModel
 
-	local darkSlate = Color3.fromRGB(68, 64, 58)
-	local midSlate  = Color3.fromRGB(82, 78, 72)
+	local mountainPlacements = {
+		-- Grand Outer Ring (Towering Horizons Enclosing the Valley)
+		{ modelName = "Mountain_93202749631480", pos = Vector3.new(0, 0, -960), scale = 1.8, yaw = 0 },
+		{ modelName = "Mountain_4908622788", pos = Vector3.new(620, 0, -840), scale = 1.6, yaw = 35 },
+		{ modelName = "Mountain_122412923246766", pos = Vector3.new(-620, 0, -840), scale = 2.0, yaw = -30 },
+		{ modelName = "Mountain_4908622788", pos = Vector3.new(1080, 0, -880), scale = 1.8, yaw = 50 },
+		{ modelName = "Mountain_93202749631480", pos = Vector3.new(-1080, 0, -880), scale = 1.8, yaw = -50 },
 
-	local mountainPeaks = 14
-	for m = 1, mountainPeaks do
-		local mAng = (m / mountainPeaks) * math.pi * 2
-		local mDist = 440 + (m % 3) * 45
-		local mx = math.sin(mAng) * mDist
-		local mz = math.cos(mAng) * mDist
+		{ modelName = "Mountain_85041881101785", pos = Vector3.new(980, 0, -320), scale = 2.4, yaw = 75 },
+		{ modelName = "Mountain_93202749631480", pos = Vector3.new(990, 0, 180), scale = 1.6, yaw = 110 },
+		{ modelName = "Mountain_122412923246766", pos = Vector3.new(920, 0, 580), scale = 2.0, yaw = 140 },
+		{ modelName = "Mountain_85041881101785", pos = Vector3.new(1080, 0, 980), scale = 2.4, yaw = 160 },
 
-		local peakH = 150 + (m % 4) * 25
-		local peakW = 130 + (m % 3) * 20
-		local peakD = 120 + (m % 2) * 25
+		{ modelName = "Mountain_4908622788", pos = Vector3.new(420, 0, 980), scale = 1.8, yaw = 180 },
+		{ modelName = "Mountain_93202749631480", pos = Vector3.new(-180, 0, 1000), scale = 1.7, yaw = 210 },
+		{ modelName = "Mountain_85041881101785", pos = Vector3.new(-720, 0, 920), scale = 2.3, yaw = 240 },
+		{ modelName = "Mountain_122412923246766", pos = Vector3.new(-1080, 0, 980), scale = 2.2, yaw = 250 },
 
-		local mountain = Instance.new("Part")
-		mountain.Name = "RockyMountainPeak_" .. m
-		mountain.Anchored = true
-		mountain.CanCollide = false
-		mountain.CastShadow = false
-		mountain.Material = Enum.Material.Slate
-		mountain.Color = (m % 2 == 0) and darkSlate or midSlate
-		mountain.Size = Vector3.new(peakW, peakH, peakD)
-		mountain.CFrame = CFrame.new(mx, peakH / 2 - 10, mz) * CFrame.Angles(math.rad(m % 3 == 0 and 6 or -6), math.rad(m * 25), 0)
-		mountain.Parent = mountainFolder
+		{ modelName = "Mountain_4908622788", pos = Vector3.new(-1020, 0, 360), scale = 1.6, yaw = 270 },
+		{ modelName = "Mountain_122412923246766", pos = Vector3.new(-990, 0, -180), scale = 1.9, yaw = 310 },
+		{ modelName = "Mountain_85041881101785", pos = Vector3.new(-920, 0, -600), scale = 2.2, yaw = 340 },
 
-		-- Glistening Alpine Snow Cap atop peak
-		local snowCap = Instance.new("Part")
-		snowCap.Name = "MountainSnowCap"
-		snowCap.Anchored = true
-		snowCap.CanCollide = false
-		snowCap.CastShadow = false
-		snowCap.Material = Enum.Material.Snow
-		snowCap.Color = Color3.fromRGB(250, 252, 255)
-		snowCap.Size = Vector3.new(peakW * 0.72, peakH * 0.32, peakD * 0.72)
-		snowCap.CFrame = mountain.CFrame * CFrame.new(0, peakH * 0.36, 0)
-		snowCap.Parent = mountainFolder
+		-- Mid-Range Bluffs & Rocky Cliffs (Framing Corners & Lake Vistas)
+		{ modelName = "Mountain_10416799149", pos = Vector3.new(740, 0, -140), scale = 2.4, yaw = 45 },
+		{ modelName = "Mountain_10416799149", pos = Vector3.new(380, 0, 90), scale = 2.2, yaw = -45 },
+		{ modelName = "Mountain_10416799149", pos = Vector3.new(130, 0, 380), scale = 2.0, yaw = 90 },
+		{ modelName = "Mountain_10416799149", pos = Vector3.new(-500, 0, 460), scale = 2.5, yaw = 160 },
+		{ modelName = "Mountain_10416799149", pos = Vector3.new(-760, 0, 50), scale = 2.2, yaw = 210 },
+
+		-- Detailed Trackside Rock Formations & Water Boulders
+		{ modelName = "Mountain_11821992228", pos = Vector3.new(-340, 0, -150), scale = 3.5, yaw = 25 },
+		{ modelName = "Mountain_11821992228", pos = Vector3.new(-220, 0, -490), scale = 3.0, yaw = 80 },
+		{ modelName = "Mountain_11821992228", pos = Vector3.new(180, 0, -520), scale = 3.2, yaw = -60 },
+		{ modelName = "Mountain_11821992228", pos = Vector3.new(510, 0, -420), scale = 3.5, yaw = 110 },
+		{ modelName = "Mountain_11821992228", pos = Vector3.new(580, 0, 380), scale = 3.0, yaw = -140 },
+		{ modelName = "Mountain_11821992228", pos = Vector3.new(-50, 0, 490), scale = 3.5, yaw = 175 },
+	}
+
+	for idx, mData in ipairs(mountainPlacements) do
+		local placed = false
+		if mountainAssets then
+			local tpl = mountainAssets:FindFirstChild(mData.modelName)
+			if tpl and tpl:IsA("Model") then
+				placeScaledAssetModel(tpl, mountainFolder, "RockyMountain_" .. idx, mData.pos, 1, mData.scale, math.rad(mData.yaw))
+				placed = true
+			end
+		end
+
+		if not placed then
+			-- Procedural fallback mountain peak
+			local peakH = 140 + (idx % 4) * 25
+			local peakW = 120 + (idx % 3) * 20
+			local peakD = 110 + (idx % 2) * 25
+			local mountain = Instance.new("Part")
+			mountain.Name = "FallbackMountainPeak_" .. idx
+			mountain.Anchored = true
+			mountain.CanCollide = false
+			mountain.CastShadow = false
+			mountain.Material = Enum.Material.Slate
+			mountain.Color = (idx % 2 == 0) and Color3.fromRGB(68, 64, 58) or Color3.fromRGB(82, 78, 72)
+			mountain.Size = Vector3.new(peakW, peakH, peakD)
+			mountain.CFrame = CFrame.new(mData.pos.X, peakH / 2 - 10, mData.pos.Z) * CFrame.Angles(0, math.rad(mData.yaw), 0)
+			mountain.Parent = mountainFolder
+
+			local snowCap = Instance.new("Part")
+			snowCap.Name = "MountainSnowCap"
+			snowCap.Anchored = true
+			snowCap.CanCollide = false
+			snowCap.CastShadow = false
+			snowCap.Material = Enum.Material.Snow
+			snowCap.Color = Color3.fromRGB(250, 252, 255)
+			snowCap.Size = Vector3.new(peakW * 0.72, peakH * 0.32, peakD * 0.72)
+			snowCap.CFrame = mountain.CFrame * CFrame.new(0, peakH * 0.36, 0)
+			snowCap.Parent = mountainFolder
+		end
 	end
 
 	-- 7. DENSE CANADIAN EVERGREEN FOREST SCENERY
@@ -5065,18 +5093,18 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 		end
 	end
 
-	for pStep = 1, 46 do
-		local t = (pStep / 46) * math.pi * 2
-		local p, tan = getHavenPoint(t)
+	for pStep = 1, 64 do
+		local u = (pStep / 64) * N
+		local p, tan = getHavenPoint(u)
 		local normal = Vector3.new(-tan.Z, 0, tan.X).Unit
 
 		for _, side in ipairs({ -1, 1 }) do
-			local offset = 48 + (pStep % 4) * 14
+			local offset = 48 + (pStep % 4) * 16
 			local px = p.X + side * normal.X * offset
 			local pz = p.Z + side * normal.Z * offset
 
-			if distToTrack(px, pz) >= 42 and math.abs(px) < 400 and math.abs(pz) < 420 then
-				local scale = 1.6 + (pStep % 4) * 0.25
+			if distToTrack(px, pz) >= 44 and math.abs(px) < 850 and math.abs(pz) < 850 then
+				local scale = 1.7 + (pStep % 4) * 0.25
 				local yaw = math.rad(math.random(0, 360))
 
 				if #availableTrees > 0 then
@@ -5089,22 +5117,22 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 		end
 	end
 
-	-- 8. CHECKPOINTS (1..6)
+	-- 8. CHECKPOINTS (1..6 Evenly Spaced Along Winding Circuit)
 	local cpFolder = Instance.new("Folder")
 	cpFolder.Name = "Checkpoints"
 	cpFolder.Parent = mapModel
 
 	local cpAngles = {
-		{ name = "1", frac = 0.20 }, -- Lakeside Promenade
-		{ name = "2", frac = 0.40 }, -- Pine Ridge Climb
-		{ name = "3", frac = 0.60 }, -- Log Cabin Village
-		{ name = "4", frac = 0.72 }, -- Fishing Pier & Trestle Bridge Entrance
-		{ name = "5", frac = 0.84 }, -- Trestle Bridge Bay Crossing
-		{ name = "6", frac = 0.00 }, -- Start / Finish Line Arch!
+		{ name = "1", u = 3.0 },  -- Eastern Pine Forest Entry Bend
+		{ name = "2", u = 6.0 },  -- Emerald Cove Chicane Exit
+		{ name = "3", u = 8.5 },  -- Log Cabin Village & Campfire Overlook
+		{ name = "4", u = 11.0 }, -- High Pine Mountain Pass Summit
+		{ name = "5", u = 14.2 }, -- Wooden Trestle Bridge Bay Crossing
+		{ name = "6", u = 0.0 },  -- Start / Finish Line Arch!
 	}
 
 	for _, cpData in ipairs(cpAngles) do
-		local p, tan = getHavenPoint(cpData.frac * 2 * math.pi)
+		local p, tan = getHavenPoint(cpData.u)
 		local cf = CFrame.lookAt(p, p + tan)
 
 		local cpPart = Instance.new("Part")
@@ -5117,7 +5145,7 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 		cpPart.Parent = cpFolder
 	end
 
-	-- 9. START / FINISH LINE & RUSTIC TIMBER ARCH
+	-- 9. START / FINISH LINE & RUSTIC TIMBER ARCH (At u = 0.0)
 	local startP, startTan = getHavenPoint(0.0)
 	local flatForward = Vector3.new(startTan.X, 0, startTan.Z).Unit
 	local startPos = startP + Vector3.new(0, 0.4, 0)
@@ -5200,7 +5228,6 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 	topBeam.CFrame = archCenterCFrame * CFrame.new(0, archHeight + 2, 0)
 	topBeam.Parent = startModel
 
-	-- Rustic National Park Signboard mounted flush on top beam
 	local signBoard = Instance.new("Part")
 	signBoard.Name = "StartSignBoard"
 	signBoard.Anchored = true
@@ -5233,7 +5260,6 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 		signText.Parent = signGui
 	end
 
-	-- Countdown Signal Lights Pod (Traffic lights) hanging below the arch beam
 	local lightPodCFrame = topBeam.CFrame * CFrame.new(0, -4.8, -1.0)
 	local lightPod = Instance.new("Part")
 	lightPod.Name = "SignalLightPod"
@@ -5323,7 +5349,8 @@ end
 				or name:find("Lamp") or name:find("Lantern") or name:find("Peak") or name:find("SnowCap")
 				or name:find("Cabin") or name:find("Roof") or name:find("Chimney") or name:find("Window")
 				or name:find("Porch") or name:find("Stone") or name:find("Bench") or name:find("Rod")
-				or name:find("Bobber") or name:find("Bucket") or name:find("Portal") then
+				or name:find("Bobber") or name:find("Bucket") or name:find("Portal") or name:find("RockyMountain")
+				or name:find("Mountain") then
 				d.CastShadow = false
 			end
 		end
