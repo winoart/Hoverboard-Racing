@@ -99,6 +99,15 @@ local function placeScaledAssetModel(template: Model, parent: Instance, name: st
 			d.CanTouch = false
 			d.CanQuery = false
 			d.CastShadow = false
+
+			-- Ensure zero winter/snow parts on trees by repainting any white/snow parts to Canadian pine green
+			if (name:find("Pine") or name:find("Tree")) then
+				local c = d.Color
+				if (c.R > 0.82 and c.G > 0.82 and c.B > 0.82) or d.Material == Enum.Material.Snow then
+					d.Color = Color3.fromRGB(34, 96, 46)
+					d.Material = Enum.Material.Grass
+				end
+			end
 		end
 	end
 
@@ -4497,48 +4506,12 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 		end
 	end
 
-	-- 2. CENTRAL EMERALD GLACIAL LAKE & EXPANSIVE CANADIAN MEADOWS (Spanning 2400x2400)
+	-- 2. CENTRAL EMERALD GLACIAL LAKE & EXPANSIVE CANADIAN MEADOWS (Organic Lake Nestled Strictly Inside Track)
 	local groundFolder = Instance.new("Folder")
 	groundFolder.Name = "EmeraldLakeAndTerrain"
 	groundFolder.Parent = mapModel
 
-	-- 9 Pristine Glacial Emerald Lake water tiles (Total 1200x1200 studs)
-	local lakeGridCoords = { -380, 0, 380 }
-	local lakeTileIdx = 0
-	for _, lz in ipairs(lakeGridCoords) do
-		for _, lx in ipairs(lakeGridCoords) do
-			lakeTileIdx = lakeTileIdx + 1
-			local water = Instance.new("Part")
-			water.Name = "EmeraldWater_" .. lakeTileIdx
-			water.Anchored = true
-			water.CanCollide = true
-			water.CastShadow = false
-			water.Material = Enum.Material.SmoothPlastic
-			water.Color = Color3.fromRGB(16, 178, 162) -- Pristine glacial emerald turquoise
-			water.Transparency = 0.30
-			water.Reflectance = 0.25
-			water.Size = Vector3.new(460, 4, 460)
-			water.CFrame = CFrame.new(lx, 2.5, lz)
-			water.TopSurface = Enum.SurfaceType.Smooth
-			water.BottomSurface = Enum.SurfaceType.Smooth
-			water.Parent = groundFolder
-
-			local lakeBed = Instance.new("Part")
-			lakeBed.Name = "PebbleLakeBed_" .. lakeTileIdx
-			lakeBed.Anchored = true
-			lakeBed.CanCollide = true
-			lakeBed.CastShadow = false
-			lakeBed.Material = Enum.Material.Pebble
-			lakeBed.Color = Color3.fromRGB(145, 140, 128)
-			lakeBed.Size = Vector3.new(460, 6, 460)
-			lakeBed.CFrame = CFrame.new(lx, -3, lz)
-			lakeBed.TopSurface = Enum.SurfaceType.Smooth
-			lakeBed.BottomSurface = Enum.SurfaceType.Smooth
-			lakeBed.Parent = groundFolder
-		end
-	end
-
-	-- Expansive Canadian Evergreen Grass Basin (2600x2600 studs, sunken slightly so emerald lake shines seamlessly)
+	-- Expansive Canadian Evergreen Grass Basin (3200x3200 studs)
 	local outerGrass = Instance.new("Part")
 	outerGrass.Name = "CanadianForestFloor"
 	outerGrass.Anchored = true
@@ -4546,9 +4519,64 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 	outerGrass.CastShadow = false
 	outerGrass.Material = Enum.Material.Grass
 	outerGrass.Color = Color3.fromRGB(48, 92, 46) -- Deep Canadian evergreen meadow
-	outerGrass.Size = Vector3.new(2600, 6, 2600)
-	outerGrass.CFrame = CFrame.new(0, -1, 0)
+	outerGrass.Size = Vector3.new(3200, 6, 3200)
+	outerGrass.CFrame = CFrame.new(0, 1, 0)
 	outerGrass.TopSurface = Enum.SurfaceType.Smooth
+	outerGrass.Parent = groundFolder
+
+	-- Organic Glacial Lake Discs (Overlapping cylinders forming a natural, curvy lake strictly inside the circuit)
+	local lakeDiscs = {
+		{ x = 0,    z = -30,  r = 250 }, -- Grand Central Glacial Basin
+		{ x = 140,  z = -190, r = 180 }, -- North-East Emerald Bay
+		{ x = -130, z = -200, r = 180 }, -- North-West Bay towards Fishing Pier
+		{ x = 150,  z = 140,  r = 170 }, -- East Cove towards Cabins
+		{ x = -150, z = 150,  r = 190 }, -- West Bay under Trestle Bridge
+		{ x = 0,    z = 220,  r = 170 }, -- South Pine Cove
+		{ x = -300, z = -50,  r = 150 }, -- Trestle Bridge Channel (under the elevated bridge)
+		{ x = -350, z = -150, r = 130 }, -- Fishing Pier Cove (Water right beneath Fisherman Bob's pier!)
+		{ x = 220,  z = -30,  r = 140 }, -- East Meadow Inlet
+		{ x = -50,  z = -290, r = 150 }, -- North Shoreline Basin
+		{ x = 70,   z = -310, r = 140 }, -- North-East Shoreline
+		{ x = -240, z = 170,  r = 150 }, -- West Bay
+		{ x = -160, z = 290,  r = 130 }, -- South-West Ridge Bay
+		{ x = 90,   z = 280,  r = 115 }, -- South-East Cabin Bay
+		{ x = -80,  z = 50,   r = 180 }, -- Central Inner Bay
+		{ x = 80,   z = -60,  r = 180 }, -- East Basin
+	}
+
+	for idx, disc in ipairs(lakeDiscs) do
+		-- Pebble lakebed & shoreline disc
+		local lakeBed = Instance.new("Part")
+		lakeBed.Name = "PebbleLakeShore_" .. idx
+		lakeBed.Shape = Enum.PartType.Cylinder
+		lakeBed.Anchored = true
+		lakeBed.CanCollide = true
+		lakeBed.CastShadow = false
+		lakeBed.Material = Enum.Material.Pebble
+		lakeBed.Color = Color3.fromRGB(150, 142, 128)
+		lakeBed.Size = Vector3.new(6.0, (disc.r + 14) * 2, (disc.r + 14) * 2)
+		lakeBed.CFrame = CFrame.new(disc.x, 2.2, disc.z) * CFrame.Angles(0, 0, math.rad(90))
+		lakeBed.TopSurface = Enum.SurfaceType.Smooth
+		lakeBed.BottomSurface = Enum.SurfaceType.Smooth
+		lakeBed.Parent = groundFolder
+
+		-- Pristine glacial emerald water disc
+		local water = Instance.new("Part")
+		water.Name = "EmeraldWaterDisc_" .. idx
+		water.Shape = Enum.PartType.Cylinder
+		water.Anchored = true
+		water.CanCollide = true
+		water.CastShadow = false
+		water.Material = Enum.Material.SmoothPlastic
+		water.Color = Color3.fromRGB(16, 178, 162)
+		water.Transparency = 0.28
+		water.Reflectance = 0.25
+		water.Size = Vector3.new(4.0, disc.r * 2, disc.r * 2)
+		water.CFrame = CFrame.new(disc.x, 3.8, disc.z) * CFrame.Angles(0, 0, math.rad(90))
+		water.TopSurface = Enum.SurfaceType.Smooth
+		water.BottomSurface = Enum.SurfaceType.Smooth
+		water.Parent = groundFolder
+	end
 	outerGrass.Parent = groundFolder
 
 	-- 3. COZY LOG CABIN VILLAGE & CAMPFIRE (Near Chicane 2 / Cabin Valley, u = 8.2)
@@ -4996,47 +5024,52 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 		bLight.Parent = bLamp
 	end
 
-	-- 6. MAJESTIC CANADIAN ROCKY MOUNTAINS (6 Authentic User Mountain Assets Integrated)
+	-- Helper to check if a position falls within the organic lake or pebble beach
+	local function isInsideLake(x: number, z: number): boolean
+		for _, disc in ipairs(lakeDiscs) do
+			local dx = x - disc.x
+			local dz = z - disc.z
+			if (dx * dx + dz * dz) < ((disc.r + 10) * (disc.r + 10)) then
+				return true
+			end
+		end
+		return false
+	end
+
+	-- 6. MAJESTIC CANADIAN ROCKY MOUNTAINS (Colossal Outer Amphitheater Circling the Valley, Strictly Outside Track)
 	local mountainFolder = Instance.new("Folder")
 	mountainFolder.Name = "RockyMountainAmphitheater"
 	mountainFolder.Parent = mapModel
 
+	-- 18 Colossal Peaks forming an unbroken panoramic mountain wall strictly outside the circuit (R = 1350 ~ 1520 studs)
 	local mountainPlacements = {
-		-- Grand Outer Ring (Towering Horizons Enclosing the Valley)
-		{ modelName = "Mountain_93202749631480", pos = Vector3.new(0, 0, -960), scale = 1.8, yaw = 0 },
-		{ modelName = "Mountain_4908622788", pos = Vector3.new(620, 0, -840), scale = 1.6, yaw = 35 },
-		{ modelName = "Mountain_122412923246766", pos = Vector3.new(-620, 0, -840), scale = 2.0, yaw = -30 },
-		{ modelName = "Mountain_4908622788", pos = Vector3.new(1080, 0, -880), scale = 1.8, yaw = 50 },
-		{ modelName = "Mountain_93202749631480", pos = Vector3.new(-1080, 0, -880), scale = 1.8, yaw = -50 },
+		-- North Rim (Towering horizons behind Lakeside Promenade)
+		{ modelName = "Mountain_93202749631480",  pos = Vector3.new(0, 0, -1460),     scale = 3.4, yaw = 0 },
+		{ modelName = "Mountain_4908622788",      pos = Vector3.new(500, 0, -1420),   scale = 3.2, yaw = 25 },
+		{ modelName = "Mountain_122412923246766", pos = Vector3.new(980, 0, -1200),   scale = 3.6, yaw = 45 },
+		{ modelName = "Mountain_85041881101785",  pos = Vector3.new(1280, 0, -820),   scale = 3.8, yaw = 65 },
 
-		{ modelName = "Mountain_85041881101785", pos = Vector3.new(980, 0, -320), scale = 2.4, yaw = 75 },
-		{ modelName = "Mountain_93202749631480", pos = Vector3.new(990, 0, 180), scale = 1.6, yaw = 110 },
-		{ modelName = "Mountain_122412923246766", pos = Vector3.new(920, 0, 580), scale = 2.0, yaw = 140 },
-		{ modelName = "Mountain_85041881101785", pos = Vector3.new(1080, 0, 980), scale = 2.4, yaw = 160 },
+		-- East Rim (Towering mountain ridge flanking Eastern Pine Forest & Cabin Valley)
+		{ modelName = "Mountain_93202749631480",  pos = Vector3.new(1480, 0, -320),   scale = 3.4, yaw = 85 },
+		{ modelName = "Mountain_4908622788",      pos = Vector3.new(1520, 0, 220),    scale = 3.2, yaw = 105 },
+		{ modelName = "Mountain_10416799149",     pos = Vector3.new(1380, 0, 720),    scale = 3.8, yaw = 125 },
+		{ modelName = "Mountain_85041881101785",  pos = Vector3.new(1180, 0, 1140),   scale = 3.6, yaw = 145 },
 
-		{ modelName = "Mountain_4908622788", pos = Vector3.new(420, 0, 980), scale = 1.8, yaw = 180 },
-		{ modelName = "Mountain_93202749631480", pos = Vector3.new(-180, 0, 1000), scale = 1.7, yaw = 210 },
-		{ modelName = "Mountain_85041881101785", pos = Vector3.new(-720, 0, 920), scale = 2.3, yaw = 240 },
-		{ modelName = "Mountain_122412923246766", pos = Vector3.new(-1080, 0, 980), scale = 2.2, yaw = 250 },
+		-- South Rim (Massive alpine summits backing the High Pine Ridge)
+		{ modelName = "Mountain_122412923246766", pos = Vector3.new(720, 0, 1420),    scale = 3.6, yaw = 165 },
+		{ modelName = "Mountain_93202749631480",  pos = Vector3.new(140, 0, 1500),    scale = 3.4, yaw = 185 },
+		{ modelName = "Mountain_4908622788",      pos = Vector3.new(-460, 0, 1460),   scale = 3.2, yaw = 205 },
+		{ modelName = "Mountain_85041881101785",  pos = Vector3.new(-980, 0, 1260),   scale = 3.8, yaw = 225 },
 
-		{ modelName = "Mountain_4908622788", pos = Vector3.new(-1020, 0, 360), scale = 1.6, yaw = 270 },
-		{ modelName = "Mountain_122412923246766", pos = Vector3.new(-990, 0, -180), scale = 1.9, yaw = 310 },
-		{ modelName = "Mountain_85041881101785", pos = Vector3.new(-920, 0, -600), scale = 2.2, yaw = 340 },
+		-- West Rim (Rugged crags framing the Wooden Trestle Bridge & Bay)
+		{ modelName = "Mountain_122412923246766", pos = Vector3.new(-1360, 0, 880),   scale = 3.6, yaw = 245 },
+		{ modelName = "Mountain_93202749631480",  pos = Vector3.new(-1500, 0, 360),   scale = 3.4, yaw = 265 },
+		{ modelName = "Mountain_4908622788",      pos = Vector3.new(-1480, 0, -220),  scale = 3.2, yaw = 285 },
+		{ modelName = "Mountain_10416799149",     pos = Vector3.new(-1380, 0, -720),  scale = 3.8, yaw = 305 },
 
-		-- Mid-Range Bluffs & Rocky Cliffs (Framing Corners & Lake Vistas)
-		{ modelName = "Mountain_10416799149", pos = Vector3.new(740, 0, -140), scale = 2.4, yaw = 45 },
-		{ modelName = "Mountain_10416799149", pos = Vector3.new(380, 0, 90), scale = 2.2, yaw = -45 },
-		{ modelName = "Mountain_10416799149", pos = Vector3.new(130, 0, 380), scale = 2.0, yaw = 90 },
-		{ modelName = "Mountain_10416799149", pos = Vector3.new(-500, 0, 460), scale = 2.5, yaw = 160 },
-		{ modelName = "Mountain_10416799149", pos = Vector3.new(-760, 0, 50), scale = 2.2, yaw = 210 },
-
-		-- Detailed Trackside Rock Formations & Water Boulders
-		{ modelName = "Mountain_11821992228", pos = Vector3.new(-340, 0, -150), scale = 3.5, yaw = 25 },
-		{ modelName = "Mountain_11821992228", pos = Vector3.new(-220, 0, -490), scale = 3.0, yaw = 80 },
-		{ modelName = "Mountain_11821992228", pos = Vector3.new(180, 0, -520), scale = 3.2, yaw = -60 },
-		{ modelName = "Mountain_11821992228", pos = Vector3.new(510, 0, -420), scale = 3.5, yaw = 110 },
-		{ modelName = "Mountain_11821992228", pos = Vector3.new(580, 0, 380), scale = 3.0, yaw = -140 },
-		{ modelName = "Mountain_11821992228", pos = Vector3.new(-50, 0, 490), scale = 3.5, yaw = 175 },
+		-- North-West Rim (Completing the full 360-degree Rocky Mountain amphitheater)
+		{ modelName = "Mountain_85041881101785",  pos = Vector3.new(-1080, 0, -1140),  scale = 3.6, yaw = 325 },
+		{ modelName = "Mountain_122412923246766", pos = Vector3.new(-580, 0, -1400),  scale = 3.6, yaw = 345 },
 	}
 
 	for idx, mData in ipairs(mountainPlacements) do
@@ -5050,10 +5083,9 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 		end
 
 		if not placed then
-			-- Procedural fallback mountain peak
-			local peakH = 140 + (idx % 4) * 25
-			local peakW = 120 + (idx % 3) * 20
-			local peakD = 110 + (idx % 2) * 25
+			local peakH = 260 + (idx % 4) * 35
+			local peakW = 240 + (idx % 3) * 30
+			local peakD = 220 + (idx % 2) * 35
 			local mountain = Instance.new("Part")
 			mountain.Name = "FallbackMountainPeak_" .. idx
 			mountain.Anchored = true
@@ -5064,28 +5096,18 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 			mountain.Size = Vector3.new(peakW, peakH, peakD)
 			mountain.CFrame = CFrame.new(mData.pos.X, peakH / 2 - 10, mData.pos.Z) * CFrame.Angles(0, math.rad(mData.yaw), 0)
 			mountain.Parent = mountainFolder
-
-			local snowCap = Instance.new("Part")
-			snowCap.Name = "MountainSnowCap"
-			snowCap.Anchored = true
-			snowCap.CanCollide = false
-			snowCap.CastShadow = false
-			snowCap.Material = Enum.Material.Snow
-			snowCap.Color = Color3.fromRGB(250, 252, 255)
-			snowCap.Size = Vector3.new(peakW * 0.72, peakH * 0.32, peakD * 0.72)
-			snowCap.CFrame = mountain.CFrame * CFrame.new(0, peakH * 0.36, 0)
-			snowCap.Parent = mountainFolder
 		end
 	end
 
-	-- 7. DENSE CANADIAN EVERGREEN FOREST SCENERY
+	-- 7. DENSE CANADIAN EVERGREEN FOREST SCENERY (Lush, Vibrant Green, Zero Winter/Snow Trees)
 	local sceneryFolder = Instance.new("Folder")
 	sceneryFolder.Name = "EvergreenForestScenery"
 	sceneryFolder.Parent = mapModel
 
+	-- Select only the pure green pine templates (no winter snow templates)
 	local availableTrees = {}
 	if treeTemplates then
-		for _, tName in ipairs({ "Tree_4893246329", "Tree_8999194306", "Tree_24715381", "Tree_15692092527", "Tree_12549617200", "Tree_10707210767" }) do
+		for _, tName in ipairs({ "Tree_4893246329", "Tree_12549617200", "Tree_10707210767", "Tree_16092857863" }) do
 			local tpl = treeTemplates:FindFirstChild(tName)
 			if tpl and tpl:IsA("Model") then
 				table.insert(availableTrees, tpl)
@@ -5093,26 +5115,72 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 		end
 	end
 
-	for pStep = 1, 64 do
-		local u = (pStep / 64) * N
+	-- Layer 1: Outer Foothills Forest (Lining the space between track and outer mountains, ~140 trees)
+	for pStep = 1, 140 do
+		local u = (pStep / 140) * N
 		local p, tan = getHavenPoint(u)
 		local normal = Vector3.new(-tan.Z, 0, tan.X).Unit
 
-		for _, side in ipairs({ -1, 1 }) do
-			local offset = 48 + (pStep % 4) * 16
-			local px = p.X + side * normal.X * offset
-			local pz = p.Z + side * normal.Z * offset
+		local offset = 48 + (pStep % 5) * 22
+		local px = p.X + normal.X * offset
+		local pz = p.Z + normal.Z * offset
 
-			if distToTrack(px, pz) >= 44 and math.abs(px) < 850 and math.abs(pz) < 850 then
-				local scale = 1.7 + (pStep % 4) * 0.25
-				local yaw = math.rad(math.random(0, 360))
+		if distToTrack(px, pz) >= 44 and math.abs(px) < 1200 and math.abs(pz) < 1200 and not isInsideLake(px, pz) then
+			local scale = 1.6 + (pStep % 4) * 0.25
+			local yaw = math.rad((pStep * 37) % 360)
 
-				if #availableTrees > 0 then
-					local tpl = availableTrees[((pStep + (side == 1 and 0 or 2)) % #availableTrees) + 1]
-					placeScaledAssetModel(tpl, sceneryFolder, "CanadianPine", Vector3.new(px, 1, pz), 1, scale, yaw)
-				else
-					createFallbackPine(sceneryFolder, Vector3.new(px, 1, pz), 1, scale, false)
-				end
+			if #availableTrees > 0 then
+				local tpl = availableTrees[(pStep % #availableTrees) + 1]
+				placeScaledAssetModel(tpl, sceneryFolder, "CanadianPine", Vector3.new(px, 1, pz), 1, scale, yaw)
+			else
+				createFallbackPine(sceneryFolder, Vector3.new(px, 1, pz), 1, scale, false)
+			end
+		end
+	end
+
+	-- Layer 2: Deep Mountain Slope Forest (Dense backdrop trees near mountain bases, ~100 trees)
+	for pStep = 1, 100 do
+		local u = (pStep / 100) * N
+		local p, tan = getHavenPoint(u)
+		local normal = Vector3.new(-tan.Z, 0, tan.X).Unit
+
+		local offset = 145 + (pStep % 6) * 35
+		local px = p.X + normal.X * offset
+		local pz = p.Z + normal.Z * offset
+
+		if distToTrack(px, pz) >= 120 and math.abs(px) < 1300 and math.abs(pz) < 1300 and not isInsideLake(px, pz) then
+			local scale = 1.8 + (pStep % 5) * 0.25
+			local yaw = math.rad((pStep * 53) % 360)
+
+			if #availableTrees > 0 then
+				local tpl = availableTrees[(pStep % #availableTrees) + 1]
+				placeScaledAssetModel(tpl, sceneryFolder, "CanadianPine", Vector3.new(px, 1, pz), 1, scale, yaw)
+			else
+				createFallbackPine(sceneryFolder, Vector3.new(px, 1, pz), 1, scale, false)
+			end
+		end
+	end
+
+	-- Layer 3: Interior Lakeside & Cabin Meadow Forest (Natural groves along lake shores and cabins, ~90 trees)
+	for pStep = 1, 90 do
+		local u = (pStep / 90) * N
+		local p, tan = getHavenPoint(u)
+		local normal = Vector3.new(-tan.Z, 0, tan.X).Unit
+
+		local offset = 46 + (pStep % 4) * 18
+		local px = p.X - normal.X * offset
+		local pz = p.Z - normal.Z * offset
+
+		-- Strict checks: outside track curb AND outside water/beach
+		if distToTrack(px, pz) >= 42 and math.abs(px) < 550 and math.abs(pz) < 550 and not isInsideLake(px, pz) then
+			local scale = 1.5 + (pStep % 4) * 0.2
+			local yaw = math.rad((pStep * 29) % 360)
+
+			if #availableTrees > 0 then
+				local tpl = availableTrees[(pStep % #availableTrees) + 1]
+				placeScaledAssetModel(tpl, sceneryFolder, "CanadianPine", Vector3.new(px, 1, pz), 1, scale, yaw)
+			else
+				createFallbackPine(sceneryFolder, Vector3.new(px, 1, pz), 1, scale, false)
 			end
 		end
 	end
