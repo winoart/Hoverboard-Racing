@@ -15,7 +15,7 @@ MapManager.MapLaps = {
 	["Frost Glacier"] = 3,
 	["Autobahn Highway"] = 1,
 	["Pirate Treasure Island"] = 3,
-	["Emerald Lake Haven"] = 3,
+	["Emerald Lake Haven"] = 2,
 	["Cyber City"] = 3,
 	["Magma Ridge"] = 3,
 }
