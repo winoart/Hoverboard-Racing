@@ -15,8 +15,8 @@ export type Rarity = "Common" | "Uncommon" | "Rare" | "Super Rare"
 StoreConfig.RarityRequirements = {
 	["Common"] = 1,
 	["Uncommon"] = 10,
-	["Rare"] = 50,
-	["Super Rare"] = 90,
+	["Rare"] = 15,
+	["Super Rare"] = 20,
 }
 
 -- Kiosk 상점의 슬롯별 등급 등장 확률 (백분율)

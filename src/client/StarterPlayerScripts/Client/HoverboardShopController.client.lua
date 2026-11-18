@@ -119,10 +119,10 @@ local oldLegend = bgFrame:FindFirstChild("RarityLegendFrame")
 if oldLegend then oldLegend:Destroy() end
 
 local RARITY_ORDER = {
-	{ name = "Common", reqLevel = 1, color = Color3.fromRGB(255, 200, 30), bg = Color3.fromRGB(240, 190, 20) },
-	{ name = "Uncommon", reqLevel = 10, color = Color3.fromRGB(0, 150, 255), bg = Color3.fromRGB(0, 130, 230) },
-	{ name = "Rare", reqLevel = 50, color = Color3.fromRGB(170, 70, 255), bg = Color3.fromRGB(140, 50, 220) },
-	{ name = "Super Rare", reqLevel = 90, color = Color3.fromRGB(45, 45, 55), bg = Color3.fromRGB(25, 25, 30) },
+	{ name = "Common", reqLevel = (StoreConfig.RarityRequirements and StoreConfig.RarityRequirements["Common"]) or 1, color = Color3.fromRGB(255, 200, 30), bg = Color3.fromRGB(240, 190, 20) },
+	{ name = "Uncommon", reqLevel = (StoreConfig.RarityRequirements and StoreConfig.RarityRequirements["Uncommon"]) or 10, color = Color3.fromRGB(0, 150, 255), bg = Color3.fromRGB(0, 130, 230) },
+	{ name = "Rare", reqLevel = (StoreConfig.RarityRequirements and StoreConfig.RarityRequirements["Rare"]) or 15, color = Color3.fromRGB(170, 70, 255), bg = Color3.fromRGB(140, 50, 220) },
+	{ name = "Super Rare", reqLevel = (StoreConfig.RarityRequirements and StoreConfig.RarityRequirements["Super Rare"]) or 20, color = Color3.fromRGB(45, 45, 55), bg = Color3.fromRGB(25, 25, 30) },
 }
 
 local TIER_STRIPE_COLORS: { [string]: Color3 } = {
