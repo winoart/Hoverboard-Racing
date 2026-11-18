@@ -4309,7 +4309,7 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 	local mapModel = Instance.new("Model")
 	mapModel.Name = "Emerald Lake Haven"
 
-	local SEGMENTS = 360
+	local SEGMENTS = 420
 	local TRACK_WIDTH = 58
 	local halfW = TRACK_WIDTH / 2
 	local TRACK_THICKNESS = 2.4
@@ -4394,7 +4394,7 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 		local p2 = getHavenPoint(u2)
 
 		local midPos = (p1 + p2) * 0.5
-		local segLen = (p2 - p1).Magnitude + 1.2
+		local segLen = (p2 - p1).Magnitude + 8.0
 		local cf = CFrame.lookAt(midPos, p2)
 
 		local frac = (i - 1) / SEGMENTS
@@ -4440,6 +4440,17 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 		road.BottomSurface = Enum.SurfaceType.Smooth
 		road.Parent = trackFolder
 
+		-- Secondary seamless subfloor underneath to eliminate any gap fall-through
+		local catchSub = Instance.new("Part")
+		catchSub.Name = "TrackCatchSubFloor"
+		catchSub.Anchored = true
+		catchSub.CanCollide = true
+		catchSub.CastShadow = false
+		catchSub.Transparency = 1
+		catchSub.Size = Vector3.new(TRACK_WIDTH + 10, 2.0, segLen + 8.0)
+		catchSub.CFrame = cf * CFrame.new(0, -TRACK_THICKNESS / 2 - 1.0, 0)
+		catchSub.Parent = trackFolder
+
 		-- Track center stripe: warm pine inlay
 		local stripe = Instance.new("Part")
 		stripe.Name = "TrackCenterStripe"
@@ -4448,7 +4459,7 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 		stripe.CastShadow = false
 		stripe.Material = Enum.Material.Wood
 		stripe.Color = isPineRidgePass and Color3.fromRGB(225, 185, 75) or Color3.fromRGB(180, 135, 82)
-		stripe.Size = Vector3.new(1.4, 0.2, segLen)
+		stripe.Size = Vector3.new(1.4, 0.2, segLen + 4.0)
 		stripe.CFrame = cf * CFrame.new(0, (TRACK_THICKNESS / 2) + 0.1, 0)
 		stripe.Parent = trackFolder
 
@@ -4462,7 +4473,7 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 			curb.CastShadow = false
 			curb.Material = roadMat
 			curb.Color = curbColor
-			curb.Size = Vector3.new(2.4, barrierH, segLen)
+			curb.Size = Vector3.new(2.4, barrierH, segLen + 6.0)
 			curb.CFrame = cf * CFrame.new(side * (halfW - 1.2), (barrierH - TRACK_THICKNESS) / 2 + 0.4, 0)
 			curb.Parent = trackFolder
 
@@ -4473,7 +4484,7 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 			ropeRail.CastShadow = false
 			ropeRail.Material = Enum.Material.Wood
 			ropeRail.Color = Color3.fromRGB(175, 135, 85)
-			ropeRail.Size = Vector3.new(0.8, 0.8, segLen)
+			ropeRail.Size = Vector3.new(0.8, 0.8, segLen + 6.0)
 			ropeRail.CFrame = cf * CFrame.new(side * (halfW - 1.2), barrierH + 0.4, 0)
 			ropeRail.Parent = trackFolder
 
@@ -4483,8 +4494,8 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 			guard.CanCollide = true
 			guard.CastShadow = false
 			guard.Transparency = 1
-			guard.Size = Vector3.new(1.5, 26, segLen)
-			guard.CFrame = cf * CFrame.new(side * (halfW + 0.6), 13, 0)
+			guard.Size = Vector3.new(2.5, 36, segLen + 8.0)
+			guard.CFrame = cf * CFrame.new(side * (halfW + 0.6), 18, 0)
 			guard.Parent = trackFolder
 		end
 
@@ -4511,18 +4522,26 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 	groundFolder.Name = "EmeraldLakeAndTerrain"
 	groundFolder.Parent = mapModel
 
-	-- Expansive Canadian Evergreen Grass Basin (3200x3200 studs)
-	local outerGrass = Instance.new("Part")
-	outerGrass.Name = "CanadianForestFloor"
-	outerGrass.Anchored = true
-	outerGrass.CanCollide = true
-	outerGrass.CastShadow = false
-	outerGrass.Material = Enum.Material.Grass
-	outerGrass.Color = Color3.fromRGB(48, 92, 46) -- Deep Canadian evergreen meadow
-	outerGrass.Size = Vector3.new(3200, 6, 3200)
-	outerGrass.CFrame = CFrame.new(0, 1, 0)
-	outerGrass.TopSurface = Enum.SurfaceType.Smooth
-	outerGrass.Parent = groundFolder
+	-- Expansive Canadian Evergreen Grass Basin (4 Tiles of 1820x1820 to bypass Roblox 2048 Part size limit, total 3640x3640 studs)
+	local floorTileOffsets = {
+		Vector2.new(-900, -900),
+		Vector2.new(900, -900),
+		Vector2.new(-900, 900),
+		Vector2.new(900, 900),
+	}
+	for tIdx, offset in ipairs(floorTileOffsets) do
+		local floorTile = Instance.new("Part")
+		floorTile.Name = "CanadianForestFloorTile_" .. tIdx
+		floorTile.Anchored = true
+		floorTile.CanCollide = true
+		floorTile.CastShadow = false
+		floorTile.Material = Enum.Material.Grass
+		floorTile.Color = Color3.fromRGB(48, 92, 46) -- Deep Canadian evergreen meadow
+		floorTile.Size = Vector3.new(1820, 6, 1820)
+		floorTile.CFrame = CFrame.new(offset.X, 1, offset.Y)
+		floorTile.TopSurface = Enum.SurfaceType.Smooth
+		floorTile.Parent = groundFolder
+	end
 
 	-- Organic Glacial Lake Discs (Overlapping cylinders forming a natural, curvy lake strictly inside the circuit)
 	local lakeDiscs = {
@@ -4577,7 +4596,6 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 		water.BottomSurface = Enum.SurfaceType.Smooth
 		water.Parent = groundFolder
 	end
-	outerGrass.Parent = groundFolder
 
 	-- 3. COZY LOG CABIN VILLAGE & CAMPFIRE (Near Chicane 2 / Cabin Valley, u = 8.2)
 	local cabinFolder = Instance.new("Folder")
@@ -5036,65 +5054,62 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 		return false
 	end
 
-	-- 6. MAJESTIC CANADIAN ROCKY MOUNTAINS (Colossal Outer Amphitheater Circling the Valley, Strictly Outside Track)
+	-- 6. MAJESTIC CANADIAN ROCKY MOUNTAINS (Towering outer amphitheater directly flanking the circuit, strictly outside track)
 	local mountainFolder = Instance.new("Folder")
 	mountainFolder.Name = "RockyMountainAmphitheater"
 	mountainFolder.Parent = mapModel
 
-	-- 18 Colossal Peaks forming an unbroken panoramic mountain wall strictly outside the circuit (R = 1350 ~ 1520 studs)
-	local mountainPlacements = {
-		-- North Rim (Towering horizons behind Lakeside Promenade)
-		{ modelName = "Mountain_93202749631480",  pos = Vector3.new(0, 0, -1460),     scale = 3.4, yaw = 0 },
-		{ modelName = "Mountain_4908622788",      pos = Vector3.new(500, 0, -1420),   scale = 3.2, yaw = 25 },
-		{ modelName = "Mountain_122412923246766", pos = Vector3.new(980, 0, -1200),   scale = 3.6, yaw = 45 },
-		{ modelName = "Mountain_85041881101785",  pos = Vector3.new(1280, 0, -820),   scale = 3.8, yaw = 65 },
-
-		-- East Rim (Towering mountain ridge flanking Eastern Pine Forest & Cabin Valley)
-		{ modelName = "Mountain_93202749631480",  pos = Vector3.new(1480, 0, -320),   scale = 3.4, yaw = 85 },
-		{ modelName = "Mountain_4908622788",      pos = Vector3.new(1520, 0, 220),    scale = 3.2, yaw = 105 },
-		{ modelName = "Mountain_10416799149",     pos = Vector3.new(1380, 0, 720),    scale = 3.8, yaw = 125 },
-		{ modelName = "Mountain_85041881101785",  pos = Vector3.new(1180, 0, 1140),   scale = 3.6, yaw = 145 },
-
-		-- South Rim (Massive alpine summits backing the High Pine Ridge)
-		{ modelName = "Mountain_122412923246766", pos = Vector3.new(720, 0, 1420),    scale = 3.6, yaw = 165 },
-		{ modelName = "Mountain_93202749631480",  pos = Vector3.new(140, 0, 1500),    scale = 3.4, yaw = 185 },
-		{ modelName = "Mountain_4908622788",      pos = Vector3.new(-460, 0, 1460),   scale = 3.2, yaw = 205 },
-		{ modelName = "Mountain_85041881101785",  pos = Vector3.new(-980, 0, 1260),   scale = 3.8, yaw = 225 },
-
-		-- West Rim (Rugged crags framing the Wooden Trestle Bridge & Bay)
-		{ modelName = "Mountain_122412923246766", pos = Vector3.new(-1360, 0, 880),   scale = 3.6, yaw = 245 },
-		{ modelName = "Mountain_93202749631480",  pos = Vector3.new(-1500, 0, 360),   scale = 3.4, yaw = 265 },
-		{ modelName = "Mountain_4908622788",      pos = Vector3.new(-1480, 0, -220),  scale = 3.2, yaw = 285 },
-		{ modelName = "Mountain_10416799149",     pos = Vector3.new(-1380, 0, -720),  scale = 3.8, yaw = 305 },
-
-		-- North-West Rim (Completing the full 360-degree Rocky Mountain amphitheater)
-		{ modelName = "Mountain_85041881101785",  pos = Vector3.new(-1080, 0, -1140),  scale = 3.6, yaw = 325 },
-		{ modelName = "Mountain_122412923246766", pos = Vector3.new(-580, 0, -1400),  scale = 3.6, yaw = 345 },
+	local mountainCatalog = {
+		{ modelName = "Mountain_85041881101785",  scale = 2.0, radius = 110, yawOffset = 0 },
+		{ modelName = "Mountain_10416799149",     scale = 3.6, radius = 95,  yawOffset = 45 },
+		{ modelName = "Mountain_122412923246766", scale = 1.8, radius = 135, yawOffset = 90 },
+		{ modelName = "Mountain_93202749631480",  scale = 1.0, radius = 160, yawOffset = 180 },
+		{ modelName = "Mountain_4908622788",      scale = 1.0, radius = 160, yawOffset = 270 },
 	}
 
-	for idx, mData in ipairs(mountainPlacements) do
+	local trackCenter = Vector3.new(11, 0, -15)
+	local MOUNTAIN_COUNT = 18
+
+	for mIdx = 1, MOUNTAIN_COUNT do
+		local u = ((mIdx - 1) / MOUNTAIN_COUNT) * N
+		local p = getHavenPoint(u)
+		local rDir = Vector3.new(p.X - trackCenter.X, 0, p.Z - trackCenter.Z).Unit
+		local spec = mountainCatalog[((mIdx - 1) % #mountainCatalog) + 1]
+
+		local reqDist = spec.radius + 29 + 35
+		local offsetDist = reqDist
+		local mPos = p + rDir * offsetDist
+
+		-- If track curves outward nearby, ensure mountain is always pushed beyond track boundary + buffer
+		while distToTrack(mPos.X, mPos.Z) < reqDist do
+			offsetDist = offsetDist + 20
+			mPos = p + rDir * offsetDist
+		end
+
+		local yawRad = math.atan2(rDir.X, rDir.Z) + math.pi + math.rad(spec.yawOffset)
+
 		local placed = false
 		if mountainAssets then
-			local tpl = mountainAssets:FindFirstChild(mData.modelName)
+			local tpl = mountainAssets:FindFirstChild(spec.modelName)
 			if tpl and tpl:IsA("Model") then
-				placeScaledAssetModel(tpl, mountainFolder, "RockyMountain_" .. idx, mData.pos, 1, mData.scale, math.rad(mData.yaw))
+				-- Sink mountain into ground (groundY = -45) so hollow mesh bottoms are completely buried in the meadow
+				placeScaledAssetModel(tpl, mountainFolder, "RockyMountain_" .. mIdx, mPos, -45, spec.scale, yawRad)
 				placed = true
 			end
 		end
 
 		if not placed then
-			local peakH = 260 + (idx % 4) * 35
-			local peakW = 240 + (idx % 3) * 30
-			local peakD = 220 + (idx % 2) * 35
+			local peakH = 280 + (mIdx % 3) * 40
+			local peakW = spec.radius * 2
 			local mountain = Instance.new("Part")
-			mountain.Name = "FallbackMountainPeak_" .. idx
+			mountain.Name = "FallbackMountainPeak_" .. mIdx
 			mountain.Anchored = true
 			mountain.CanCollide = false
 			mountain.CastShadow = false
 			mountain.Material = Enum.Material.Slate
-			mountain.Color = (idx % 2 == 0) and Color3.fromRGB(68, 64, 58) or Color3.fromRGB(82, 78, 72)
-			mountain.Size = Vector3.new(peakW, peakH, peakD)
-			mountain.CFrame = CFrame.new(mData.pos.X, peakH / 2 - 10, mData.pos.Z) * CFrame.Angles(0, math.rad(mData.yaw), 0)
+			mountain.Color = (mIdx % 2 == 0) and Color3.fromRGB(68, 64, 58) or Color3.fromRGB(82, 78, 72)
+			mountain.Size = Vector3.new(peakW, peakH, peakW)
+			mountain.CFrame = CFrame.new(mPos.X, peakH / 2 - 45, mPos.Z) * CFrame.Angles(0, yawRad, 0)
 			mountain.Parent = mountainFolder
 		end
 	end
