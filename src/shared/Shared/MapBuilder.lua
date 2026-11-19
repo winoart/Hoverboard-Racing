@@ -5399,74 +5399,7 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 		pLight.Parent = lightPart
 	end
 
-	-- 9.5 WILDLIFE: PLAYFUL REINDEER HERD DASHING ACROSS THE TRACK (Asset 106989142771218)
-	local reindeerFolder = Instance.new("Folder")
-	reindeerFolder.Name = "ReindeerHerd"
-	reindeerFolder.Parent = mapModel
-
-	local deerTpl = havenAssets and havenAssets:FindFirstChild("Reindeer")
-	if deerTpl and deerTpl:IsA("Model") then
-		local deerCrossings = {
-			{ u = 0.85, speed = 0.48, phase = 0.1,  hop = 3.4, scale = 1.60 }, -- Right after Start Straight!
-			{ u = 0.92, speed = 0.48, phase = 0.25, hop = 3.1, scale = 1.48 }, -- Partner deer dashing together!
-			{ u = 2.6,  speed = 0.52, phase = 1.2,  hop = 3.6, scale = 1.60 },
-			{ u = 4.4,  speed = 0.44, phase = 0.6,  hop = 3.2, scale = 1.55 },
-			{ u = 6.3,  speed = 0.50, phase = 1.7,  hop = 3.5, scale = 1.62 },
-			{ u = 6.4,  speed = 0.50, phase = 1.88, hop = 3.2, scale = 1.45 }, -- Pair at Emerald Cove!
-			{ u = 8.4,  speed = 0.46, phase = 0.4,  hop = 3.4, scale = 1.58 },
-			{ u = 10.2, speed = 0.54, phase = 1.1,  hop = 3.8, scale = 1.65 },
-			{ u = 12.0, speed = 0.45, phase = 1.6,  hop = 3.3, scale = 1.55 },
-			{ u = 14.1, speed = 0.52, phase = 0.3,  hop = 3.6, scale = 1.60 },
-			{ u = 14.2, speed = 0.52, phase = 0.46, hop = 3.2, scale = 1.48 }, -- Pair on Trestle Bridge!
-			{ u = 16.5, speed = 0.48, phase = 1.3,  hop = 3.5, scale = 1.60 },
-		}
-
-		local crossHalf = halfW + 7 -- Start 7 studs outside curb, dash all the way across to 7 studs past opposite curb
-		local crossDist = crossHalf * 2
-
-		for dIdx, dc in ipairs(deerCrossings) do
-			local p, tan = getHavenPoint(dc.u)
-			local rightDir = Vector3.new(-tan.Z, 0, tan.X).Unit
-			-- Alternate crossing direction (left-to-right vs right-to-left)
-			local dirSign = (dIdx % 2 == 0) and -1 or 1
-			local roadTopY = p.Y + (TRACK_THICKNESS * 0.5)
-			local startPt = Vector3.new(p.X - rightDir.X * crossHalf * dirSign, roadTopY, p.Z - rightDir.Z * crossHalf * dirSign)
-			local endPt   = Vector3.new(p.X + rightDir.X * crossHalf * dirSign, roadTopY, p.Z + rightDir.Z * crossHalf * dirSign)
-
-			local deer = deerTpl:Clone()
-			deer.Name = "RunningReindeer_" .. dIdx
-			for _, part in ipairs(deer:GetDescendants()) do
-				if part:IsA("BasePart") then
-					part.Anchored = true
-					part.CanCollide = false -- Pure visual surprise effect: never flips or blocks players!
-					part.CanTouch = false
-					part.CanQuery = false
-					part.CastShadow = false
-				end
-			end
-
-			-- Normalize WorldPivot to bottom-center facing the nose (+X in template bounding box -> LookVector -Z)
-			deer.PrimaryPart = nil
-			local baseScale = deer:GetScale()
-			deer:ScaleTo(baseScale * dc.scale)
-			local bbCf, bbSize = deer:GetBoundingBox()
-			local noseDir = Vector3.new(bbCf.RightVector.X, 0, bbCf.RightVector.Z)
-			if noseDir.Magnitude < 0.01 then noseDir = Vector3.new(1, 0, 0) else noseDir = noseDir.Unit end
-			local bottomCenter = Vector3.new(bbCf.Position.X, bbCf.Position.Y - bbSize.Y * 0.5, bbCf.Position.Z)
-			deer.WorldPivot = CFrame.lookAt(bottomCenter, bottomCenter + noseDir)
-
-			-- Store relative CrossDist (NOT absolute world coords) so MapManager:PivotTo shifts them cleanly!
-			deer:SetAttribute("CrossDist", crossDist)
-			deer:SetAttribute("Speed", dc.speed)
-			deer:SetAttribute("Phase", dc.phase)
-			deer:SetAttribute("HopHeight", dc.hop)
-
-			deer:PivotTo(CFrame.lookAt(startPt, endPt))
-			deer.Parent = reindeerFolder
-		end
-	end
-
-	-- 10. DYNAMIC HEALING EFFECTS SCRIPT (Campfire flicker & playful Reindeer dashing across track)
+	-- 10. DYNAMIC HEALING EFFECTS SCRIPT (Campfire flicker)
 	local fxScript = Instance.new("Script")
 	fxScript.Name = "EmeraldLakeEffects"
 	fxScript.Source = [=[
@@ -5477,10 +5410,6 @@ if not map:IsDescendantOf(workspace) then
 	map.AncestryChanged:Wait()
 	if not map:IsDescendantOf(workspace) then return end
 end
-
--- Wait briefly for MapManager:PivotTo() to finish positioning ActiveMap below WaitingRoom Lounge!
-task.wait(0.4)
-if not map or not map.Parent or not map:IsDescendantOf(workspace) then return end
 
 local cabinFolder = map:FindFirstChild("LogCabinVillage")
 local campfirePart = cabinFolder and cabinFolder:FindFirstChild("CampfireFlamePart", true)
@@ -5494,61 +5423,6 @@ if campfireLight then
 			task.wait(0.12)
 		end
 	end)
-end
-
--- Playful Reindeer Herd dashing across the track using shifted runtime Pivot coordinates!
-local reindeerFolder = map:FindFirstChild("ReindeerHerd")
-if reindeerFolder then
-	local herd = {}
-	for _, child in ipairs(reindeerFolder:GetChildren()) do
-		if child:IsA("Model") then
-			local startCF = child:GetPivot()
-			local crossDist = tonumber(child:GetAttribute("CrossDist")) or 72
-			local flatLook = Vector3.new(startCF.LookVector.X, 0, startCF.LookVector.Z)
-			if flatLook.Magnitude > 0.01 then
-				flatLook = flatLook.Unit
-				local sPos = startCF.Position
-				local ePos = sPos + flatLook * crossDist
-				table.insert(herd, {
-					model = child,
-					startPos = sPos,
-					endPos = ePos,
-					speed = tonumber(child:GetAttribute("Speed")) or 0.48,
-					phase = tonumber(child:GetAttribute("Phase")) or 0,
-					hop = tonumber(child:GetAttribute("HopHeight")) or 3.4,
-				})
-			end
-		end
-	end
-
-	if #herd > 0 then
-		task.spawn(function()
-			local t0 = os.clock()
-			while map and map.Parent and map:IsDescendantOf(workspace) do
-				local elapsed = os.clock() - t0
-				for _, d in ipairs(herd) do
-					if d.model and d.model.Parent then
-						-- Smooth ping-pong [0..2] -> 0..1 forward, 1..2 backward
-						local cycle = (elapsed * d.speed + d.phase) % 2
-						local goingForward = (cycle < 1)
-						local alpha = goingForward and cycle or (2 - cycle)
-						local basePos = d.startPos:Lerp(d.endPos, alpha)
-						local targetPos = goingForward and d.endPos or d.startPos
-
-						-- Energetic bounding leap & gallop tilt
-						local gallopWave = math.sin(elapsed * 12.0 + d.phase * 2.5)
-						local hopY = math.abs(gallopWave) * d.hop
-						local pitchRad = gallopWave * math.rad(12)
-
-						local pos = basePos + Vector3.new(0, hopY, 0)
-						local lookTarget = Vector3.new(targetPos.X, pos.Y, targetPos.Z)
-						d.model:PivotTo(CFrame.lookAt(pos, lookTarget) * CFrame.Angles(pitchRad, 0, 0))
-					end
-				end
-				task.wait(0.033) -- Smooth ~30Hz network-friendly wildlife motion
-			end
-		end)
-	end
 end
 ]=]
 	fxScript.Parent = mapModel
