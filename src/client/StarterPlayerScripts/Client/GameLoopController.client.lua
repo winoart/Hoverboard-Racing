@@ -150,11 +150,11 @@ local VIEWPORT_SHOWCASE_PRESETS: {
 		fov = 52,
 	},
 	["Emerald Lake Haven"] = {
-		sky = Color3.fromRGB(32, 75, 110),
-		focus = Vector3.new(0, 24, -295),
-		radius = 115,
-		height = 30,
-		baseAngle = math.rad(-70),
+		sky = Color3.fromRGB(70, 155, 225),
+		focus = Vector3.new(25, 22, -580),
+		radius = 92,
+		height = 24,
+		baseAngle = math.rad(-145),
 		fov = 52,
 	},
 	["Cyber City"] = {

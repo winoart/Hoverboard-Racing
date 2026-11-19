@@ -4310,7 +4310,7 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 	local mapModel = Instance.new("Model")
 	mapModel.Name = "Emerald Lake Haven"
 
-	local SEGMENTS = 420
+	local SEGMENTS = 480
 	local TRACK_WIDTH = 58
 	local halfW = TRACK_WIDTH / 2
 	local TRACK_THICKNESS = 2.4
@@ -4391,12 +4391,25 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 	for i = 1, SEGMENTS do
 		local u1 = ((i - 1) / SEGMENTS) * N
 		local u2 = (i / SEGMENTS) * N
-		local p1 = getHavenPoint(u1)
-		local p2 = getHavenPoint(u2)
+		local p1, tan1 = getHavenPoint(u1)
+		local p2, tan2 = getHavenPoint(u2)
+
+		local right1 = Vector3.new(-tan1.Z, 0, tan1.X).Unit
+		local right2 = Vector3.new(-tan2.Z, 0, tan2.X).Unit
+
+		-- Exact left & right road edge vertices so outer curves have 0 V-gaps and inner curves have 0 jagged overhangs!
+		local leftE1  = p1 - right1 * (halfW - 1.2)
+		local leftE2  = p2 - right2 * (halfW - 1.2)
+		local rightE1 = p1 + right1 * (halfW - 1.2)
+		local rightE2 = p2 + right2 * (halfW - 1.2)
 
 		local midPos = (p1 + p2) * 0.5
 		local actualDist = (p2 - p1).Magnitude
-		local segLen = actualDist + 2.6
+		local leftEdgeDist = (leftE2 - leftE1).Magnitude
+		local rightEdgeDist = (rightE2 - rightE1).Magnitude
+		local outerEdgeDist = math.max(actualDist, leftEdgeDist, rightEdgeDist)
+
+		local roadLen = outerEdgeDist + 2.2
 		local cf = CFrame.lookAt(midPos, p2)
 
 		local frac = (i - 1) / SEGMENTS
@@ -4419,7 +4432,7 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 		road.CastShadow = false
 		road.Material = roadMat
 		road.Color = roadColor
-		road.Size = Vector3.new(TRACK_WIDTH, TRACK_THICKNESS, segLen)
+		road.Size = Vector3.new(TRACK_WIDTH, TRACK_THICKNESS, roadLen)
 		road.CFrame = cf
 		road.TopSurface = Enum.SurfaceType.Smooth
 		road.BottomSurface = Enum.SurfaceType.Smooth
@@ -4432,11 +4445,11 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 		catchSub.CanCollide = true
 		catchSub.CastShadow = false
 		catchSub.Transparency = 1
-		catchSub.Size = Vector3.new(TRACK_WIDTH + 6, 2.0, actualDist + 4.5)
+		catchSub.Size = Vector3.new(TRACK_WIDTH + 6, 2.0, outerEdgeDist + 4.5)
 		catchSub.CFrame = cf * CFrame.new(0, -TRACK_THICKNESS / 2 - 1.0, 0)
 		catchSub.Parent = trackFolder
 
-		-- Track center stripe: smooth warm pine inlay (tight length to avoid jagged curve steps)
+		-- Track center stripe: smooth warm pine inlay (exact centerline length)
 		local stripe = Instance.new("Part")
 		stripe.Name = "TrackCenterStripe"
 		stripe.Anchored = true
@@ -4444,22 +4457,27 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 		stripe.CastShadow = false
 		stripe.Material = Enum.Material.Wood
 		stripe.Color = Color3.fromRGB(190, 145, 88)
-		stripe.Size = Vector3.new(1.4, 0.2, actualDist + 0.5)
+		stripe.Size = Vector3.new(1.4, 0.2, actualDist + 0.35)
 		stripe.CFrame = cf * CFrame.new(0, (TRACK_THICKNESS / 2) + 0.1, 0)
 		stripe.Parent = trackFolder
 
-		-- Curbs (Visual Only to prevent snagging/flipping!), Timber Railings & Smooth Invisible Guardwalls
+		-- Point-to-Point Edge Curbs, Timber Railings & Smooth Continuous Invisible Guardwalls
 		local barrierH = isTrestleBridge and 4.8 or 3.4
 		for _, side in ipairs({ -1, 1 }) do
+			local e1 = (side == -1) and leftE1 or rightE1
+			local e2 = (side == -1) and leftE2 or rightE2
+			local edgeDist = (e2 - e1).Magnitude
+			local edgeCF = CFrame.lookAt((e1 + e2) * 0.5, e2)
+
 			local curb = Instance.new("Part")
 			curb.Name = "TrackCurb"
 			curb.Anchored = true
-			curb.CanCollide = false -- Visual only: prevents hoverboard from snagging/flipping on curved edges
+			curb.CanCollide = false -- Visual only: prevents hoverboard from snagging/flipping
 			curb.CastShadow = false
 			curb.Material = roadMat
 			curb.Color = curbColor
-			curb.Size = Vector3.new(2.4, barrierH, actualDist + 0.6)
-			curb.CFrame = cf * CFrame.new(side * (halfW - 1.2), (barrierH - TRACK_THICKNESS) / 2 + 0.4, 0)
+			curb.Size = Vector3.new(2.4, barrierH, edgeDist + 0.35)
+			curb.CFrame = edgeCF * CFrame.new(0, (barrierH - TRACK_THICKNESS) / 2 + 0.4, 0)
 			curb.Parent = trackFolder
 
 			local ropeRail = Instance.new("Part")
@@ -4469,9 +4487,14 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 			ropeRail.CastShadow = false
 			ropeRail.Material = Enum.Material.Wood
 			ropeRail.Color = Color3.fromRGB(175, 135, 85)
-			ropeRail.Size = Vector3.new(0.8, 0.8, actualDist + 0.6)
-			ropeRail.CFrame = cf * CFrame.new(side * (halfW - 1.2), barrierH + 0.4, 0)
+			ropeRail.Size = Vector3.new(0.8, 0.8, edgeDist + 0.35)
+			ropeRail.CFrame = edgeCF * CFrame.new(0, barrierH + 0.4, 0)
 			ropeRail.Parent = trackFolder
+
+			local g1 = p1 + right1 * (side * (halfW - 0.1))
+			local g2 = p2 + right2 * (side * (halfW - 0.1))
+			local guardDist = (g2 - g1).Magnitude
+			local guardCF = CFrame.lookAt((g1 + g2) * 0.5, g2)
 
 			local guard = Instance.new("Part")
 			guard.Name = "TrackGuardWall"
@@ -4479,8 +4502,8 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 			guard.CanCollide = true
 			guard.CastShadow = false
 			guard.Transparency = 1
-			guard.Size = Vector3.new(2.2, 36, actualDist + 1.2)
-			guard.CFrame = cf * CFrame.new(side * (halfW - 0.1), 18, 0)
+			guard.Size = Vector3.new(2.2, 36, guardDist + 0.5)
+			guard.CFrame = guardCF * CFrame.new(0, 18, 0)
 			guard.Parent = trackFolder
 		end
 
