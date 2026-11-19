@@ -4522,12 +4522,12 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 	groundFolder.Name = "EmeraldLakeAndTerrain"
 	groundFolder.Parent = mapModel
 
-	-- Expansive Canadian Evergreen Grass Basin (4 Tiles of 1820x1820 to bypass Roblox 2048 Part size limit, total 3640x3640 studs)
+	-- Expansive Canadian Evergreen Grass Basin (4 Tiles of 2020x2020 to bypass Roblox 2048 Part size limit, total 4020x4020 studs)
 	local floorTileOffsets = {
-		Vector2.new(-900, -900),
-		Vector2.new(900, -900),
-		Vector2.new(-900, 900),
-		Vector2.new(900, 900),
+		Vector2.new(-1000, -1000),
+		Vector2.new(1000, -1000),
+		Vector2.new(-1000, 1000),
+		Vector2.new(1000, 1000),
 	}
 	for tIdx, offset in ipairs(floorTileOffsets) do
 		local floorTile = Instance.new("Part")
@@ -4537,7 +4537,7 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 		floorTile.CastShadow = false
 		floorTile.Material = Enum.Material.Grass
 		floorTile.Color = Color3.fromRGB(48, 92, 46) -- Deep Canadian evergreen meadow
-		floorTile.Size = Vector3.new(1820, 6, 1820)
+		floorTile.Size = Vector3.new(2020, 6, 2020)
 		floorTile.CFrame = CFrame.new(offset.X, 1, offset.Y)
 		floorTile.TopSurface = Enum.SurfaceType.Smooth
 		floorTile.Parent = groundFolder
@@ -5054,35 +5054,44 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 		return false
 	end
 
-	-- 6. MAJESTIC CANADIAN ROCKY MOUNTAINS (Towering outer amphitheater directly flanking the circuit, strictly outside track)
+	-- 6. MAJESTIC CANADIAN ROCKY MOUNTAINS (Towering Two-Tier Amphitheater Hugging the Track, Strictly Outside Curb)
 	local mountainFolder = Instance.new("Folder")
 	mountainFolder.Name = "RockyMountainAmphitheater"
 	mountainFolder.Parent = mapModel
 
-	local mountainCatalog = {
-		{ modelName = "Mountain_85041881101785",  scale = 2.0, radius = 110, yawOffset = 0 },
-		{ modelName = "Mountain_10416799149",     scale = 3.6, radius = 95,  yawOffset = 45 },
-		{ modelName = "Mountain_122412923246766", scale = 1.8, radius = 135, yawOffset = 90 },
-		{ modelName = "Mountain_93202749631480",  scale = 1.0, radius = 160, yawOffset = 180 },
-		{ modelName = "Mountain_4908622788",      scale = 1.0, radius = 160, yawOffset = 270 },
+	-- Tier 1: Tall, steep alpine peaks hugging right beside the outer curb (Height ~260-340 studs above ground)
+	local innerMountainCatalog = {
+		{ modelName = "Mountain_10416799149",     scale = 8.0, radius = 195, yawOffset = 20,  groundY = -30 },
+		{ modelName = "Mountain_85041881101785",  scale = 4.4, radius = 230, yawOffset = 75,  groundY = -35 },
+		{ modelName = "Mountain_122412923246766", scale = 3.6, radius = 250, yawOffset = 140, groundY = -40 },
+		{ modelName = "Mountain_10416799149",     scale = 8.8, radius = 215, yawOffset = 210, groundY = -30 },
+	}
+
+	-- Tier 2: Colossal backdrop summits directly behind Tier 1 sealing every gap (Height ~320-420+ studs above ground)
+	local outerMountainCatalog = {
+		{ modelName = "Mountain_93202749631480",  scale = 3.4, radius = 430, yawOffset = 0,   groundY = -45 },
+		{ modelName = "Mountain_122412923246766", scale = 4.8, radius = 330, yawOffset = 60,  groundY = -45 },
+		{ modelName = "Mountain_4908622788",      scale = 3.4, radius = 430, yawOffset = 120, groundY = -45 },
+		{ modelName = "Mountain_10416799149",     scale = 10.5, radius = 260, yawOffset = 180, groundY = -35 },
 	}
 
 	local trackCenter = Vector3.new(11, 0, -15)
-	local MOUNTAIN_COUNT = 18
 
-	for mIdx = 1, MOUNTAIN_COUNT do
-		local u = ((mIdx - 1) / MOUNTAIN_COUNT) * N
+	-- Place Tier 1 (24 Track-Hugging Tall Mountains)
+	local INNER_MOUNTAIN_COUNT = 24
+	for mIdx = 1, INNER_MOUNTAIN_COUNT do
+		local u = ((mIdx - 1) / INNER_MOUNTAIN_COUNT) * N
 		local p = getHavenPoint(u)
 		local rDir = Vector3.new(p.X - trackCenter.X, 0, p.Z - trackCenter.Z).Unit
-		local spec = mountainCatalog[((mIdx - 1) % #mountainCatalog) + 1]
+		local spec = innerMountainCatalog[((mIdx - 1) % #innerMountainCatalog) + 1]
 
-		local reqDist = spec.radius + 29 + 35
+		-- Hug tightly against outer curb (halfW=29 + mountain radius + 14 stud safety clearance)
+		local reqDist = spec.radius + 29 + 14
 		local offsetDist = reqDist
 		local mPos = p + rDir * offsetDist
 
-		-- If track curves outward nearby, ensure mountain is always pushed beyond track boundary + buffer
 		while distToTrack(mPos.X, mPos.Z) < reqDist do
-			offsetDist = offsetDist + 20
+			offsetDist = offsetDist + 18
 			mPos = p + rDir * offsetDist
 		end
 
@@ -5092,29 +5101,55 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 		if mountainAssets then
 			local tpl = mountainAssets:FindFirstChild(spec.modelName)
 			if tpl and tpl:IsA("Model") then
-				-- Sink mountain into ground (groundY = -45) so hollow mesh bottoms are completely buried in the meadow
-				placeScaledAssetModel(tpl, mountainFolder, "RockyMountain_" .. mIdx, mPos, -45, spec.scale, yawRad)
+				placeScaledAssetModel(tpl, mountainFolder, "RockyMountainInner_" .. mIdx, mPos, spec.groundY, spec.scale, yawRad)
 				placed = true
 			end
 		end
 
 		if not placed then
-			local peakH = 280 + (mIdx % 3) * 40
+			local peakH = 340 + (mIdx % 3) * 45
 			local peakW = spec.radius * 2
 			local mountain = Instance.new("Part")
-			mountain.Name = "FallbackMountainPeak_" .. mIdx
+			mountain.Name = "FallbackMountainInner_" .. mIdx
 			mountain.Anchored = true
 			mountain.CanCollide = false
 			mountain.CastShadow = false
 			mountain.Material = Enum.Material.Slate
 			mountain.Color = (mIdx % 2 == 0) and Color3.fromRGB(68, 64, 58) or Color3.fromRGB(82, 78, 72)
 			mountain.Size = Vector3.new(peakW, peakH, peakW)
-			mountain.CFrame = CFrame.new(mPos.X, peakH / 2 - 45, mPos.Z) * CFrame.Angles(0, yawRad, 0)
+			mountain.CFrame = CFrame.new(mPos.X, peakH / 2 - 40, mPos.Z) * CFrame.Angles(0, yawRad, 0)
 			mountain.Parent = mountainFolder
 		end
 	end
 
-	-- 7. DENSE CANADIAN EVERGREEN FOREST SCENERY (Lush, Vibrant Green, Zero Winter/Snow Trees)
+	-- Place Tier 2 (18 Colossal Backdrop Peaks staggered behind Tier 1)
+	local OUTER_MOUNTAIN_COUNT = 18
+	for mIdx = 1, OUTER_MOUNTAIN_COUNT do
+		local u = ((mIdx - 0.5) / OUTER_MOUNTAIN_COUNT) * N
+		local p = getHavenPoint(u)
+		local rDir = Vector3.new(p.X - trackCenter.X, 0, p.Z - trackCenter.Z).Unit
+		local spec = outerMountainCatalog[((mIdx - 1) % #outerMountainCatalog) + 1]
+
+		local reqDist = spec.radius + 29 + 160
+		local offsetDist = reqDist
+		local mPos = p + rDir * offsetDist
+
+		while distToTrack(mPos.X, mPos.Z) < reqDist do
+			offsetDist = offsetDist + 25
+			mPos = p + rDir * offsetDist
+		end
+
+		local yawRad = math.atan2(rDir.X, rDir.Z) + math.pi + math.rad(spec.yawOffset)
+
+		if mountainAssets then
+			local tpl = mountainAssets:FindFirstChild(spec.modelName)
+			if tpl and tpl:IsA("Model") then
+				placeScaledAssetModel(tpl, mountainFolder, "RockyMountainOuter_" .. mIdx, mPos, spec.groundY, spec.scale, yawRad)
+			end
+		end
+	end
+
+	-- 7. DENSE CANADIAN EVERGREEN FOREST SCENERY (Lush Forests on BOTH Outside & Inside of Track, Zero Snow Trees)
 	local sceneryFolder = Instance.new("Folder")
 	sceneryFolder.Name = "EvergreenForestScenery"
 	sceneryFolder.Parent = mapModel
@@ -5130,70 +5165,72 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 		end
 	end
 
-	-- Layer 1: Outer Foothills Forest (Lining the space between track and outer mountains, ~140 trees)
-	for pStep = 1, 140 do
-		local u = (pStep / 140) * N
+	-- Note: For this clockwise circuit, outDir = (tan.Z, 0, -tan.X) points OUTWARD, inDir = (-tan.Z, 0, tan.X) points INWARD toward lake.
+
+	-- Layer 1: Outer Trackside Dense Pine Forest (Hugging the OUTSIDE of the track right beside the curb, ~180 trees)
+	for pStep = 1, 180 do
+		local u = (pStep / 180) * N
 		local p, tan = getHavenPoint(u)
-		local normal = Vector3.new(-tan.Z, 0, tan.X).Unit
+		local outDir = Vector3.new(tan.Z, 0, -tan.X).Unit
 
-		local offset = 48 + (pStep % 5) * 22
-		local px = p.X + normal.X * offset
-		local pz = p.Z + normal.Z * offset
+		local offset = 42 + (pStep % 5) * 16
+		local px = p.X + outDir.X * offset
+		local pz = p.Z + outDir.Z * offset
 
-		if distToTrack(px, pz) >= 44 and math.abs(px) < 1200 and math.abs(pz) < 1200 and not isInsideLake(px, pz) then
-			local scale = 1.6 + (pStep % 4) * 0.25
+		if distToTrack(px, pz) >= 40 and math.abs(px) < 1650 and math.abs(pz) < 1650 and not isInsideLake(px, pz) then
+			local scale = 1.7 + (pStep % 4) * 0.3
 			local yaw = math.rad((pStep * 37) % 360)
 
 			if #availableTrees > 0 then
 				local tpl = availableTrees[(pStep % #availableTrees) + 1]
-				placeScaledAssetModel(tpl, sceneryFolder, "CanadianPine", Vector3.new(px, 1, pz), 1, scale, yaw)
+				placeScaledAssetModel(tpl, sceneryFolder, "CanadianPineOuter", Vector3.new(px, 1, pz), 1, scale, yaw)
 			else
 				createFallbackPine(sceneryFolder, Vector3.new(px, 1, pz), 1, scale, false)
 			end
 		end
 	end
 
-	-- Layer 2: Deep Mountain Slope Forest (Dense backdrop trees near mountain bases, ~100 trees)
-	for pStep = 1, 100 do
-		local u = (pStep / 100) * N
+	-- Layer 2: Outer Mountain Foothills Deep Forest (Dense forest blanketing the outer slopes & mountain bases, ~140 trees)
+	for pStep = 1, 140 do
+		local u = (pStep / 140) * N
 		local p, tan = getHavenPoint(u)
-		local normal = Vector3.new(-tan.Z, 0, tan.X).Unit
+		local outDir = Vector3.new(tan.Z, 0, -tan.X).Unit
 
-		local offset = 145 + (pStep % 6) * 35
-		local px = p.X + normal.X * offset
-		local pz = p.Z + normal.Z * offset
+		local offset = 115 + (pStep % 6) * 26
+		local px = p.X + outDir.X * offset
+		local pz = p.Z + outDir.Z * offset
 
-		if distToTrack(px, pz) >= 120 and math.abs(px) < 1300 and math.abs(pz) < 1300 and not isInsideLake(px, pz) then
-			local scale = 1.8 + (pStep % 5) * 0.25
+		if distToTrack(px, pz) >= 85 and math.abs(px) < 1800 and math.abs(pz) < 1800 and not isInsideLake(px, pz) then
+			local scale = 2.0 + (pStep % 5) * 0.3
 			local yaw = math.rad((pStep * 53) % 360)
 
 			if #availableTrees > 0 then
 				local tpl = availableTrees[(pStep % #availableTrees) + 1]
-				placeScaledAssetModel(tpl, sceneryFolder, "CanadianPine", Vector3.new(px, 1, pz), 1, scale, yaw)
+				placeScaledAssetModel(tpl, sceneryFolder, "CanadianPineFoothill", Vector3.new(px, 1, pz), 1, scale, yaw)
 			else
 				createFallbackPine(sceneryFolder, Vector3.new(px, 1, pz), 1, scale, false)
 			end
 		end
 	end
 
-	-- Layer 3: Interior Lakeside & Cabin Meadow Forest (Natural groves along lake shores and cabins, ~90 trees)
-	for pStep = 1, 90 do
-		local u = (pStep / 90) * N
+	-- Layer 3: Interior Lakeside & Cabin Meadow Forest (Lush pine groves along the INSIDE lake shore, ~110 trees)
+	for pStep = 1, 110 do
+		local u = (pStep / 110) * N
 		local p, tan = getHavenPoint(u)
-		local normal = Vector3.new(-tan.Z, 0, tan.X).Unit
+		local inDir = Vector3.new(-tan.Z, 0, tan.X).Unit
 
-		local offset = 46 + (pStep % 4) * 18
-		local px = p.X - normal.X * offset
-		local pz = p.Z - normal.Z * offset
+		local offset = 42 + (pStep % 4) * 18
+		local px = p.X + inDir.X * offset
+		local pz = p.Z + inDir.Z * offset
 
 		-- Strict checks: outside track curb AND outside water/beach
-		if distToTrack(px, pz) >= 42 and math.abs(px) < 550 and math.abs(pz) < 550 and not isInsideLake(px, pz) then
-			local scale = 1.5 + (pStep % 4) * 0.2
+		if distToTrack(px, pz) >= 40 and math.abs(px) < 800 and math.abs(pz) < 800 and not isInsideLake(px, pz) then
+			local scale = 1.6 + (pStep % 4) * 0.25
 			local yaw = math.rad((pStep * 29) % 360)
 
 			if #availableTrees > 0 then
 				local tpl = availableTrees[(pStep % #availableTrees) + 1]
-				placeScaledAssetModel(tpl, sceneryFolder, "CanadianPine", Vector3.new(px, 1, pz), 1, scale, yaw)
+				placeScaledAssetModel(tpl, sceneryFolder, "CanadianPineInner", Vector3.new(px, 1, pz), 1, scale, yaw)
 			else
 				createFallbackPine(sceneryFolder, Vector3.new(px, 1, pz), 1, scale, false)
 			end
