@@ -24,9 +24,47 @@ local BGM_IDS = {
 	CyberCity = "rbxassetid://0", -- Cyber City 맵 BGM
 }
 
+local AMBIENT_IDS = {
+	EmeraldLakeHaven = "rbxassetid://139767023947424", -- 🐦 Emerald Lake Haven 자연의 소리 (새소리/숲 환경음)
+}
+
 local currentPhase = "INTERMISSION"
 local currentMap = "Oval Speedway"
 local currentSound: Sound? = nil
+local currentAmbient: Sound? = nil
+
+-- 환경음(자연의 소리 등)을 크로스페이드하며 BGM과 함께 레이어링 재생하는 함수
+local function playAmbient(soundId: string)
+	if currentAmbient and currentAmbient.SoundId == soundId and currentAmbient.IsPlaying then
+		return
+	end
+
+	local oldAmbient = currentAmbient
+	if oldAmbient then
+		local fadeOut = TweenService:Create(oldAmbient, TweenInfo.new(1), {Volume = 0})
+		fadeOut:Play()
+		fadeOut.Completed:Connect(function()
+			oldAmbient:Destroy()
+		end)
+	end
+
+	if soundId and soundId ~= "rbxassetid://0" and soundId ~= "" then
+		local newAmb = Instance.new("Sound")
+		newAmb.Name = "Ambient_" .. (string.match(soundId, "%d+") or "Custom")
+		newAmb.SoundId = soundId
+		newAmb.Looped = true
+		newAmb.Volume = 0
+		newAmb.Parent = SoundService
+		newAmb:Play()
+
+		local isBGMEnabled = LocalPlayer:GetAttribute("BGMEnabled") ~= false
+		local targetVolume = isBGMEnabled and 0.40 or 0
+		TweenService:Create(newAmb, TweenInfo.new(1), {Volume = targetVolume}):Play()
+		currentAmbient = newAmb
+	else
+		currentAmbient = nil
+	end
+end
 
 -- BGM을 크로스페이드(부드럽게 전환)하면서 변경하는 함수
 local function playBGM(soundId: string)
@@ -68,13 +106,16 @@ local function updateBGM()
 
 	if currentPhase == "INTERMISSION" or currentPhase == "MAP_VOTING" then
 		playBGM(BGM_IDS.Lobby)
+		playAmbient("")
 	elseif currentPhase == "MAP_BUILDING" or currentPhase == "PLAYER_SYNC" then
 		-- 맵 로딩 중일 때 BGM 부드럽게 정지
-		playBGM("") 
+		playBGM("")
+		playAmbient("")
 	elseif currentPhase == "RACE_MATCH" then
 		-- 레이스 중이거나 관전 중인 유저는 현재 경기장의 박진감 넘치는 트랙 BGM 재생!
 		if isRacing or isSpectating then
 			local mapBGM = BGM_IDS.Lobby -- 맵에 해당하는 브금이 없으면 로비 브금 재생
+			local mapAmbient = ""
 			if currentMap == "Oval Speedway" then
 				mapBGM = BGM_IDS.OvalSpeedway
 			elseif currentMap == "Desert Track" then
@@ -83,6 +124,7 @@ local function updateBGM()
 				mapBGM = BGM_IDS.PirateTreasureIsland
 			elseif currentMap == "Emerald Lake Haven" then
 				mapBGM = BGM_IDS.EmeraldLakeHaven
+				mapAmbient = AMBIENT_IDS.EmeraldLakeHaven
 			elseif currentMap == "Frost Glacier" then
 				mapBGM = BGM_IDS.FrostGlacier
 			elseif currentMap == "Autobahn Highway" then
@@ -93,10 +135,12 @@ local function updateBGM()
 				mapBGM = BGM_IDS.CyberCity
 			end
 			playBGM(mapBGM)
+			playAmbient(mapAmbient)
 			return
 		else
 			-- 대기실에 머무르는 유저는 차분한 대기실 BGM 유지
 			playBGM(BGM_IDS.Lobby)
+			playAmbient("")
 			return
 		end
 	end
@@ -128,8 +172,13 @@ end)
 local raceFinishedRemote = remotesFolder:WaitForChild("RaceFinished", 5) :: RemoteEvent?
 if raceFinishedRemote then
 	raceFinishedRemote.OnClientEvent:Connect(function(finishTime, finalLap, totalLaps, finalRank)
-		if finalRank ~= 999 and currentSound then
-			TweenService:Create(currentSound, TweenInfo.new(0.6), { Volume = 0 }):Play()
+		if finalRank ~= 999 then
+			if currentSound then
+				TweenService:Create(currentSound, TweenInfo.new(0.6), { Volume = 0 }):Play()
+			end
+			if currentAmbient then
+				TweenService:Create(currentAmbient, TweenInfo.new(0.6), { Volume = 0 }):Play()
+			end
 		end
 	end)
 end
@@ -144,6 +193,10 @@ LocalPlayer:GetAttributeChangedSignal("BGMEnabled"):Connect(function()
 		if isEnabled then
 			updateBGM()
 		end
+	end
+	if currentAmbient then
+		local targetAmbVol = isEnabled and 0.40 or 0
+		TweenService:Create(currentAmbient, TweenInfo.new(0.5), {Volume = targetAmbVol}):Play()
 	end
 end)
 
