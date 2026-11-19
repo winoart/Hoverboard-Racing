@@ -5399,7 +5399,7 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 		pLight.Parent = lightPart
 	end
 
-	-- 9.5 WILDLIFE: PLAYFUL REINDEER HERD GALLOPING ACROSS THE TRACK (Asset 106989142771218)
+	-- 9.5 WILDLIFE: PLAYFUL REINDEER HERD DASHING ACROSS THE TRACK (Asset 106989142771218)
 	local reindeerFolder = Instance.new("Folder")
 	reindeerFolder.Name = "ReindeerHerd"
 	reindeerFolder.Parent = mapModel
@@ -5407,29 +5407,38 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 	local deerTpl = havenAssets and havenAssets:FindFirstChild("Reindeer")
 	if deerTpl and deerTpl:IsA("Model") then
 		local deerCrossings = {
-			{ u = 1.6,  speed = 0.24, phase = 0.0,  hop = 2.6, scale = 1.35 },
-			{ u = 3.6,  speed = 0.28, phase = 1.4,  hop = 2.9, scale = 1.4 },
-			{ u = 5.8,  speed = 0.22, phase = 2.7,  hop = 2.4, scale = 1.3 },
-			{ u = 7.8,  speed = 0.26, phase = 4.1,  hop = 2.8, scale = 1.35 },
-			{ u = 9.8,  speed = 0.25, phase = 5.5,  hop = 2.7, scale = 1.4 },
-			{ u = 11.8, speed = 0.29, phase = 0.8,  hop = 3.0, scale = 1.3 },
-			{ u = 14.0, speed = 0.23, phase = 2.1,  hop = 2.5, scale = 1.35 },
-			{ u = 16.4, speed = 0.27, phase = 3.5,  hop = 2.8, scale = 1.4 },
+			{ u = 0.85, speed = 0.48, phase = 0.1,  hop = 3.4, scale = 1.60 }, -- Right after Start Straight!
+			{ u = 0.92, speed = 0.48, phase = 0.25, hop = 3.1, scale = 1.48 }, -- Partner deer dashing together!
+			{ u = 2.6,  speed = 0.52, phase = 1.2,  hop = 3.6, scale = 1.60 },
+			{ u = 4.4,  speed = 0.44, phase = 0.6,  hop = 3.2, scale = 1.55 },
+			{ u = 6.3,  speed = 0.50, phase = 1.7,  hop = 3.5, scale = 1.62 },
+			{ u = 6.4,  speed = 0.50, phase = 1.88, hop = 3.2, scale = 1.45 }, -- Pair at Emerald Cove!
+			{ u = 8.4,  speed = 0.46, phase = 0.4,  hop = 3.4, scale = 1.58 },
+			{ u = 10.2, speed = 0.54, phase = 1.1,  hop = 3.8, scale = 1.65 },
+			{ u = 12.0, speed = 0.45, phase = 1.6,  hop = 3.3, scale = 1.55 },
+			{ u = 14.1, speed = 0.52, phase = 0.3,  hop = 3.6, scale = 1.60 },
+			{ u = 14.2, speed = 0.52, phase = 0.46, hop = 3.2, scale = 1.48 }, -- Pair on Trestle Bridge!
+			{ u = 16.5, speed = 0.48, phase = 1.3,  hop = 3.5, scale = 1.60 },
 		}
+
+		local crossHalf = halfW + 7 -- Start 7 studs outside curb, dash all the way across to 7 studs past opposite curb
+		local crossDist = crossHalf * 2
 
 		for dIdx, dc in ipairs(deerCrossings) do
 			local p, tan = getHavenPoint(dc.u)
 			local rightDir = Vector3.new(-tan.Z, 0, tan.X).Unit
+			-- Alternate crossing direction (left-to-right vs right-to-left)
+			local dirSign = (dIdx % 2 == 0) and -1 or 1
 			local roadTopY = p.Y + (TRACK_THICKNESS * 0.5)
-			local startPt = Vector3.new(p.X - rightDir.X * (halfW - 4), roadTopY, p.Z - rightDir.Z * (halfW - 4))
-			local endPt   = Vector3.new(p.X + rightDir.X * (halfW - 4), roadTopY, p.Z + rightDir.Z * (halfW - 4))
+			local startPt = Vector3.new(p.X - rightDir.X * crossHalf * dirSign, roadTopY, p.Z - rightDir.Z * crossHalf * dirSign)
+			local endPt   = Vector3.new(p.X + rightDir.X * crossHalf * dirSign, roadTopY, p.Z + rightDir.Z * crossHalf * dirSign)
 
 			local deer = deerTpl:Clone()
 			deer.Name = "RunningReindeer_" .. dIdx
 			for _, part in ipairs(deer:GetDescendants()) do
 				if part:IsA("BasePart") then
 					part.Anchored = true
-					part.CanCollide = false -- Never obstructs or flips racing hoverboards!
+					part.CanCollide = false -- Pure visual surprise effect: never flips or blocks players!
 					part.CanTouch = false
 					part.CanQuery = false
 					part.CastShadow = false
@@ -5446,8 +5455,8 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 			local bottomCenter = Vector3.new(bbCf.Position.X, bbCf.Position.Y - bbSize.Y * 0.5, bbCf.Position.Z)
 			deer.WorldPivot = CFrame.lookAt(bottomCenter, bottomCenter + noseDir)
 
-			deer:SetAttribute("StartPos", startPt)
-			deer:SetAttribute("EndPos", endPt)
+			-- Store relative CrossDist (NOT absolute world coords) so MapManager:PivotTo shifts them cleanly!
+			deer:SetAttribute("CrossDist", crossDist)
 			deer:SetAttribute("Speed", dc.speed)
 			deer:SetAttribute("Phase", dc.phase)
 			deer:SetAttribute("HopHeight", dc.hop)
@@ -5457,7 +5466,7 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 		end
 	end
 
-	-- 10. DYNAMIC HEALING EFFECTS SCRIPT (Campfire flicker & playful Reindeer bounding across track)
+	-- 10. DYNAMIC HEALING EFFECTS SCRIPT (Campfire flicker & playful Reindeer dashing across track)
 	local fxScript = Instance.new("Script")
 	fxScript.Name = "EmeraldLakeEffects"
 	fxScript.Source = [=[
@@ -5468,6 +5477,10 @@ if not map:IsDescendantOf(workspace) then
 	map.AncestryChanged:Wait()
 	if not map:IsDescendantOf(workspace) then return end
 end
+
+-- Wait briefly for MapManager:PivotTo() to finish positioning ActiveMap below WaitingRoom Lounge!
+task.wait(0.4)
+if not map or not map.Parent or not map:IsDescendantOf(workspace) then return end
 
 local cabinFolder = map:FindFirstChild("LogCabinVillage")
 local campfirePart = cabinFolder and cabinFolder:FindFirstChild("CampfireFlamePart", true)
@@ -5483,22 +5496,26 @@ if campfireLight then
 	end)
 end
 
--- Playful Reindeer Herd bounding smoothly across the track
+-- Playful Reindeer Herd dashing across the track using shifted runtime Pivot coordinates!
 local reindeerFolder = map:FindFirstChild("ReindeerHerd")
 if reindeerFolder then
 	local herd = {}
 	for _, child in ipairs(reindeerFolder:GetChildren()) do
 		if child:IsA("Model") then
-			local sPos = child:GetAttribute("StartPos")
-			local ePos = child:GetAttribute("EndPos")
-			if typeof(sPos) == "Vector3" and typeof(ePos) == "Vector3" then
+			local startCF = child:GetPivot()
+			local crossDist = tonumber(child:GetAttribute("CrossDist")) or 72
+			local flatLook = Vector3.new(startCF.LookVector.X, 0, startCF.LookVector.Z)
+			if flatLook.Magnitude > 0.01 then
+				flatLook = flatLook.Unit
+				local sPos = startCF.Position
+				local ePos = sPos + flatLook * crossDist
 				table.insert(herd, {
 					model = child,
 					startPos = sPos,
 					endPos = ePos,
-					speed = tonumber(child:GetAttribute("Speed")) or 0.25,
+					speed = tonumber(child:GetAttribute("Speed")) or 0.48,
 					phase = tonumber(child:GetAttribute("Phase")) or 0,
-					hop = tonumber(child:GetAttribute("HopHeight")) or 2.6,
+					hop = tonumber(child:GetAttribute("HopHeight")) or 3.4,
 				})
 			end
 		end
@@ -5518,10 +5535,10 @@ if reindeerFolder then
 						local basePos = d.startPos:Lerp(d.endPos, alpha)
 						local targetPos = goingForward and d.endPos or d.startPos
 
-						-- Joyful bounding gallop hop & gentle pitch
-						local gallopWave = math.sin(elapsed * 9.5 + d.phase * 2.0)
+						-- Energetic bounding leap & gallop tilt
+						local gallopWave = math.sin(elapsed * 12.0 + d.phase * 2.5)
 						local hopY = math.abs(gallopWave) * d.hop
-						local pitchRad = gallopWave * math.rad(10)
+						local pitchRad = gallopWave * math.rad(12)
 
 						local pos = basePos + Vector3.new(0, hopY, 0)
 						local lookTarget = Vector3.new(targetPos.X, pos.Y, targetPos.Z)
