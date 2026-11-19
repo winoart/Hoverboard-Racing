@@ -4305,6 +4305,7 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 	local ReplicatedStorage = game:GetService("ReplicatedStorage")
 	local treeTemplates = ReplicatedStorage:FindFirstChild("TreeTemplates")
 	local mountainAssets = ReplicatedStorage:FindFirstChild("MountainAssets")
+	local havenAssets = ReplicatedStorage:FindFirstChild("HavenAssets")
 
 	local mapModel = Instance.new("Model")
 	mapModel.Name = "Emerald Lake Haven"
@@ -4394,37 +4395,21 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 		local p2 = getHavenPoint(u2)
 
 		local midPos = (p1 + p2) * 0.5
-		local segLen = (p2 - p1).Magnitude + 8.0
+		local actualDist = (p2 - p1).Magnitude
+		local segLen = actualDist + 2.6
 		local cf = CFrame.lookAt(midPos, p2)
 
 		local frac = (i - 1) / SEGMENTS
-		local isPromenade     = (frac < 0.18)
-		local isForestAndCove = (frac >= 0.18 and frac < 0.44)
-		local isVillageRun    = (frac >= 0.44 and frac < 0.58)
-		local isPineRidgePass = (frac >= 0.58 and frac < 0.72)
 		local isTrestleBridge = (frac >= 0.72 and frac < 0.88)
-		local isShoreline     = (frac >= 0.88)
 
+		-- Unified warm Canadian cedar/timber boardwalk across the entire circuit (no sudden grey asphalt)
 		local roadMat = woodPlanks
-		local roadColor = Color3.fromRGB(135, 96, 64) -- Cedar lakeside boardwalk
-		local curbColor = Color3.fromRGB(75, 48, 28)
+		local roadColor = Color3.fromRGB(132, 94, 62)
+		local curbColor = Color3.fromRGB(72, 46, 26)
 
-		if isPineRidgePass then
-			roadMat = slateMat
-			roadColor = Color3.fromRGB(80, 78, 72) -- Mountain forest rock highway
-			curbColor = Color3.fromRGB(55, 52, 48)
-		elseif isForestAndCove then
-			roadColor = Color3.fromRGB(118, 78, 48) -- Chestnut timber
-			curbColor = Color3.fromRGB(68, 42, 22)
-		elseif isVillageRun then
-			roadColor = Color3.fromRGB(112, 72, 42) -- Rich cabin timber
-			curbColor = Color3.fromRGB(65, 38, 20)
-		elseif isTrestleBridge then
-			roadColor = Color3.fromRGB(145, 108, 72) -- Weathered Canadian fir trestle
-			curbColor = Color3.fromRGB(85, 58, 35)
-		elseif isShoreline then
-			roadColor = Color3.fromRGB(128, 92, 60)
-			curbColor = Color3.fromRGB(72, 48, 28)
+		if isTrestleBridge then
+			roadColor = Color3.fromRGB(142, 104, 70) -- Slightly sun-weathered timber on bridge
+			curbColor = Color3.fromRGB(82, 54, 32)
 		end
 
 		local road = Instance.new("Part")
@@ -4447,33 +4432,33 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 		catchSub.CanCollide = true
 		catchSub.CastShadow = false
 		catchSub.Transparency = 1
-		catchSub.Size = Vector3.new(TRACK_WIDTH + 10, 2.0, segLen + 8.0)
+		catchSub.Size = Vector3.new(TRACK_WIDTH + 6, 2.0, actualDist + 4.5)
 		catchSub.CFrame = cf * CFrame.new(0, -TRACK_THICKNESS / 2 - 1.0, 0)
 		catchSub.Parent = trackFolder
 
-		-- Track center stripe: warm pine inlay
+		-- Track center stripe: smooth warm pine inlay (tight length to avoid jagged curve steps)
 		local stripe = Instance.new("Part")
 		stripe.Name = "TrackCenterStripe"
 		stripe.Anchored = true
 		stripe.CanCollide = false
 		stripe.CastShadow = false
 		stripe.Material = Enum.Material.Wood
-		stripe.Color = isPineRidgePass and Color3.fromRGB(225, 185, 75) or Color3.fromRGB(180, 135, 82)
-		stripe.Size = Vector3.new(1.4, 0.2, segLen + 4.0)
+		stripe.Color = Color3.fromRGB(190, 145, 88)
+		stripe.Size = Vector3.new(1.4, 0.2, actualDist + 0.5)
 		stripe.CFrame = cf * CFrame.new(0, (TRACK_THICKNESS / 2) + 0.1, 0)
 		stripe.Parent = trackFolder
 
-		-- Curbs, Timber Railings & Protective Invisible Guardwalls
-		local barrierH = (isTrestleBridge or isPineRidgePass) and 5.2 or 3.4
+		-- Curbs (Visual Only to prevent snagging/flipping!), Timber Railings & Smooth Invisible Guardwalls
+		local barrierH = isTrestleBridge and 4.8 or 3.4
 		for _, side in ipairs({ -1, 1 }) do
 			local curb = Instance.new("Part")
 			curb.Name = "TrackCurb"
 			curb.Anchored = true
-			curb.CanCollide = true
+			curb.CanCollide = false -- Visual only: prevents hoverboard from snagging/flipping on curved edges
 			curb.CastShadow = false
 			curb.Material = roadMat
 			curb.Color = curbColor
-			curb.Size = Vector3.new(2.4, barrierH, segLen + 6.0)
+			curb.Size = Vector3.new(2.4, barrierH, actualDist + 0.6)
 			curb.CFrame = cf * CFrame.new(side * (halfW - 1.2), (barrierH - TRACK_THICKNESS) / 2 + 0.4, 0)
 			curb.Parent = trackFolder
 
@@ -4484,7 +4469,7 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 			ropeRail.CastShadow = false
 			ropeRail.Material = Enum.Material.Wood
 			ropeRail.Color = Color3.fromRGB(175, 135, 85)
-			ropeRail.Size = Vector3.new(0.8, 0.8, segLen + 6.0)
+			ropeRail.Size = Vector3.new(0.8, 0.8, actualDist + 0.6)
 			ropeRail.CFrame = cf * CFrame.new(side * (halfW - 1.2), barrierH + 0.4, 0)
 			ropeRail.Parent = trackFolder
 
@@ -4494,8 +4479,8 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 			guard.CanCollide = true
 			guard.CastShadow = false
 			guard.Transparency = 1
-			guard.Size = Vector3.new(2.5, 36, segLen + 8.0)
-			guard.CFrame = cf * CFrame.new(side * (halfW + 0.6), 18, 0)
+			guard.Size = Vector3.new(2.2, 36, actualDist + 1.2)
+			guard.CFrame = cf * CFrame.new(side * (halfW - 0.1), 18, 0)
 			guard.Parent = trackFolder
 		end
 
@@ -4932,35 +4917,31 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 		bucket.CFrame = cf * CFrame.new(-2.8, 1.1, 0) * CFrame.Angles(0, 0, math.rad(90))
 		bucket.Parent = npcModel
 
-		local bb = Instance.new("BillboardGui")
-		bb.Name = "AnglerTitleHUD"
-		bb.Size = UDim2.new(0, 240, 0, 50)
-		bb.StudsOffset = Vector3.new(0, 4.8, 0)
-		bb.AlwaysOnTop = true
-		bb.MaxDistance = 300
-		bb.Parent = head
-
-		local title = Instance.new("TextLabel")
-		title.Size = UDim2.new(1, 0, 1, 0)
-		title.BackgroundTransparency = 1
-		title.Font = Enum.Font.FredokaOne
-		title.Text = titleText
-		title.TextColor3 = Color3.fromRGB(255, 230, 110)
-		title.TextStrokeColor3 = Color3.fromRGB(25, 20, 10)
-		title.TextStrokeTransparency = 0
-		title.TextSize = 22
-		title.Parent = bb
-
 		npcModel.Parent = parent
 		return npcModel
 	end
 
-	-- Bob & John
-	local bobCF = pierDeck.CFrame * CFrame.new(18, 1.0, 0) * CFrame.Angles(0, math.rad(90), 0)
-	createFishermanNPC(pierFolder, "FishermanBob", "🎣 낚시꾼 밥 (Fisherman Bob)", bobCF, Color3.fromRGB(190, 45, 35), Color3.fromRGB(45, 65, 105))
+	-- Bob & John sitting side-by-side at the end of the pier, BOTH casting into the open emerald lake!
+	local bobCF = pierDeck.CFrame * CFrame.new(19, 1.0, -3.2) * CFrame.Angles(0, math.rad(90), 0)
+	createFishermanNPC(pierFolder, "FishermanBob", "", bobCF, Color3.fromRGB(190, 45, 35), Color3.fromRGB(45, 65, 105))
 
-	local johnCF = pierDeck.CFrame * CFrame.new(4, 1.0, -4.5) * CFrame.Angles(0, math.rad(180), 0)
-	createFishermanNPC(pierFolder, "AnglerJohn", "🎣 강태공 존 (Angler John)", johnCF, Color3.fromRGB(45, 125, 65), Color3.fromRGB(60, 50, 40))
+	local johnCF = pierDeck.CFrame * CFrame.new(19, 1.0, 3.2) * CFrame.Angles(0, math.rad(82), 0)
+	createFishermanNPC(pierFolder, "AnglerJohn", "", johnCF, Color3.fromRGB(45, 125, 65), Color3.fromRGB(60, 50, 40))
+
+	-- Cozy Camping Tents near the Fishing Pier (Asset 11917076769)
+	local tentTpl = havenAssets and havenAssets:FindFirstChild("CampingTent")
+	if tentTpl and tentTpl:IsA("Model") then
+		local tentSpots = {
+			{ u = 15.25, sideOffset = -halfW - 36, yawDeg = 75,  scale = 1.0 },
+			{ u = 15.55, sideOffset = -halfW - 38, yawDeg = 105, scale = 0.95 },
+			{ u = 8.45,  sideOffset = -halfW - 34, yawDeg = 85,  scale = 1.0 }, -- Bonus tent near Cabin Campfire
+		}
+		for tIdx, ts in ipairs(tentSpots) do
+			local tp, tTan = getHavenPoint(ts.u)
+			local tcf = CFrame.lookAt(tp, tp + tTan) * CFrame.new(ts.sideOffset, 0, 0)
+			placeScaledAssetModel(tentTpl, pierFolder, "CampingTent_" .. tIdx, tcf.Position, 4.0, ts.scale, math.rad(ts.yawDeg))
+		end
+	end
 
 	-- 2 Canadian Cedar Canoes moored alongside pier
 	for cIdx, cOff in ipairs({ Vector3.new(14, -0.2, 10), Vector3.new(28, -0.2, 10) }) do
@@ -5418,7 +5399,65 @@ function MapBuilder.buildEmeraldLakeHavenModel(): Model
 		pLight.Parent = lightPart
 	end
 
-	-- 10. DYNAMIC HEALING EFFECTS SCRIPT (Campfire flicker & gentle water ripple)
+	-- 9.5 WILDLIFE: PLAYFUL REINDEER HERD GALLOPING ACROSS THE TRACK (Asset 106989142771218)
+	local reindeerFolder = Instance.new("Folder")
+	reindeerFolder.Name = "ReindeerHerd"
+	reindeerFolder.Parent = mapModel
+
+	local deerTpl = havenAssets and havenAssets:FindFirstChild("Reindeer")
+	if deerTpl and deerTpl:IsA("Model") then
+		local deerCrossings = {
+			{ u = 1.6,  speed = 0.24, phase = 0.0,  hop = 2.6, scale = 1.35 },
+			{ u = 3.6,  speed = 0.28, phase = 1.4,  hop = 2.9, scale = 1.4 },
+			{ u = 5.8,  speed = 0.22, phase = 2.7,  hop = 2.4, scale = 1.3 },
+			{ u = 7.8,  speed = 0.26, phase = 4.1,  hop = 2.8, scale = 1.35 },
+			{ u = 9.8,  speed = 0.25, phase = 5.5,  hop = 2.7, scale = 1.4 },
+			{ u = 11.8, speed = 0.29, phase = 0.8,  hop = 3.0, scale = 1.3 },
+			{ u = 14.0, speed = 0.23, phase = 2.1,  hop = 2.5, scale = 1.35 },
+			{ u = 16.4, speed = 0.27, phase = 3.5,  hop = 2.8, scale = 1.4 },
+		}
+
+		for dIdx, dc in ipairs(deerCrossings) do
+			local p, tan = getHavenPoint(dc.u)
+			local rightDir = Vector3.new(-tan.Z, 0, tan.X).Unit
+			local roadTopY = p.Y + (TRACK_THICKNESS * 0.5)
+			local startPt = Vector3.new(p.X - rightDir.X * (halfW - 4), roadTopY, p.Z - rightDir.Z * (halfW - 4))
+			local endPt   = Vector3.new(p.X + rightDir.X * (halfW - 4), roadTopY, p.Z + rightDir.Z * (halfW - 4))
+
+			local deer = deerTpl:Clone()
+			deer.Name = "RunningReindeer_" .. dIdx
+			for _, part in ipairs(deer:GetDescendants()) do
+				if part:IsA("BasePart") then
+					part.Anchored = true
+					part.CanCollide = false -- Never obstructs or flips racing hoverboards!
+					part.CanTouch = false
+					part.CanQuery = false
+					part.CastShadow = false
+				end
+			end
+
+			-- Normalize WorldPivot to bottom-center facing the nose (+X in template bounding box -> LookVector -Z)
+			deer.PrimaryPart = nil
+			local baseScale = deer:GetScale()
+			deer:ScaleTo(baseScale * dc.scale)
+			local bbCf, bbSize = deer:GetBoundingBox()
+			local noseDir = Vector3.new(bbCf.RightVector.X, 0, bbCf.RightVector.Z)
+			if noseDir.Magnitude < 0.01 then noseDir = Vector3.new(1, 0, 0) else noseDir = noseDir.Unit end
+			local bottomCenter = Vector3.new(bbCf.Position.X, bbCf.Position.Y - bbSize.Y * 0.5, bbCf.Position.Z)
+			deer.WorldPivot = CFrame.lookAt(bottomCenter, bottomCenter + noseDir)
+
+			deer:SetAttribute("StartPos", startPt)
+			deer:SetAttribute("EndPos", endPt)
+			deer:SetAttribute("Speed", dc.speed)
+			deer:SetAttribute("Phase", dc.phase)
+			deer:SetAttribute("HopHeight", dc.hop)
+
+			deer:PivotTo(CFrame.lookAt(startPt, endPt))
+			deer.Parent = reindeerFolder
+		end
+	end
+
+	-- 10. DYNAMIC HEALING EFFECTS SCRIPT (Campfire flicker & playful Reindeer bounding across track)
 	local fxScript = Instance.new("Script")
 	fxScript.Name = "EmeraldLakeEffects"
 	fxScript.Source = [=[
@@ -5442,6 +5481,57 @@ if campfireLight then
 			task.wait(0.12)
 		end
 	end)
+end
+
+-- Playful Reindeer Herd bounding smoothly across the track
+local reindeerFolder = map:FindFirstChild("ReindeerHerd")
+if reindeerFolder then
+	local herd = {}
+	for _, child in ipairs(reindeerFolder:GetChildren()) do
+		if child:IsA("Model") then
+			local sPos = child:GetAttribute("StartPos")
+			local ePos = child:GetAttribute("EndPos")
+			if typeof(sPos) == "Vector3" and typeof(ePos) == "Vector3" then
+				table.insert(herd, {
+					model = child,
+					startPos = sPos,
+					endPos = ePos,
+					speed = tonumber(child:GetAttribute("Speed")) or 0.25,
+					phase = tonumber(child:GetAttribute("Phase")) or 0,
+					hop = tonumber(child:GetAttribute("HopHeight")) or 2.6,
+				})
+			end
+		end
+	end
+
+	if #herd > 0 then
+		task.spawn(function()
+			local t0 = os.clock()
+			while map and map.Parent and map:IsDescendantOf(workspace) do
+				local elapsed = os.clock() - t0
+				for _, d in ipairs(herd) do
+					if d.model and d.model.Parent then
+						-- Smooth ping-pong [0..2] -> 0..1 forward, 1..2 backward
+						local cycle = (elapsed * d.speed + d.phase) % 2
+						local goingForward = (cycle < 1)
+						local alpha = goingForward and cycle or (2 - cycle)
+						local basePos = d.startPos:Lerp(d.endPos, alpha)
+						local targetPos = goingForward and d.endPos or d.startPos
+
+						-- Joyful bounding gallop hop & gentle pitch
+						local gallopWave = math.sin(elapsed * 9.5 + d.phase * 2.0)
+						local hopY = math.abs(gallopWave) * d.hop
+						local pitchRad = gallopWave * math.rad(10)
+
+						local pos = basePos + Vector3.new(0, hopY, 0)
+						local lookTarget = Vector3.new(targetPos.X, pos.Y, targetPos.Z)
+						d.model:PivotTo(CFrame.lookAt(pos, lookTarget) * CFrame.Angles(pitchRad, 0, 0))
+					end
+				end
+				task.wait(0.033) -- Smooth ~30Hz network-friendly wildlife motion
+			end
+		end)
+	end
 end
 ]=]
 	fxScript.Parent = mapModel
