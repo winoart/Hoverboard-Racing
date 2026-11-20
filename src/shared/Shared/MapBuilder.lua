@@ -7,7 +7,9 @@ local MapBuilder = {}
 -- Disable unnecessary Touched and spatial query overhead on static/decorative map parts
 local function optimizeMapCollisionFlags(mapModel: Model)
 	for _, d in ipairs(mapModel:GetDescendants()) do
-		if d:IsA("BasePart") then
+		if d:IsA("PointLight") then
+			d:Destroy()
+		elseif d:IsA("BasePart") then
 			if (d.Parent and d.Parent.Name == "Checkpoints") or d.Name == "SpeedBoostPadTrigger" then
 				d.CanTouch = true
 				d.CanQuery = false
@@ -2162,72 +2164,95 @@ function MapBuilder.buildAutobahnHighwayModel(): Model
 		end
 	end
 
-	-- 3.5 AUTOBAHN 2X HYPER-SPEED BOOST PADS (3 Staggered Turbo Pads along the 6,000m Sprint!)
+	-- 3.5 AUTOBAHN FLOATING 2X SPEED BOXES (3 Floating Energy Cubes at Hoverboard Height along the 6,000m Sprint!)
 	local boostPadFolder = Instance.new("Folder")
 	boostPadFolder.Name = "SpeedBoostPads"
 	boostPadFolder.Parent = mapModel
 
 	local padConfigs = {
-		{ x = -20, z = -1050, mult = 2.0, dur = 3.5 }, -- Pad 1: Left fast lane before Hill 1
-		{ x = 0,   z = -2950, mult = 2.0, dur = 3.5 }, -- Pad 2: Center lane inside Neon Tunnel
-		{ x = 20,  z = -4650, mult = 2.0, dur = 3.5 }, -- Pad 3: Right fast lane on Bridge Final Sprint
+		{ x = -20, z = -1050, mult = 2.0, dur = 3.5 }, -- Speed Box 1: Left fast lane before Hill 1
+		{ x = 0,   z = -2950, mult = 2.0, dur = 3.5 }, -- Speed Box 2: Center lane inside Neon Tunnel
+		{ x = 20,  z = -4650, mult = 2.0, dur = 3.5 }, -- Speed Box 3: Right fast lane on Bridge Final Sprint
 	}
 
 	for pIdx, cfg in ipairs(padConfigs) do
-		local yBack = getHighwayY(cfg.z + 22) + (TRACK_THICKNESS * 0.5)
-		local yFront = getHighwayY(cfg.z - 22) + (TRACK_THICKNESS * 0.5)
-		local yMid = (yBack + yFront) * 0.5
-		local padCF = CFrame.lookAt(Vector3.new(cfg.x, yMid + 0.18, cfg.z), Vector3.new(cfg.x, yFront + 0.18, cfg.z - 22))
+		local roadTopY = getHighwayY(cfg.z) + (TRACK_THICKNESS * 0.5)
+		local boxCenterPos = Vector3.new(cfg.x, roadTopY + 7.5, cfg.z)
 
 		local padModel = Instance.new("Model")
-		padModel.Name = "AutobahnBoostPad_" .. pIdx
+		padModel.Name = "AutobahnSpeedBox_" .. pIdx
 		padModel.Parent = boostPadFolder
 
-		-- Sleek Dark Metallic Base Plate
-		local basePlate = Instance.new("Part")
-		basePlate.Name = "BoostPadBase"
-		basePlate.Anchored = true
-		basePlate.CanCollide = false
-		basePlate.CastShadow = false
-		basePlate.Material = Enum.Material.Metal
-		basePlate.Color = Color3.fromRGB(16, 22, 34)
-		basePlate.Size = Vector3.new(22, 0.35, 46)
-		basePlate.CFrame = padCF
-		basePlate.Parent = padModel
+		-- Subtle Neon Ground Ring directly underneath so players can line up their lane easily
+		local groundRing = Instance.new("Part")
+		groundRing.Name = "SpeedBoxGroundRing"
+		groundRing.Anchored = true
+		groundRing.CanCollide = false
+		groundRing.CastShadow = false
+		groundRing.Material = Enum.Material.Neon
+		groundRing.Color = Color3.fromRGB(0, 235, 255)
+		groundRing.Transparency = 0.25
+		groundRing.Size = Vector3.new(16, 0.25, 16)
+		groundRing.CFrame = CFrame.new(cfg.x, roadTopY + 0.15, cfg.z)
+		groundRing.Parent = padModel
 
-		-- Glowing Side Energy Rails
-		for _, side in ipairs({ -1, 1 }) do
-			local rail = Instance.new("Part")
-			rail.Name = "BoostPadSideRail"
-			rail.Anchored = true
-			rail.CanCollide = false
-			rail.CastShadow = false
-			rail.Material = Enum.Material.Neon
-			rail.Color = Color3.fromRGB(0, 235, 255)
-			rail.Size = Vector3.new(1.2, 1.4, 46)
-			rail.CFrame = padCF * CFrame.new(side * 11.2, 0.6, 0)
-			rail.Parent = padModel
+		-- Floating Translucent Electric Cyan Outer Cube (tilted like an iconic racing item/speed box!)
+		local outerCube = Instance.new("Part")
+		outerCube.Name = "SpeedBoxOuter"
+		outerCube.Anchored = true
+		outerCube.CanCollide = false
+		outerCube.CastShadow = false
+		outerCube.Material = Enum.Material.Neon
+		outerCube.Color = Color3.fromRGB(0, 235, 255)
+		outerCube.Transparency = 0.35
+		outerCube.Size = Vector3.new(11, 11, 11)
+		outerCube.CFrame = CFrame.new(boxCenterPos) * CFrame.Angles(math.rad(35), math.rad(45), 0)
+		outerCube.Parent = padModel
+
+		-- Bright Golden Inner Core Cube
+		local innerCore = Instance.new("Part")
+		innerCore.Name = "SpeedBoxCore"
+		innerCore.Anchored = true
+		innerCore.CanCollide = false
+		innerCore.CastShadow = false
+		innerCore.Material = Enum.Material.Neon
+		innerCore.Color = Color3.fromRGB(255, 220, 40)
+		innerCore.Size = Vector3.new(6.2, 6.2, 6.2)
+		innerCore.CFrame = CFrame.new(boxCenterPos) * CFrame.Angles(math.rad(-25), math.rad(20), 0)
+		innerCore.Parent = padModel
+
+		-- Floating "⚡ 2X SPEED" Sign Plate facing oncoming racers (+Z face toward start!)
+		local signPlate = Instance.new("Part")
+		signPlate.Name = "SpeedBoxLabelPart"
+		signPlate.Anchored = true
+		signPlate.CanCollide = false
+		signPlate.CastShadow = false
+		signPlate.Transparency = 1
+		signPlate.Size = Vector3.new(14, 7, 0.2)
+		signPlate.CFrame = CFrame.new(cfg.x, roadTopY + 16.5, cfg.z)
+		signPlate.Parent = padModel
+
+		for _, face in ipairs({ Enum.NormalId.Back, Enum.NormalId.Front }) do
+			local sg = Instance.new("SurfaceGui")
+			sg.Face = face
+			sg.CanvasSize = Vector2.new(320, 160)
+			sg.SizingMode = Enum.SurfaceGuiSizingMode.FixedSize
+			sg.LightInfluence = 0
+			sg.Parent = signPlate
+
+			local lbl = Instance.new("TextLabel")
+			lbl.Size = UDim2.new(1, 0, 1, 0)
+			lbl.BackgroundTransparency = 1
+			lbl.Font = Enum.Font.FredokaOne
+			lbl.Text = "⚡ 2X SPEED ⚡"
+			lbl.TextColor3 = Color3.fromRGB(255, 235, 60)
+			lbl.TextStrokeColor3 = Color3.fromRGB(0, 40, 70)
+			lbl.TextStrokeTransparency = 0
+			lbl.TextScaled = true
+			lbl.Parent = sg
 		end
 
-		-- 4 Bright Forward-Pointing Neon Chevron Arrows (>>>)
-		for cIdx = 1, 4 do
-			local zOff = 15 - (cIdx - 1) * 10
-			local chevColor = (cIdx % 2 == 1) and Color3.fromRGB(0, 255, 255) or Color3.fromRGB(255, 220, 40)
-			for _, armSide in ipairs({ -1, 1 }) do
-				local arm = Instance.new("Part")
-				arm.Name = "BoostChevron"
-				arm.Anchored = true
-				arm.CanCollide = false
-				arm.CastShadow = false
-				arm.Material = Enum.Material.Neon
-				arm.Color = chevColor
-				arm.Size = Vector3.new(10.5, 0.25, 2.6)
-				arm.CFrame = padCF * CFrame.new(armSide * 3.8, 0.22, zOff) * CFrame.Angles(0, math.rad(armSide * -32), 0)
-				arm.Parent = padModel
-			end
-		end
-
-		-- Invisible Touch Trigger Zone (2x Speed for 3.5s!)
+		-- Generous Proximity Trigger Zone right at hoverboard rider height!
 		local trigger = Instance.new("Part")
 		trigger.Name = "SpeedBoostPadTrigger"
 		trigger.Anchored = true
@@ -2236,8 +2261,8 @@ function MapBuilder.buildAutobahnHighwayModel(): Model
 		trigger.CanQuery = false
 		trigger.CastShadow = false
 		trigger.Transparency = 1
-		trigger.Size = Vector3.new(24, 16, 48)
-		trigger.CFrame = padCF * CFrame.new(0, 8, 0)
+		trigger.Size = Vector3.new(18, 16, 22)
+		trigger.CFrame = CFrame.new(boxCenterPos)
 		trigger:SetAttribute("SpeedMultiplier", cfg.mult)
 		trigger:SetAttribute("BoostDuration", cfg.dur)
 		trigger.Parent = padModel

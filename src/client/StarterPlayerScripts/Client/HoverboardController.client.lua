@@ -79,7 +79,8 @@ local isMobileBoostDown = false
 local padBoostEndTime = 0.0
 local padBoostMultiplier = 1.0
 local padCooldowns: { [Instance]: number } = {}
-local padTouchConn: RBXScriptConnection? = nil
+local cachedSpeedPadMap: Instance? = nil
+local cachedSpeedPadTriggers: { BasePart } = {}
 
 -- Race State Variables
 local raceStartTime = 0.0
@@ -875,32 +876,9 @@ stateRemote.OnClientEvent:Connect(function(mounted: boolean, boardModel: Model?,
 	padBoostEndTime = 0.0
 	padBoostMultiplier = 1.0
 	table.clear(padCooldowns)
+	cachedSpeedPadMap = nil
+	table.clear(cachedSpeedPadTriggers)
 	currentWalkSpeed = 0.0
-
-	-- ⚡ 2x Speed Boost Pad Trigger Listener (Autobahn & future gimmick maps)
-	if padTouchConn then
-		padTouchConn:Disconnect()
-		padTouchConn = nil
-	end
-	if hrp then
-		padTouchConn = hrp.Touched:Connect(function(hit: BasePart)
-			if not isMounted or not isRaceStarted then return end
-			if hit and hit.Name == "SpeedBoostPadTrigger" then
-				local now = os.clock()
-				if padCooldowns[hit] and (now - padCooldowns[hit]) < 0.6 then return end
-				padCooldowns[hit] = now
-				local mult = tonumber(hit:GetAttribute("SpeedMultiplier")) or 2.0
-				local dur = tonumber(hit:GetAttribute("BoostDuration")) or 3.5
-				padBoostMultiplier = mult
-				padBoostEndTime = now + dur
-				if boostSound then
-					boostSound.PlaybackSpeed = 1.35
-					boostSound.Volume = 0.95
-					boostSound:Play()
-				end
-			end
-		end)
-	end
 	currentSteerRate = 0.0
 	isRaceStarted = false
 	raceStartTime = 0.0 -- Timer will start when countdown reaches 1!
@@ -1480,6 +1458,44 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 
 				if (isW or isS) or currentSpeed > 1 then
 					boosterGauge = math.min(HoverboardConfig.BOOSTER_MAX_GAUGE, boosterGauge + (HoverboardConfig.BOOSTER_CHARGE_RATE * deltaTime))
+				end
+			end
+
+			-- ⚡ Floating 2x Speed Box Proximity Check (100% reliable even while hovering at 300+ speed!)
+			local activeMap = Workspace:FindFirstChild("ActiveMap")
+			if activeMap ~= cachedSpeedPadMap then
+				cachedSpeedPadMap = activeMap
+				table.clear(cachedSpeedPadTriggers)
+				if activeMap then
+					local padsFolder = activeMap:FindFirstChild("SpeedBoostPads")
+					if padsFolder then
+						for _, d in ipairs(padsFolder:GetDescendants()) do
+							if d:IsA("BasePart") and d.Name == "SpeedBoostPadTrigger" then
+								table.insert(cachedSpeedPadTriggers, d)
+							end
+						end
+					end
+				end
+			end
+			if isRaceStarted and #cachedSpeedPadTriggers > 0 then
+				local hPos = hrp.Position
+				local now = os.clock()
+				for _, trig in ipairs(cachedSpeedPadTriggers) do
+					if trig and trig.Parent then
+						local tPos = trig.Position
+						if math.abs(hPos.X - tPos.X) <= 13 and math.abs(hPos.Z - tPos.Z) <= 16 and math.abs(hPos.Y - tPos.Y) <= 14 then
+							if not padCooldowns[trig] or (now - padCooldowns[trig]) >= 1.0 then
+								padCooldowns[trig] = now
+								padBoostMultiplier = tonumber(trig:GetAttribute("SpeedMultiplier")) or 2.0
+								padBoostEndTime = now + (tonumber(trig:GetAttribute("BoostDuration")) or 3.5)
+								if boostSound then
+									boostSound.PlaybackSpeed = 1.35
+									boostSound.Volume = 0.95
+									boostSound:Play()
+								end
+							end
+						end
+					end
 				end
 			end
 
