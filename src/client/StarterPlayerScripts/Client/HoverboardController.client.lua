@@ -1461,37 +1461,37 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 				end
 			end
 
-			-- ⚡ Floating 2x Speed Box Proximity Check (100% reliable even while hovering at 300+ speed!)
-			local activeMap = Workspace:FindFirstChild("ActiveMap")
-			if activeMap ~= cachedSpeedPadMap then
-				cachedSpeedPadMap = activeMap
-				table.clear(cachedSpeedPadTriggers)
-				if activeMap then
-					local padsFolder = activeMap:FindFirstChild("SpeedBoostPads")
-					if padsFolder then
-						for _, d in ipairs(padsFolder:GetDescendants()) do
-							if d:IsA("BasePart") and d.Name == "SpeedBoostPadTrigger" then
-								table.insert(cachedSpeedPadTriggers, d)
-							end
-						end
-					end
-				end
-			end
-			if isRaceStarted and #cachedSpeedPadTriggers > 0 then
-				local hPos = hrp.Position
-				local now = os.clock()
-				for _, trig in ipairs(cachedSpeedPadTriggers) do
-					if trig and trig.Parent then
-						local tPos = trig.Position
-						if math.abs(hPos.X - tPos.X) <= 13 and math.abs(hPos.Z - tPos.Z) <= 16 and math.abs(hPos.Y - tPos.Y) <= 14 then
-							if not padCooldowns[trig] or (now - padCooldowns[trig]) >= 1.0 then
-								padCooldowns[trig] = now
-								padBoostMultiplier = tonumber(trig:GetAttribute("SpeedMultiplier")) or 2.0
-								padBoostEndTime = now + (tonumber(trig:GetAttribute("BoostDuration")) or 3.5)
-								if boostSound then
-									boostSound.PlaybackSpeed = 1.35
-									boostSound.Volume = 0.95
-									boostSound:Play()
+			-- ⚡ Floating 2x Speed Box Proximity Check (StreamingEnabled-safe: reads live children of SpeedBoostPads!)
+			if isRaceStarted then
+				local activeMap = Workspace:FindFirstChild("ActiveMap")
+				local padsFolder = activeMap and activeMap:FindFirstChild("SpeedBoostPads")
+				if padsFolder then
+					local hPos = hrp.Position
+					local now = os.clock()
+					for _, boxModel in ipairs(padsFolder:GetChildren()) do
+						local trig = boxModel:FindFirstChild("SpeedBoostPadTrigger") :: BasePart?
+						if trig then
+							local tPos = trig.Position
+							if math.abs(hPos.X - tPos.X) <= 15 and math.abs(hPos.Z - tPos.Z) <= 18 and math.abs(hPos.Y - tPos.Y) <= 16 then
+								if not padCooldowns[trig] or (now - padCooldowns[trig]) >= 1.5 then
+									padCooldowns[trig] = now
+									padBoostMultiplier = tonumber(trig:GetAttribute("SpeedMultiplier")) or 2.0
+									padBoostEndTime = now + (tonumber(trig:GetAttribute("BoostDuration")) or 3.5)
+									if boostSound then
+										boostSound.PlaybackSpeed = 1.4
+										boostSound.Volume = 1.0
+										boostSound:Play()
+									end
+									-- Visual burst feedback: briefly hide the speed box for 1.5s when collected!
+									for _, p in ipairs(boxModel:GetChildren()) do
+										if p:IsA("BasePart") and p.Name ~= "SpeedBoostPadTrigger" and p.Name ~= "SpeedBoxGroundRing" then
+											local origTrans = p.Transparency
+											p.Transparency = 1
+											task.delay(1.5, function()
+												if p and p.Parent then p.Transparency = origTrans end
+											end)
+										end
+									end
 								end
 							end
 						end
