@@ -1465,16 +1465,16 @@ function MapBuilder.buildAutobahnHighwayModel(): Model
 	waterChannel.TopSurface = Enum.SurfaceType.Smooth
 	waterChannel.Parent = groundFolder
 
-	local cityPlain = Instance.new("Part")
-	cityPlain.Name = "AutobahnCityPlain_End"
-	cityPlain.Anchored = true
-	cityPlain.CanCollide = true
-	cityPlain.Material = Enum.Material.Concrete
-	cityPlain.Color = Color3.fromRGB(45, 50, 58)
-	cityPlain.Size = Vector3.new(900, 8, 1700)
-	cityPlain.Position = Vector3.new(0, 2, -5650)
-	cityPlain.TopSurface = Enum.SurfaceType.Smooth
-	cityPlain.Parent = groundFolder
+	local forestPlainEnd = Instance.new("Part")
+	forestPlainEnd.Name = "AutobahnForestPlain_End"
+	forestPlainEnd.Anchored = true
+	forestPlainEnd.CanCollide = true
+	forestPlainEnd.Material = Enum.Material.Grass
+	forestPlainEnd.Color = Color3.fromRGB(48, 95, 52)
+	forestPlainEnd.Size = Vector3.new(900, 8, 1700)
+	forestPlainEnd.Position = Vector3.new(0, 2, -5650)
+	forestPlainEnd.TopSurface = Enum.SurfaceType.Smooth
+	forestPlainEnd.Parent = groundFolder
 
 	-- 3. Scenery & Zone Landmarks
 	local sceneryFolder = Instance.new("Folder")
@@ -1838,43 +1838,34 @@ function MapBuilder.buildAutobahnHighwayModel(): Model
 		end
 	end
 
-	-- Zone 5: Illuminated City Skyline (Z = -4900 to -5850)
-	local skylineColors = {
-		Color3.fromRGB(0, 220, 255),
-		Color3.fromRGB(255, 80, 190),
-		Color3.fromRGB(255, 205, 50),
-		Color3.fromRGB(70, 155, 255),
-	}
-	local bldgIdx = 0
-	for z = -4900, -5850, -180 do
-		for _, xOff in ipairs({ 85, 130 }) do
+	-- Zone 5: Dense German Black Forest (Z = -4820 to -6280, Asset 12549617200)
+	local ReplicatedStorage = game:GetService("ReplicatedStorage")
+	local treeTemplates = ReplicatedStorage:FindFirstChild("TreeTemplates")
+	local forestTreeTpl = treeTemplates and treeTemplates:FindFirstChild("Tree_12549617200")
+
+	local treeIdx = 0
+	for z = -4820, -6280, -65 do
+		for rowIdx, baseX in ipairs({ 60, 96, 136, 180 }) do
 			for _, side in ipairs({ -1, 1 }) do
-				bldgIdx += 1
-				local w = 36 + ((bldgIdx * 7) % 17)
-				local h = 90 + ((bldgIdx * 31) % 120)
-				local bx = side * xOff
-				local bz = z + ((bldgIdx * 13) % 30) - 15
-				local accent = skylineColors[((bldgIdx - 1) % #skylineColors) + 1]
+				treeIdx += 1
+				local jitterX = ((treeIdx * 17) % 18) - 9
+				local jitterZ = ((treeIdx * 23) % 28) - 14
+				local tx = side * (baseX + jitterX)
+				local tz = z + jitterZ
 
-				local tower = Instance.new("Part")
-				tower.Name = "SkylineTower_" .. bldgIdx
-				tower.Anchored = true
-				tower.CanCollide = false
-				tower.Material = Enum.Material.SmoothPlastic
-				tower.Color = Color3.fromRGB(26, 30, 42)
-				tower.Size = Vector3.new(w, h, w)
-				tower.Position = Vector3.new(bx, 6 + h / 2, bz)
-				tower.Parent = sceneryFolder
+				-- Keep Finish Plaza Grandstands (Z = -5830..-6110, |X| < 96) clear of trees
+				if tz <= -5820 and tz >= -6120 and math.abs(tx) < 96 then
+					continue
+				end
 
-				local roofNeon = Instance.new("Part")
-				roofNeon.Name = "SkylineNeonTrim"
-				roofNeon.Anchored = true
-				roofNeon.CanCollide = false
-				roofNeon.Material = Enum.Material.Neon
-				roofNeon.Color = accent
-				roofNeon.Size = Vector3.new(w + 0.6, 2.2, w + 0.6)
-				roofNeon.Position = Vector3.new(bx, 6 + h - 3, bz)
-				roofNeon.Parent = sceneryFolder
+				local relScale = 1.05 + ((treeIdx * 7) % 8) * 0.10 -- 1.05x .. 1.75x lush height variety
+				local yawRad = math.rad((treeIdx * 47) % 360)
+
+				if forestTreeTpl and forestTreeTpl:IsA("Model") then
+					placeScaledAssetModel(forestTreeTpl, sceneryFolder, "AutobahnForestTree_" .. treeIdx, Vector3.new(tx, 6.0, tz), 6.0, relScale, yawRad)
+				else
+					createFallbackPine(sceneryFolder, Vector3.new(tx, 6.0, tz), 6.0, relScale, false)
+				end
 			end
 		end
 	end
