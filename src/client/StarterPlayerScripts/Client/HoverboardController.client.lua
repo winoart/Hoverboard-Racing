@@ -76,6 +76,10 @@ local fallCheckTimer = 0.0
 local boosterGauge = 100.0 -- 0% to 100%
 local isBoosting = false
 local isMobileBoostDown = false
+local padBoostEndTime = 0.0
+local padBoostMultiplier = 1.0
+local padCooldowns: { [Instance]: number } = {}
+local padTouchConn: RBXScriptConnection? = nil
 
 -- Race State Variables
 local raceStartTime = 0.0
@@ -868,7 +872,35 @@ stateRemote.OnClientEvent:Connect(function(mounted: boolean, boardModel: Model?,
 	currentBoardModel = boardModel
 	boosterGauge = 0.0 -- 초기 부스터는 0%에서 시작
 	isBoosting = false
+	padBoostEndTime = 0.0
+	padBoostMultiplier = 1.0
+	table.clear(padCooldowns)
 	currentWalkSpeed = 0.0
+
+	-- ⚡ 2x Speed Boost Pad Trigger Listener (Autobahn & future gimmick maps)
+	if padTouchConn then
+		padTouchConn:Disconnect()
+		padTouchConn = nil
+	end
+	if hrp then
+		padTouchConn = hrp.Touched:Connect(function(hit: BasePart)
+			if not isMounted or not isRaceStarted then return end
+			if hit and hit.Name == "SpeedBoostPadTrigger" then
+				local now = os.clock()
+				if padCooldowns[hit] and (now - padCooldowns[hit]) < 0.6 then return end
+				padCooldowns[hit] = now
+				local mult = tonumber(hit:GetAttribute("SpeedMultiplier")) or 2.0
+				local dur = tonumber(hit:GetAttribute("BoostDuration")) or 3.5
+				padBoostMultiplier = mult
+				padBoostEndTime = now + dur
+				if boostSound then
+					boostSound.PlaybackSpeed = 1.35
+					boostSound.Volume = 0.95
+					boostSound:Play()
+				end
+			end
+		end)
+	end
 	currentSteerRate = 0.0
 	isRaceStarted = false
 	raceStartTime = 0.0 -- Timer will start when countdown reaches 1!
@@ -1451,7 +1483,9 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 				end
 			end
 
-			humanoid.WalkSpeed = currentWalkSpeed
+			local isPadBoosting = (os.clock() < padBoostEndTime)
+			local activePadMult = isPadBoosting and padBoostMultiplier or 1.0
+			humanoid.WalkSpeed = currentWalkSpeed * activePadMult
 			
 			-- 🔇 호버보드 탑승 중 로블록스 기본 캐릭터 달리기 발소리(Running Sound) 완벽 차단
 			local defaultRunningSound = hrp:FindFirstChild("Running") :: Sound?
@@ -1463,15 +1497,16 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 			if engineSound then
 				if isMounted and currentWalkSpeed > 0.5 then
 					engineSound.Volume = math.clamp(0.1 + (currentWalkSpeed / 100) * 0.25, 0.1, 0.35)
-					engineSound.PlaybackSpeed = math.clamp(0.8 + (currentWalkSpeed / 100) * 0.4, 0.8, 1.3)
+					engineSound.PlaybackSpeed = math.clamp(0.8 + ((currentWalkSpeed * activePadMult) / 100) * 0.4, 0.8, 1.55)
 					if not engineSound.IsPlaying then engineSound:Play() end
 				else
 					engineSound.Volume = 0
 				end
 			end
 			if boostSound then
-				if isMounted and isBoosting then
-					boostSound.Volume = 0.8
+				if isMounted and (isBoosting or isPadBoosting) then
+					boostSound.Volume = isPadBoosting and 0.95 or 0.8
+					boostSound.PlaybackSpeed = isPadBoosting and 1.35 or 1.0
 					if not boostSound.IsPlaying then boostSound:Play() end
 				else
 					boostSound.Volume = 0
@@ -1643,8 +1678,9 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 		targetChar = Character
 	end
 
+	local isPadBoostActive = (os.clock() < padBoostEndTime)
 	local displaySpeed = currentSpeed or 0
-	local displayBoost = isBoosting
+	local displayBoost = isBoosting or isPadBoostActive
 	local displayGauge = boosterGauge
 	
 	if isSpectating and targetChar then
@@ -1716,7 +1752,8 @@ RunService:BindToRenderStep("HoverboardControllerRender", Enum.RenderPriority.Ca
 			local fovEnabled = LocalPlayer:GetAttribute("BoosterFOVEnabled") ~= false
 			local targetCameraFOV = defaultFOV
 			if fovEnabled then
-				targetCameraFOV = displayBoost and HoverboardConfig.BOOSTER_FOV or defaultFOV + (math.clamp(displaySpeed / HoverboardConfig.RIDE_WALKSPEED, 0, 1) * 10)
+				local boostFov = isPadBoostActive and 118 or HoverboardConfig.BOOSTER_FOV
+				targetCameraFOV = displayBoost and boostFov or defaultFOV + (math.clamp(displaySpeed / HoverboardConfig.RIDE_WALKSPEED, 0, 1) * 10)
 			end
 			Camera.FieldOfView += (targetCameraFOV - Camera.FieldOfView) * math.clamp(deltaTime * 8, 0, 1)
 
